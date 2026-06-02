@@ -10,6 +10,23 @@ app_license = "mit"
 
 required_apps = ["erpnext"]
 
+fixtures = [
+	{"doctype": "Project Scoring Criterion"},
+	{"doctype": "Project Scoring Profile"},
+	{
+		"doctype": "Client Script",
+		"filters": [["module", "=", "Dinext Project Evaluation"], ["enabled", "=", 1]],
+	},
+	{
+		"doctype": "Report",
+		"filters": [["module", "=", "Dinext Project Evaluation"]],
+	},
+	{
+		"doctype": "Custom Field",
+		"filters": [["module", "=", "Dinext Project Evaluation"]],
+	},
+]
+
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
 # 	{
@@ -83,7 +100,7 @@ required_apps = ["erpnext"]
 # ------------
 
 # before_install = "dinext_project_evaluation.install.before_install"
-# after_install = "dinext_project_evaluation.install.after_install"
+after_install = "dinext_project_evaluation.install.after_install"
 
 # Uninstallation
 # ------------
