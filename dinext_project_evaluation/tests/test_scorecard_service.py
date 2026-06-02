@@ -15,6 +15,7 @@ class TestScorecardService(unittest.TestCase):
 			criteria=[
 				row(
 					criterion="STR_ALIGN",
+					stage="S1",
 					weight=2,
 					requirement_level="Mandatory",
 					minimum_normalized_score=0.5,
@@ -23,6 +24,7 @@ class TestScorecardService(unittest.TestCase):
 				),
 				row(
 					criterion="RISK_PROB",
+					stage=None,
 					weight=1,
 					requirement_level="Desired",
 					minimum_normalized_score=None,
@@ -30,7 +32,6 @@ class TestScorecardService(unittest.TestCase):
 					maximum_raw_value=None,
 				),
 			],
-			criterion_stages=[row(criterion="STR_ALIGN", stage="S1")],
 		)
 		criteria_by_name = {
 			"STR_ALIGN": row(criterion_code="STR_ALIGN", input_type="Scale", influence_direction="higher_is_better", scale_rows=[row(score=0), row(score=5)]),
@@ -58,6 +59,7 @@ class TestScorecardService(unittest.TestCase):
 			criteria=[
 				row(
 					criterion="STR_ALIGN",
+					stage="S2",
 					weight=1,
 					requirement_level="Desired",
 					minimum_normalized_score=None,
@@ -65,7 +67,6 @@ class TestScorecardService(unittest.TestCase):
 					maximum_raw_value=None,
 				)
 			],
-			criterion_stages=[row(criterion="STR_ALIGN", stage="S2")],
 		)
 		criteria_by_name = {
 			"STR_ALIGN": row(criterion_code="STR_ALIGN", input_type="Scale", influence_direction="higher_is_better", scale_rows=[row(score=0), row(score=5)]),
