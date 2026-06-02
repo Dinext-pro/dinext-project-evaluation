@@ -1,0 +1,213 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:criterion_code",
+ "creation": "2026-04-30 01:02:55.152651",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "criterion_code",
+  "criterion_name",
+  "criterion_group",
+  "description",
+  "input_type",
+  "influence_direction",
+  "scale_type",
+  "min_value",
+  "max_value",
+  "boolean_true_score",
+  "boolean_false_score",
+  "requires_comment",
+  "enabled",
+  "scale_rows"
+ ],
+ "fields": [
+  {
+   "fieldname": "criterion_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Criterion Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "criterion_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Criterion Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "criterion_group",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Criterion Group",
+   "options": "Strategy\nBenefits\nMarket\nFinance\nRisks\nResources\nRegulatory\nPriority\nInnovation\nEnvironment",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "default": "Scale",
+   "fieldname": "input_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Input Type",
+   "options": "Scale\nNumber\nCurrency\nPercent\nBoolean",
+   "reqd": 1
+  },
+  {
+   "default": "higher_is_better",
+   "fieldname": "influence_direction",
+   "fieldtype": "Select",
+   "label": "Influence Direction",
+   "options": "higher_is_better\nlower_is_better",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scale_type",
+   "fieldtype": "Select",
+   "label": "Scale Type",
+   "options": "Discrete\nInterval"
+  },
+  {
+   "fieldname": "min_value",
+   "fieldtype": "Float",
+   "label": "Minimum Value"
+  },
+  {
+   "fieldname": "max_value",
+   "fieldtype": "Float",
+   "label": "Maximum Value"
+  },
+  {
+   "default": "1",
+   "fieldname": "boolean_true_score",
+   "fieldtype": "Float",
+   "label": "True Score"
+  },
+  {
+   "default": "0",
+   "fieldname": "boolean_false_score",
+   "fieldtype": "Float",
+   "label": "False Score"
+  },
+  {
+   "default": "0",
+   "fieldname": "requires_comment",
+   "fieldtype": "Check",
+   "label": "Requires Comment"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "scale_rows",
+   "fieldtype": "Table",
+   "label": "Scale Rows",
+   "options": "Project Scoring Criterion Scale"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-02 01:41:27.848671",
+ "modified_by": "Administrator",
+ "module": "Dinext Project Evaluation",
+ "name": "Project Scoring Criterion",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Project Governance Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stage Gate Owner",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stage Gate Reviewer",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stage Gate Approver",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dinext_Project_Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dinext_Projects_Admin",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "criterion_code,criterion_name,criterion_group",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "criterion_name"
+}

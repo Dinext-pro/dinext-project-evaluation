@@ -1,0 +1,64 @@
+[
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-04-30 01:22:15.001315",
+  "module": "Dinext Project Evaluation",
+  "name": "Project Scoring Report",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Project",
+  "reference_report": null,
+  "report_name": "Project Scoring Report",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Project Scoring Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Project Governance Admin"
+   },
+   {
+    "parent": "Project Scoring Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Stage Gate Owner"
+   },
+   {
+    "parent": "Project Scoring Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Stage Gate Reviewer"
+   },
+   {
+    "parent": "Project Scoring Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Stage Gate Approver"
+   },
+   {
+    "parent": "Project Scoring Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Dinext_Project_Manager"
+   },
+   {
+    "parent": "Project Scoring Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Dinext_Projects_Admin"
+   }
+  ],
+  "timeout": 0
+ }
+]
