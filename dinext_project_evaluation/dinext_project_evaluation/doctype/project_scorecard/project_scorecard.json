@@ -17,10 +17,12 @@
   "stage_at_evaluation",
   "gate_messages",
   "section_break_fovg",
+  "items",
+  "section_break_lbzy",
   "integral_score",
-  "evaluation_date",
   "gate_pass",
-  "items"
+  "column_break_cqrw",
+  "evaluation_date"
  ],
  "fields": [
   {
@@ -130,12 +132,20 @@
   {
    "fieldname": "section_break_fovg",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_lbzy",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_cqrw",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-03 01:22:57.481170",
+ "modified": "2026-06-03 02:19:01.909298",
  "modified_by": "Administrator",
  "module": "Dinext Project Evaluation",
  "name": "Project Scorecard",

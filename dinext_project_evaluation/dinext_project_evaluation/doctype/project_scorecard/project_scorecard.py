@@ -3,18 +3,27 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import cint
 from frappe.utils import now_datetime
 
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
+from dinext_project_evaluation.scoring.scorecard_factory import sync_scorecard_items
 from dinext_project_evaluation.scoring.scorecard_service import calculate_scorecard_document
 
 
 class ProjectScorecard(Document):
 	def before_save(self):
 		self._prevent_locked_edits()
+
+	def onload(self):
 		self._hydrate_project_context()
+		self._sync_items_from_profile()
+		self._prepare_item_inputs()
 
 	def validate(self):
+		self._hydrate_project_context()
+		self._sync_items_from_profile()
+		self._prepare_item_inputs()
 		self._validate_unique_stage_instance()
 		if self.status in {"Calculated", "Approved"}:
 			self.calculate()
@@ -36,9 +45,7 @@ class ProjectScorecard(Document):
 			item.normalized_score = calculated_item.normalized_score
 			item.weighted_score = calculated_item.weighted_score
 			item.weight = calculated_item.weight
-			item.gate_pass = 1
-			item.is_valid = 1
-			item.message = calculated_item.message
+			item.gate_pass = 1 if calculated_item.gate_pass else 0
 
 		self.integral_score = result.integral_score
 		self.gate_pass = 1 if result.gate_pass else 0
@@ -66,6 +73,38 @@ class ProjectScorecard(Document):
 			frappe.throw(
 				_("Approved or canceled Project Scorecard cannot be edited. Create a new scorecard instead.")
 			)
+
+	def _sync_items_from_profile(self):
+		if not self.project or not self.profile:
+			return
+		sync_scorecard_items(self, self.profile)
+
+	def _prepare_item_inputs(self):
+		for item in self.items or []:
+			input_type = item.get("criterion_input_type")
+			item.raw_value = None
+			item.raw_numeric_value = None
+			item.value_display = None
+
+			if input_type == "Scale":
+				item.raw_value = item.get("scale_value") or None
+				item.value_display = _scale_value_label(item)
+			elif input_type == "Boolean":
+				item.raw_value = str(cint(item.get("boolean_value"))) if cint(item.get("boolean_value_set")) else None
+				if item.raw_value is not None:
+					item.value_display = _("Yes") if cint(item.get("boolean_value")) else _("No")
+			elif input_type == "Number":
+				item.raw_numeric_value = item.get("number_value") if item.get("number_value") not in ("", None) else None
+				item.value_display = _string_value(item.raw_numeric_value)
+			elif input_type == "Currency":
+				item.raw_numeric_value = item.get("currency_value") if item.get("currency_value") not in ("", None) else None
+				item.value_display = _string_value(item.raw_numeric_value)
+			elif input_type == "Percent":
+				item.raw_numeric_value = item.get("percent_value") if item.get("percent_value") not in ("", None) else None
+				item.value_display = _string_value(item.raw_numeric_value)
+
+			if item.value_display is None:
+				item.value_display = item.get("value_display")
 
 	def _validate_unique_stage_instance(self):
 		if not self.stage_instance_at_evaluation or self.status == "Canceled":
@@ -119,3 +158,23 @@ def _profile_snapshot(profile):
 			for row in profile.criteria
 		],
 	}
+
+
+def _scale_value_label(item):
+	raw_value = item.get("scale_value") or item.get("raw_value")
+	if raw_value in (None, ""):
+		return None
+	try:
+		options = json.loads(item.get("scale_options_json") or "[]")
+	except (TypeError, ValueError):
+		return str(raw_value)
+	for option in options:
+		if str(option.get("value")) == str(raw_value):
+			return option.get("label") or str(raw_value)
+	return str(raw_value)
+
+
+def _string_value(value):
+	if value in (None, ""):
+		return None
+	return str(value)

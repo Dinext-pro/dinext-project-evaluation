@@ -52,6 +52,7 @@ class TestScorecardService(unittest.TestCase):
 		self.assertEqual(result.messages, [])
 		self.assertEqual(result.items["STR_ALIGN"].criterion_code, "STR_ALIGN")
 		self.assertEqual(result.items["RISK_PROB"].normalized_score, 0.75)
+		self.assertTrue(result.items["STR_ALIGN"].gate_pass)
 
 	def test_excludes_profile_rows_for_other_stages(self):
 		profile = row(
@@ -76,6 +77,74 @@ class TestScorecardService(unittest.TestCase):
 		result = calculate_scorecard_document(scorecard, profile, criteria_by_name)
 
 		self.assertEqual(result.applicable_criteria, [])
+
+	def test_marks_item_gate_pass_false_when_mandatory_threshold_fails(self):
+		profile = row(
+			name="Default",
+			criteria=[
+				row(
+					criterion="STR_ALIGN",
+					stage="S1",
+					weight=1,
+					requirement_level="Mandatory",
+					minimum_normalized_score=0.8,
+					minimum_raw_value=None,
+					maximum_raw_value=None,
+				)
+			],
+		)
+		criteria_by_name = {
+			"STR_ALIGN": row(
+				criterion_code="STR_ALIGN",
+				input_type="Scale",
+				influence_direction="higher_is_better",
+				scale_rows=[row(score=0), row(score=5)],
+			),
+		}
+		scorecard = row(
+			stage_at_evaluation="S1",
+			items=[row(criterion="STR_ALIGN", raw_value="3", raw_numeric_value=None)],
+		)
+
+		result = calculate_scorecard_document(scorecard, profile, criteria_by_name)
+
+		self.assertFalse(result.gate_pass)
+		self.assertFalse(result.items["STR_ALIGN"].gate_pass)
+
+	def test_marks_missing_mandatory_item_input_as_row_gate_fail(self):
+		profile = row(
+			name="Default",
+			criteria=[
+				row(
+					criterion="STR_ALIGN",
+					stage="S1",
+					weight=1,
+					requirement_level="Mandatory",
+					minimum_normalized_score=0.5,
+					minimum_raw_value=None,
+					maximum_raw_value=None,
+				)
+			],
+		)
+		criteria_by_name = {
+			"STR_ALIGN": row(
+				criterion_code="STR_ALIGN",
+				input_type="Scale",
+				influence_direction="higher_is_better",
+				scale_rows=[row(score=0), row(score=5)],
+			),
+		}
+		scorecard = row(
+			stage_at_evaluation="S1",
+			items=[row(criterion="STR_ALIGN", raw_value=None, raw_numeric_value=None)],
+		)
+
+		result = calculate_scorecard_document(scorecard, profile, criteria_by_name)
+
+		self.assertFalse(result.gate_pass)
+		self.assertIn("Missing mandatory value for STR_ALIGN", result.messages)
+		self.assertFalse(result.items["STR_ALIGN"].gate_pass)
+		self.assertEqual(result.items["STR_ALIGN"].normalized_score, 0)
 
 
 if __name__ == "__main__":
