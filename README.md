@@ -9,7 +9,7 @@
 ## ✨ Возможности
 
 - **Каталог критериев скоринга** — числовые, валютные, процентные, логические и качественные (шкала) значения с направлением влияния и опциональными шкалами Likert.
-- **Профили оценки** — веса, обязательность критериев, пороги интегральной оценки, правила gate и применимость по стадиям.
+- **Профили оценки** — веса, обязательность критериев, пороги gate по обязательным критериям (нормализованный балл и/или сырое число), применимость по стадиям; в UI показываются только релевантные пороговые поля.
 - **Project Scorecard** — жизненный цикл Draft/Approved, снимок профиля, нормализованные баллы по критериям, интегральная оценка и результат прохождения «ворот».
 - **UI карточки Project** — Client Script: создание scorecard, история оценок, переход к отчёту портфеля.
 - **UI Project Portfolio** — переход к отчёту скоринга и пузырьковой диаграмме для выбранного портфеля.
@@ -48,10 +48,15 @@ bench --site <site> export-fixtures
 ### В интерфейсе Desk
 
 1. Откройте **Project Scoring Criterion** и **Project Scoring Profile** — просмотр или расширение каталога (либо используйте seed по умолчанию).
-2. На форме **Project** — действия оценки (Client Script): создать scorecard для текущей стадии и профиля.
-3. Заполните строки scorecard, сохраните для пересчёта интегрального балла и gate, затем утвердите документ.
-4. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
-5. В отчёте используйте фильтры: портфель, проект, профиль, стадия.
+2. В **Project Scoring Profile** для каждой строки критерия задайте вес, обязательность и при необходимости пороги gate:
+   - **Desired** — пороговые поля скрыты; gate не проверяется.
+   - **Mandatory + шкала/да-нет** — доступен только **Minimum Normalized Score** (0…1).
+   - **Mandatory + Number/Currency/Percent** — доступны normalized score и **Minimum/Maximum Raw Value**.
+   - Неактуальные пороги автоматически очищаются при изменении строки и при сохранении профиля; при открытии формы выполняется только скрытие/показ полей.
+3. На форме **Project** — действия оценки (Client Script): создать scorecard для текущей стадии и профиля.
+4. Заполните строки scorecard, сохраните для пересчёта интегрального балла и gate, затем утвердите документ.
+5. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
+6. В отчёте используйте фильтры: портфель, проект, профиль, стадия.
 
 ### Whitelisted API (Client Scripts и интеграции)
 
@@ -74,6 +79,7 @@ bench --site <site> execute dinext_project_evaluation.seed.seed_default_scoring_
 ```bash
 cd apps/dinext_project_evaluation
 python3 -m unittest \
+  dinext_project_evaluation.tests.test_gate_fields \
   dinext_project_evaluation.tests.test_scoring_engine \
   dinext_project_evaluation.tests.test_scorecard_service
 
@@ -97,7 +103,9 @@ bench --site <site> execute frappe.desk.query_report.run \
 |--------------|------------|
 | `dinext_project_evaluation/hooks.py` | `required_apps`, `fixtures`, `after_install` |
 | `dinext_project_evaluation/fixtures/` | Экспорт Client Scripts, Custom Fields, критериев, профилей, Report |
-| `dinext_project_evaluation/seed.py` | Коды критериев по умолчанию, шкалы, веса профиля |
+| `dinext_project_evaluation/seed.py` | Коды критериев по умолчанию, шкалы, веса профиля, пороги gate для обязательных критериев |
+| `dinext_project_evaluation/scoring/gate_fields.py` | Релевантность и очистка порогов gate в строках профиля |
+| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_profile/project_scoring_profile.js` | Условная видимость порогов gate в форме профиля |
 | `dinext_project_evaluation/translations/ru.csv` | Русские переводы |
 
 Fixtures из `hooks.py` экспортируют:
@@ -157,7 +165,7 @@ pre-commit install
 | `089e159` | Выравнивание с Dinext: зависимость erpnext, AGENTS.md |
 | `c448318` | Инициализация каркаса приложения |
 
-*(Незакоммиченная работа: полный модуль скоринга — DocTypes, engine, API, seed, UI, отчёт.)*
+*(Незакоммиченная работа: полный модуль скоринга — DocTypes, engine, API, seed, UI, отчёт; условные пороги gate в профиле оценки.)*
 
 ## 🗂️ Структура репозитория
 
@@ -176,8 +184,10 @@ dinext_project_evaluation/
     ├── seed.py                        # seed критериев и профиля по умолчанию
     ├── scoring/
     │   ├── engine.py                  # чистые расчёты (unit-тесты)
+    │   ├── gate_fields.py             # релевантность и sanitize порогов gate
     │   └── scorecard_service.py       # адаптер Frappe document ↔ engine
     ├── tests/
+    │   ├── test_gate_fields.py
     │   ├── test_scoring_engine.py
     │   └── test_scorecard_service.py
     ├── fixtures/                      # вывод bench export-fixtures
@@ -191,9 +201,11 @@ dinext_project_evaluation/
 | Путь | Назначение |
 |------|------------|
 | `scoring/engine.py` | Нормализация вводов, веса, правила gate |
+| `scoring/gate_fields.py` | Какие пороги gate допустимы для строки профиля; очистка неактуальных значений |
 | `scoring/scorecard_service.py` | Преобразование строк Scorecard в входные данные engine |
 | `doctype/project_scorecard/` | Жизненный цикл, расчёт при save, обновление полей Project |
-| `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля с опциональной стадией |
+| `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля с опциональной стадией и порогами gate |
+| `doctype/project_scoring_profile/project_scoring_profile.js` | Условное отображение порогов gate по обязательности и типу критерия |
 | `report/project_scoring_report/` | Аналитика портфеля и bubble payload |
 | `fixtures/` | Версионируемые метаданные и seed для migrate/install |
 

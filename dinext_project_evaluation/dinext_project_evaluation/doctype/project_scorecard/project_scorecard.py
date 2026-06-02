@@ -1,6 +1,7 @@
 import json
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
 from frappe.utils import now_datetime
 
@@ -10,10 +11,11 @@ from dinext_project_evaluation.scoring.scorecard_service import calculate_scorec
 
 class ProjectScorecard(Document):
 	def before_save(self):
-		self._prevent_approved_edits()
+		self._prevent_locked_edits()
 		self._hydrate_project_context()
 
 	def validate(self):
+		self._validate_unique_stage_instance()
 		if self.status in {"Calculated", "Approved"}:
 			self.calculate()
 
@@ -50,16 +52,40 @@ class ProjectScorecard(Document):
 
 		project = frappe.get_cached_doc("Project", self.project)
 		self.portfolio = project.get("custom_project_portfolio")
-		self.stage_at_evaluation = project.get("current_stage")
-		self.stage_instance_at_evaluation = project.get("current_stage_instance")
+		if not self.stage_at_evaluation:
+			self.stage_at_evaluation = project.get("current_stage")
+		if not self.stage_instance_at_evaluation:
+			self.stage_instance_at_evaluation = project.get("current_stage_instance")
 
-	def _prevent_approved_edits(self):
-		if self.is_new() or self.status == "Approved":
+	def _prevent_locked_edits(self):
+		if self.is_new() or self.status in {"Approved", "Canceled"}:
 			return
 
 		previous_status = frappe.db.get_value(self.doctype, self.name, "status")
-		if previous_status == "Approved":
-			frappe.throw("Approved Project Scorecard cannot be edited. Create a new scorecard instead.")
+		if previous_status in {"Approved", "Canceled"}:
+			frappe.throw(
+				_("Approved or canceled Project Scorecard cannot be edited. Create a new scorecard instead.")
+			)
+
+	def _validate_unique_stage_instance(self):
+		if not self.stage_instance_at_evaluation or self.status == "Canceled":
+			return
+
+		existing = frappe.db.get_value(
+			"Project Scorecard",
+			{
+				"stage_instance_at_evaluation": self.stage_instance_at_evaluation,
+				"name": ["!=", self.name or ""],
+				"status": ["!=", "Canceled"],
+			},
+			"name",
+		)
+		if existing:
+			frappe.throw(
+				_("A Project Scorecard already exists for stage instance {0}").format(
+					self.stage_instance_at_evaluation
+				)
+			)
 
 	def _update_project_last_score(self):
 		for fieldname, value in {
@@ -79,7 +105,6 @@ def _load_criteria(profile):
 def _profile_snapshot(profile):
 	return {
 		"profile": profile.name,
-		"profile_version": profile.profile_version,
 		"criteria": [
 			{
 				"criterion": row.criterion,
