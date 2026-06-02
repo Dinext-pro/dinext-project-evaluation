@@ -10,10 +10,25 @@ app_license = "mit"
 
 required_apps = ["erpnext"]
 
+from dinext_project_evaluation.seed import DEFAULT_CRITERIA, DEFAULT_GROUPS
+
+_SCORING_GROUP_NAMES = [group_code for group_code, _ in DEFAULT_GROUPS]
+_SCORING_CRITERION_NAMES = [code for code, *_ in DEFAULT_CRITERIA]
+_DEFAULT_PROFILE_NAME = "Default Project Scoring Profile"
+
 fixtures = [
-	{"doctype": "Project Scoring Criterion Group"},
-	{"doctype": "Project Scoring Criterion"},
-	{"doctype": "Project Scoring Profile"},
+	{
+		"doctype": "Project Scoring Criterion Group",
+		"filters": [["name", "in", _SCORING_GROUP_NAMES]],
+	},
+	{
+		"doctype": "Project Scoring Criterion",
+		"filters": [["name", "in", _SCORING_CRITERION_NAMES]],
+	},
+	{
+		"doctype": "Project Scoring Profile",
+		"filters": [["name", "=", _DEFAULT_PROFILE_NAME]],
+	},
 	{
 		"doctype": "Client Script",
 		"filters": [["module", "=", "Dinext Project Evaluation"], ["enabled", "=", 1]],
@@ -61,7 +76,9 @@ fixtures = [
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+	"Project": "public/js/project_scoring_evaluation.js",
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -155,13 +172,16 @@ after_install = "dinext_project_evaluation.install.after_install"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Project": {
+		"validate": "dinext_project_evaluation.scoring.project_hooks.validate_project_scoring_profile_change",
+		"before_save": "dinext_project_evaluation.scoring.project_hooks.before_save_project_scoring_profile_reset",
+		"after_save": "dinext_project_evaluation.scoring.project_hooks.after_save_project_scoring_profile",
+	},
+	"Project Stage Instance": {
+		"on_update": "dinext_project_evaluation.scoring.scorecard_provision.on_stage_instance_update",
+	},
+}
 
 # Scheduled Tasks
 # ---------------

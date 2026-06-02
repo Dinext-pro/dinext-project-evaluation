@@ -103,6 +103,70 @@ class TestScoringEngine(unittest.TestCase):
 		self.assertFalse(result.gate_pass)
 		self.assertEqual(result.messages, ["strategy normalized score 0.6000 is below required 0.7000"])
 
+	def test_calculate_scorecard_fails_gate_when_raw_value_below_minimum(self):
+		result = calculate_scorecard(
+			criteria=[
+				ProfileCriterion(
+					code="npv",
+					weight=1,
+					requirement_level="Mandatory",
+					gate_rule=GateRule(minimum_raw_value=100),
+				)
+			],
+			inputs={"npv": CriterionInput(normalized_score=0.5, raw_numeric_value=50)},
+		)
+
+		self.assertFalse(result.gate_pass)
+		self.assertEqual(result.messages, ["npv raw value 50.0000 is below required 100.0000"])
+
+	def test_calculate_scorecard_fails_gate_when_raw_value_above_maximum(self):
+		result = calculate_scorecard(
+			criteria=[
+				ProfileCriterion(
+					code="cost",
+					weight=1,
+					requirement_level="Mandatory",
+					gate_rule=GateRule(maximum_raw_value=1000),
+				)
+			],
+			inputs={"cost": CriterionInput(normalized_score=0.2, raw_numeric_value=1500)},
+		)
+
+		self.assertFalse(result.gate_pass)
+		self.assertEqual(result.messages, ["cost raw value 1500.0000 is above allowed 1000.0000"])
+
+	def test_gate_rule_with_zero_is_active(self):
+		result = calculate_scorecard(
+			criteria=[
+				ProfileCriterion(
+					code="cost",
+					weight=1,
+					requirement_level="Mandatory",
+					gate_rule=GateRule(maximum_raw_value=0),
+				)
+			],
+			inputs={"cost": CriterionInput(normalized_score=0.2, raw_numeric_value=1)},
+		)
+
+		self.assertFalse(result.gate_pass)
+		self.assertEqual(result.messages, ["cost raw value 1.0000 is above allowed 0.0000"])
+
+	def test_gate_rule_with_none_is_inactive(self):
+		result = calculate_scorecard(
+			criteria=[
+				ProfileCriterion(
+					code="cost",
+					weight=1,
+					requirement_level="Mandatory",
+					gate_rule=GateRule(maximum_raw_value=None),
+				)
+			],
+			inputs={"cost": CriterionInput(normalized_score=0.2, raw_numeric_value=1)},
+		)
+
+		self.assertTrue(result.gate_pass)
+		self.assertEqual(result.messages, [])
+
 
 if __name__ == "__main__":
 	unittest.main()

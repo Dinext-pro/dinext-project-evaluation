@@ -7,7 +7,6 @@
  "engine": "InnoDB",
  "field_order": [
   "profile_name",
-  "profile_version",
   "status",
   "portfolio",
   "project_type",
@@ -21,14 +20,6 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Profile Name",
-   "reqd": 1
-  },
-  {
-   "default": "1.0",
-   "fieldname": "profile_version",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Profile Version",
    "reqd": 1
   },
   {
@@ -78,7 +69,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-30 01:03:25.804698",
+ "modified": "2026-06-03 00:25:36.427405",
  "modified_by": "Administrator",
  "module": "Dinext Project Evaluation",
  "name": "Project Scoring Profile",
@@ -161,6 +152,7 @@
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
  "search_fields": "profile_name,status,portfolio,project_type,company",
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

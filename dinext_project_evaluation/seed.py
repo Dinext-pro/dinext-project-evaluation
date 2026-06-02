@@ -119,18 +119,20 @@ def _upsert_default_profile():
 	if doc.is_new():
 		doc.name = profile_name
 	doc.profile_name = profile_name
-	doc.profile_version = "1.0"
 	doc.status = "Active"
 	doc.description = "Типовой профиль скоринга проектов Dinext на основе стартового каталога критериев."
 	doc.set("criteria", [])
 	for code, weight in DEFAULT_PROFILE_WEIGHTS.items():
+		is_mandatory_gate = code in {"STR_ALIGN", "REG"}
 		doc.append(
 			"criteria",
 			{
 				"criterion": code,
 				"weight": weight,
-				"requirement_level": "Mandatory" if code in {"STR_ALIGN", "REG"} else "Desired",
-				"minimum_normalized_score": 0.4 if code in {"STR_ALIGN", "REG"} else None,
+				"requirement_level": "Mandatory" if is_mandatory_gate else "Desired",
+				"minimum_normalized_score": 0.4 if is_mandatory_gate else None,
+				"minimum_raw_value": None,
+				"maximum_raw_value": None,
 			},
 		)
 	doc.save(ignore_permissions=True)

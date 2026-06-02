@@ -1,70 +1,42 @@
 import frappe
+from frappe import _
 
-from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
+from dinext_project_evaluation.scoring.scorecard_factory import (
+	create_draft_scorecard,
+	ensure_scorecard_for_stage_instance,
+	get_applicable_criteria_for_stage,
+	get_project_scoring_profile,
+)
 
 
 @frappe.whitelist()
 def get_applicable_criteria(project: str, profile: str):
 	project_doc = frappe.get_doc("Project", project)
-	profile_doc = frappe.get_doc("Project Scoring Profile", profile)
-	current_stage = project_doc.get("current_stage")
-	rows = []
-
-	for profile_row in profile_doc.criteria:
-		stages = get_applicable_stages(profile_row)
-		if stages and current_stage not in stages:
-			continue
-
-		criterion = frappe.get_doc("Project Scoring Criterion", profile_row.criterion)
-		rows.append(
-			{
-				"criterion": criterion.name,
-				"criterion_code": criterion.criterion_code,
-				"criterion_name": criterion.criterion_name,
-				"criterion_group": criterion.criterion_group,
-				"input_type": criterion.input_type,
-				"influence_direction": criterion.influence_direction,
-				"weight": profile_row.weight,
-				"requirement_level": profile_row.requirement_level,
-				"scale_rows": [
-					{
-						"scale_label": scale.scale_label,
-						"score": scale.score,
-						"sort_order": scale.sort_order,
-						"key_phrases": scale.key_phrases,
-					}
-					for scale in criterion.scale_rows
-				],
-			}
-		)
-
-	return rows
+	return get_applicable_criteria_for_stage(project, profile, project_doc.get("current_stage"))
 
 
 @frappe.whitelist()
-def create_scorecard(project: str, profile: str):
-	scorecard = frappe.new_doc("Project Scorecard")
-	scorecard.project = project
-	scorecard.profile = profile
-	scorecard.status = "Draft"
+def create_scorecard(project: str, profile: str | None = None):
+	profile = profile or get_project_scoring_profile(project)
+	if not profile:
+		frappe.throw(_("Project Scoring Profile must be set on the project."))
 
-	for criterion in get_applicable_criteria(project, profile):
-		scorecard.append(
-			"items",
-			{
-				"criterion": criterion["criterion"],
-				"criterion_code": criterion["criterion_code"],
-				"weight": criterion["weight"],
-			},
-		)
+	stage_instance = frappe.db.get_value("Project", project, "current_stage_instance")
+	if stage_instance and frappe.db.exists("Project Stage Instance", stage_instance):
+		instance = frappe.get_doc("Project Stage Instance", stage_instance)
+		if instance.status == "Active":
+			name = ensure_scorecard_for_stage_instance(instance)
+			return frappe.get_doc("Project Scorecard", name).as_dict()
 
-	scorecard.insert()
+	scorecard = create_draft_scorecard(project, profile)
 	return scorecard.as_dict()
 
 
 @frappe.whitelist()
 def calculate_scorecard(scorecard: str):
 	doc = frappe.get_doc("Project Scorecard", scorecard)
+	if doc.status == "Canceled":
+		frappe.throw(_("Canceled Project Scorecard cannot be calculated."))
 	doc.status = "Calculated"
 	doc.save()
 	return doc.as_dict()
@@ -73,6 +45,8 @@ def calculate_scorecard(scorecard: str):
 @frappe.whitelist()
 def approve_scorecard(scorecard: str):
 	doc = frappe.get_doc("Project Scorecard", scorecard)
+	if doc.status == "Canceled":
+		frappe.throw(_("Canceled Project Scorecard cannot be approved."))
 	doc.status = "Approved"
 	doc.save()
 	return doc.as_dict()
@@ -82,7 +56,7 @@ def approve_scorecard(scorecard: str):
 def get_scorecard_history(project: str, limit: int = 10):
 	return frappe.get_all(
 		"Project Scorecard",
-		filters={"project": project},
+		filters={"project": project, "status": ["!=", "Canceled"]},
 		fields=["name", "profile", "status", "evaluation_date", "integral_score", "gate_pass", "modified"],
 		order_by="modified desc",
 		limit_page_length=int(limit),

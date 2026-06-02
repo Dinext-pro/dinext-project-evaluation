@@ -3,11 +3,11 @@
   "docstatus": 0,
   "doctype": "Client Script",
   "dt": "Project",
-  "enabled": 1,
-  "modified": "2026-04-30 01:20:40.396507",
+  "enabled": 0,
+  "modified": "2026-06-02 23:00:00.000000",
   "module": "Dinext Project Evaluation",
   "name": "Project Scoring Evaluation",
-  "script": "frappe.ui.form.on('Project', {\n\trefresh(frm) {\n\t\tdinext_project_evaluation_project_scoring.refresh(frm);\n\t}\n});\n\nconst dinext_project_evaluation_project_scoring = {\n\trefresh(frm) {\n\t\tif (frm.is_new()) return;\n\n\t\tfrm.add_custom_button(__('Create Scorecard'), () => this.create_scorecard(frm), __('Evaluation'));\n\t\tfrm.add_custom_button(__('Open Scorecards'), () => {\n\t\t\tfrappe.set_route('List', 'Project Scorecard', { project: frm.doc.name });\n\t\t}, __('Evaluation'));\n\t\tfrm.add_custom_button(__('Open Scoring Report'), () => {\n\t\t\tfrappe.route_options = {\n\t\t\t\tproject_portfolio: frm.doc.custom_project_portfolio,\n\t\t\t\tproject: [frm.doc.name]\n\t\t\t};\n\t\t\tfrappe.set_route('query-report', 'Project Scoring Report');\n\t\t}, __('Evaluation'));\n\n\t\tthis.render_history(frm);\n\t},\n\n\tcreate_scorecard(frm) {\n\t\tfrappe.prompt([\n\t\t\t{\n\t\t\t\tfieldname: 'profile',\n\t\t\t\tlabel: __('Scoring Profile'),\n\t\t\t\tfieldtype: 'Link',\n\t\t\t\toptions: 'Project Scoring Profile',\n\t\t\t\treqd: 1,\n\t\t\t\tget_query() {\n\t\t\t\t\tconst filters = { status: 'Active' };\n\t\t\t\t\tif (frm.doc.custom_project_portfolio) filters.portfolio = ['in', [frm.doc.custom_project_portfolio, '']];\n\t\t\t\t\treturn { filters };\n\t\t\t\t}\n\t\t\t}\n\t\t], (values) => {\n\t\t\tfrappe.call({\n\t\t\t\tmethod: 'dinext_project_evaluation.api.create_scorecard',\n\t\t\t\targs: { project: frm.doc.name, profile: values.profile },\n\t\t\t\tcallback(r) {\n\t\t\t\t\tif (r.message && r.message.name) {\n\t\t\t\t\t\tfrappe.set_route('Form', 'Project Scorecard', r.message.name);\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t}, __('Create Project Scorecard'), __('Create'));\n\t},\n\n\trender_history(frm) {\n\t\tfrappe.call({\n\t\t\tmethod: 'dinext_project_evaluation.api.get_scorecard_history',\n\t\t\targs: { project: frm.doc.name, limit: 5 },\n\t\t\tcallback(r) {\n\t\t\t\tconst rows = r.message || [];\n\t\t\t\tif (!rows.length) return;\n\n\t\t\t\tconst html = rows.map((row) => {\n\t\t\t\t\tconst score = row.integral_score === null || row.integral_score === undefined ? '-' : flt(row.integral_score, 4);\n\t\t\t\t\tconst gate = row.gate_pass ? __('Gate passed') : __('Gate failed');\n\t\t\t\t\treturn `<li><a href=\"/app/project-scorecard/${encodeURIComponent(row.name)}\">${frappe.utils.escape_html(row.name)}</a>: ${score} (${gate})</li>`;\n\t\t\t\t}).join('');\n\n\t\t\t\tfrm.dashboard.add_section(`<div class=\"project-scoring-history\"><h5>${__('Project Evaluation')}</h5><ul>${html}</ul></div>`);\n\t\t\t}\n\t\t});\n\t}\n};",
+  "script": "// Replaced by doctype_js: public/js/project_scoring_evaluation.js",
   "view": "Form"
  },
  {
