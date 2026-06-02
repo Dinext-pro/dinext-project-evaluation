@@ -1,15 +1,18 @@
 import frappe
 
+from dinext_project_evaluation.scoring.profile_stages import stages_by_criterion
+
 
 @frappe.whitelist()
 def get_applicable_criteria(project: str, profile: str):
 	project_doc = frappe.get_doc("Project", project)
 	profile_doc = frappe.get_doc("Project Scoring Profile", profile)
 	current_stage = project_doc.get("current_stage")
+	stage_map = stages_by_criterion(profile_doc)
 	rows = []
 
 	for profile_row in profile_doc.criteria:
-		stages = [row.stage for row in profile_row.applicable_stages]
+		stages = stage_map.get(profile_row.criterion, [])
 		if stages and current_stage not in stages:
 			continue
 

@@ -136,7 +136,7 @@ pre-commit install
 1. **Sibling-path:** `../dinext-docs/` (layout `frappe-bench/apps/<app>/` рядом с `dinext-docs`).
 2. **Agent navigation:** [AGENTS.md](AGENTS.md) — navigation stub; shared skills/rules читаются из `../dinext-docs/agents/`.
 3. **Doc-intake:** после commit локальный `post-commit` hook создаёт proposal в `../dinext-docs/doc-proposals/inbox/` (установка: `python3 ../dinext-docs/scripts/install_doc_intake_hooks.py --docs-root ../dinext-docs --app-root . --apply`).
-4. **Пользовательская документация:** `docs/`, `catalog.md` и сценарии в `dinext-docs` **не правятся напрямую** из этого приложения — только через doc-proposals; применение рекомендаций — central workflow (`doc-proposal-processing`, `user-docs-writer`).
+4. **Пользовательская документация:** изменения маршрутизируются в central repo через doc-proposals, а не прямой правкой `dinext-docs/docs/`.
 
 ## 📄 Документация
 
@@ -193,7 +193,7 @@ dinext_project_evaluation/
 | `scoring/engine.py` | Нормализация вводов, веса, правила gate |
 | `scoring/scorecard_service.py` | Преобразование строк Scorecard в входные данные engine |
 | `doctype/project_scorecard/` | Жизненный цикл, расчёт при save, обновление полей Project |
-| `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля |
+| `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля, матрица `criterion_stages` |
 | `report/project_scoring_report/` | Аналитика портфеля и bubble payload |
 | `fixtures/` | Версионируемые метаданные и seed для migrate/install |
 

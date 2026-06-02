@@ -16,6 +16,7 @@ from dinext_project_evaluation.scoring.engine import (
 	normalize_numeric,
 	normalize_scale,
 )
+from dinext_project_evaluation.scoring.profile_stages import stages_by_criterion
 
 
 @dataclass(frozen=True)
@@ -45,7 +46,8 @@ def calculate_scorecard_document(
 	profile: Any,
 	criteria_by_name: dict[str, Any],
 ) -> ScorecardCalculation:
-	profile_criteria = [_profile_criterion(row) for row in _children(profile, "criteria")]
+	stage_map = stages_by_criterion(profile)
+	profile_criteria = [_profile_criterion(row, stage_map) for row in _children(profile, "criteria")]
 	applicable_criteria = filter_applicable_criteria(profile_criteria, _value(scorecard, "stage_at_evaluation"))
 
 	inputs = {}
@@ -125,12 +127,12 @@ def normalize_item(criterion: Any, item_row: Any) -> float:
 	raise ValueError(f"Unsupported criterion input type: {input_type}")
 
 
-def _profile_criterion(row: Any) -> ProfileCriterion:
+def _profile_criterion(row: Any, stage_map: dict[str, list[str]]) -> ProfileCriterion:
 	return ProfileCriterion(
 		code=row.criterion,
 		weight=float(row.weight or 0),
 		requirement_level=row.requirement_level or "Desired",
-		stages=[stage.stage for stage in _children(row, "applicable_stages")],
+		stages=stage_map.get(row.criterion, []),
 		gate_rule=GateRule(
 			minimum_normalized_score=_value(row, "minimum_normalized_score"),
 			minimum_raw_value=_value(row, "minimum_raw_value"),

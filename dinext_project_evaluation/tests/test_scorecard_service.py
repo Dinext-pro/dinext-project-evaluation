@@ -20,7 +20,6 @@ class TestScorecardService(unittest.TestCase):
 					minimum_normalized_score=0.5,
 					minimum_raw_value=None,
 					maximum_raw_value=None,
-					applicable_stages=[row(stage="S1")],
 				),
 				row(
 					criterion="RISK_PROB",
@@ -29,9 +28,9 @@ class TestScorecardService(unittest.TestCase):
 					minimum_normalized_score=None,
 					minimum_raw_value=None,
 					maximum_raw_value=None,
-					applicable_stages=[],
 				),
 			],
+			criterion_stages=[row(criterion="STR_ALIGN", stage="S1")],
 		)
 		criteria_by_name = {
 			"STR_ALIGN": row(criterion_code="STR_ALIGN", input_type="Scale", influence_direction="higher_is_better", scale_rows=[row(score=0), row(score=5)]),
@@ -64,9 +63,9 @@ class TestScorecardService(unittest.TestCase):
 					minimum_normalized_score=None,
 					minimum_raw_value=None,
 					maximum_raw_value=None,
-					applicable_stages=[row(stage="S2")],
 				)
 			],
+			criterion_stages=[row(criterion="STR_ALIGN", stage="S2")],
 		)
 		criteria_by_name = {
 			"STR_ALIGN": row(criterion_code="STR_ALIGN", input_type="Scale", influence_direction="higher_is_better", scale_rows=[row(score=0), row(score=5)]),

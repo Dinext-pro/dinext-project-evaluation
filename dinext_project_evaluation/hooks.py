@@ -11,6 +11,7 @@ app_license = "mit"
 required_apps = ["erpnext"]
 
 fixtures = [
+	{"doctype": "Project Scoring Criterion Group"},
 	{"doctype": "Project Scoring Criterion"},
 	{"doctype": "Project Scoring Profile"},
 	{

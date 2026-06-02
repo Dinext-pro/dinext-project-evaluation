@@ -11,8 +11,7 @@
   "requirement_level",
   "minimum_normalized_score",
   "minimum_raw_value",
-  "maximum_raw_value",
-  "applicable_stages"
+  "maximum_raw_value"
  ],
  "fields": [
   {
@@ -56,12 +55,6 @@
    "fieldname": "maximum_raw_value",
    "fieldtype": "Float",
    "label": "Maximum Raw Value"
-  },
-  {
-   "fieldname": "applicable_stages",
-   "fieldtype": "Table",
-   "label": "Applicable Stages",
-   "options": "Project Scoring Profile Criterion Stage"
   }
  ],
  "grid_page_length": 50,
