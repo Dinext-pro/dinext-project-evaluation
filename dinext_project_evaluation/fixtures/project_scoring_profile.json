@@ -7,6 +7,252 @@
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.4,
     "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Mandatory",
+    "weight": 3.0
+   },
+   {
+    "criterion": "BEN_FIN",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 2.0
+   },
+   {
+    "criterion": "BEN_NONFIN",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "MKT_SHARE",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "COST",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "DEP_INT",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "RISK_IMP",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 2.0
+   },
+   {
+    "criterion": "RISK_PROB",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 2.0
+   },
+   {
+    "criterion": "REG",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.4,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Mandatory",
+    "weight": 2.0
+   },
+   {
+    "criterion": "CAP_HUM_TECH",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "URGENCY",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "NPV",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 2.0
+   },
+   {
+    "criterion": "IRR",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "PP",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "PI",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "ECV",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 2.0
+   },
+   {
+    "criterion": "PATENT",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "RD_COST",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "MFG_COST",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 1.0
+   },
+   {
+    "criterion": "TECH_SUCCESS",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 2.0
+   },
+   {
+    "criterion": "SALES_POT",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.0,
+    "minimum_raw_value": 0.0,
+    "parent": "p8r139mshg",
+    "parentfield": "criteria",
+    "parenttype": "Project Scoring Profile",
+    "requirement_level": "Desired",
+    "weight": 2.0
+   }
+  ],
+  "description": "Типовой профиль скоринга проектов Dinext на основе стартового каталога критериев.",
+  "docstatus": 0,
+  "doctype": "Project Scoring Profile",
+  "modified": "2026-06-02 22:56:49.351271",
+  "name": "p8r139mshg",
+  "portfolio": null,
+  "profile_name": "Default Project Scoring Profile",
+  "profile_version": "1.0",
+  "project_type": null,
+  "status": "Active"
+ },
+ {
+  "company": "Dinext",
+  "criteria": [
+   {
+    "criterion": "STR_ALIGN",
+    "maximum_raw_value": 0.0,
+    "minimum_normalized_score": 0.4,
+    "minimum_raw_value": 0.0,
     "parent": "a1fu4dph38",
     "parentfield": "criteria",
     "parenttype": "Project Scoring Profile",
@@ -232,22 +478,6 @@
     "parenttype": "Project Scoring Profile",
     "requirement_level": "Desired",
     "weight": 2.0
-   }
-  ],
-  "criterion_stages": [
-   {
-    "criterion": "STR_ALIGN",
-    "parent": "a1fu4dph38",
-    "parentfield": "criterion_stages",
-    "parenttype": "Project Scoring Profile",
-    "stage": "Идея"
-   },
-   {
-    "criterion": "STR_ALIGN",
-    "parent": "a1fu4dph38",
-    "parentfield": "criterion_stages",
-    "parenttype": "Project Scoring Profile",
-    "stage": "Инициирование"
    }
   ],
   "description": "Типовой профиль скоринга проектов Dinext на основе стартового каталога критериев.",

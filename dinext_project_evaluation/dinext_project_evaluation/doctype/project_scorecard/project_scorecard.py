@@ -4,7 +4,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import now_datetime
 
-from dinext_project_evaluation.scoring.profile_stages import stages_by_criterion
+from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
 from dinext_project_evaluation.scoring.scorecard_service import calculate_scorecard_document
 
 
@@ -77,7 +77,6 @@ def _load_criteria(profile):
 
 
 def _profile_snapshot(profile):
-	stage_map = stages_by_criterion(profile)
 	return {
 		"profile": profile.name,
 		"profile_version": profile.profile_version,
@@ -89,12 +88,9 @@ def _profile_snapshot(profile):
 				"minimum_normalized_score": row.minimum_normalized_score,
 				"minimum_raw_value": row.minimum_raw_value,
 				"maximum_raw_value": row.maximum_raw_value,
-				"applicable_stages": stage_map.get(row.criterion, []),
+				"stage": row.stage,
+				"applicable_stages": get_applicable_stages(row),
 			}
 			for row in profile.criteria
-		],
-		"criterion_stages": [
-			{"criterion": row.criterion, "stage": row.stage}
-			for row in profile.criterion_stages or []
 		],
 	}

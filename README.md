@@ -193,7 +193,7 @@ dinext_project_evaluation/
 | `scoring/engine.py` | Нормализация вводов, веса, правила gate |
 | `scoring/scorecard_service.py` | Преобразование строк Scorecard в входные данные engine |
 | `doctype/project_scorecard/` | Жизненный цикл, расчёт при save, обновление полей Project |
-| `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля, матрица `criterion_stages` |
+| `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля с опциональной стадией |
 | `report/project_scoring_report/` | Аналитика портфеля и bubble payload |
 | `fixtures/` | Версионируемые метаданные и seed для migrate/install |
 

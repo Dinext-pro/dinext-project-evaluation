@@ -5,6 +5,7 @@
   "enabled": 1,
   "group_code": "Strategy",
   "group_name": "Strategy",
+  "modified": "2026-06-02 22:56:27.914360",
   "name": "Strategy"
  },
  {
@@ -13,6 +14,7 @@
   "enabled": 1,
   "group_code": "Benefits",
   "group_name": "Benefits",
+  "modified": "2026-06-02 22:56:27.933145",
   "name": "Benefits"
  },
  {
@@ -21,6 +23,7 @@
   "enabled": 1,
   "group_code": "Market",
   "group_name": "Market",
+  "modified": "2026-06-02 22:56:27.951350",
   "name": "Market"
  },
  {
@@ -29,6 +32,7 @@
   "enabled": 1,
   "group_code": "Finance",
   "group_name": "Finance",
+  "modified": "2026-06-02 22:56:27.972112",
   "name": "Finance"
  },
  {
@@ -37,6 +41,7 @@
   "enabled": 1,
   "group_code": "Risks",
   "group_name": "Risks",
+  "modified": "2026-06-02 22:56:27.990472",
   "name": "Risks"
  },
  {
@@ -45,6 +50,7 @@
   "enabled": 1,
   "group_code": "Resources",
   "group_name": "Resources",
+  "modified": "2026-06-02 22:56:28.009441",
   "name": "Resources"
  },
  {
@@ -53,6 +59,7 @@
   "enabled": 1,
   "group_code": "Regulatory",
   "group_name": "Regulatory",
+  "modified": "2026-06-02 22:56:28.023420",
   "name": "Regulatory"
  },
  {
@@ -61,6 +68,7 @@
   "enabled": 1,
   "group_code": "Priority",
   "group_name": "Priority",
+  "modified": "2026-06-02 22:56:28.034525",
   "name": "Priority"
  },
  {
@@ -69,6 +77,7 @@
   "enabled": 1,
   "group_code": "Innovation",
   "group_name": "Innovation",
+  "modified": "2026-06-02 22:56:28.045266",
   "name": "Innovation"
  },
  {
@@ -77,6 +86,7 @@
   "enabled": 1,
   "group_code": "Environment",
   "group_name": "Environment",
+  "modified": "2026-06-02 22:56:28.056881",
   "name": "Environment"
  }
 ]
