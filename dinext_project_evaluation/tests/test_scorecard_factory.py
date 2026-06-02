@@ -7,6 +7,64 @@ from dinext_project_evaluation.scoring import project_hooks
 
 
 class TestScorecardFactory(unittest.TestCase):
+	@patch.object(
+		scorecard_factory,
+		"get_applicable_criteria_for_stage",
+		return_value=[
+			{
+				"criterion": "STR_ALIGN",
+				"criterion_code": "STR_ALIGN",
+				"criterion_name": "Strategic Alignment",
+				"input_type": "Scale",
+				"weight": 2,
+				"scale_rows": [SimpleNamespace(score=0), SimpleNamespace(score=5)],
+			},
+			{
+				"criterion": "RISK_PROB",
+				"criterion_code": "RISK_PROB",
+				"criterion_name": "Risk Probability",
+				"input_type": "Percent",
+				"weight": 1,
+				"scale_rows": [],
+			},
+		],
+	)
+	def test_sync_scorecard_items_rebuilds_rows_and_preserves_values(self, _criteria):
+		scorecard = SimpleNamespace(
+			project="PRJ-001",
+			profile="PROFILE-001",
+			stage_at_evaluation="S1",
+			items=[
+				SimpleNamespace(
+					criterion="RISK_PROB",
+					criterion_code="RISK_OLD",
+					criterion_name="Old Risk",
+					criterion_input_type="Percent",
+					percent_value=25,
+					value_display="25",
+					comment="Keep me",
+				),
+				SimpleNamespace(
+					criterion="LEGACY",
+					criterion_code="LEGACY",
+					criterion_name="Legacy",
+					raw_value="stale",
+					comment="Drop me",
+				),
+			],
+		)
+		scorecard.set = lambda fieldname, value: setattr(scorecard, fieldname, value)
+
+		scorecard_factory.sync_scorecard_items(scorecard, "PROFILE-001")
+
+		self.assertEqual([row["criterion"] for row in scorecard.items], ["STR_ALIGN", "RISK_PROB"])
+		self.assertEqual(scorecard.items[0]["criterion_name"], "Strategic Alignment")
+		self.assertEqual(scorecard.items[0]["criterion_input_type"], "Scale")
+		self.assertEqual(scorecard.items[1]["criterion_code"], "RISK_PROB")
+		self.assertEqual(scorecard.items[1]["percent_value"], 25)
+		self.assertEqual(scorecard.items[1]["value_display"], "25")
+		self.assertEqual(scorecard.items[1]["comment"], "Keep me")
+
 	@patch("dinext_project_evaluation.scoring.scorecard_factory.frappe.db.exists", return_value=True)
 	def test_project_has_non_canceled_scorecards(self, _exists):
 		self.assertTrue(scorecard_factory.project_has_non_canceled_scorecards("PRJ-001"))

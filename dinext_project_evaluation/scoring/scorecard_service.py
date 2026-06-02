@@ -29,7 +29,6 @@ class CalculatedItem:
 	weighted_score: float
 	weight: float
 	gate_pass: bool
-	message: str | None = None
 
 
 @dataclass(frozen=True)
@@ -55,23 +54,17 @@ def calculate_scorecard_document(
 
 	for profile_criterion in applicable_criteria:
 		item_row = item_rows_by_criterion.get(profile_criterion.code)
-		if item_row is None:
-			continue
-
 		criterion = criteria_by_name[profile_criterion.code]
-		normalized_score = normalize_item(criterion, item_row)
-		inputs[profile_criterion.code] = CriterionInput(
-			normalized_score=normalized_score,
-			raw_value=_value(item_row, "raw_value"),
-			raw_numeric_value=_value(item_row, "raw_numeric_value"),
-		)
+		item_input = _build_item_input(criterion, item_row)
+		if item_input:
+			inputs[profile_criterion.code] = item_input
 		calculated_items[profile_criterion.code] = CalculatedItem(
 			criterion=profile_criterion.code,
 			criterion_code=_value(criterion, "criterion_code") or profile_criterion.code,
 			raw_value=_value(item_row, "raw_value"),
-			raw_numeric_value=_value(item_row, "raw_numeric_value"),
-			normalized_score=normalized_score,
-			weighted_score=normalized_score * profile_criterion.weight,
+			raw_numeric_value=_coerce_float(_value(item_row, "raw_numeric_value")),
+			normalized_score=item_input.normalized_score if item_input else 0,
+			weighted_score=(item_input.normalized_score * profile_criterion.weight) if item_input else 0,
 			weight=profile_criterion.weight,
 			gate_pass=True,
 		)
@@ -86,11 +79,24 @@ def calculate_scorecard_document(
 		)
 
 	result = calculate_scorecard(applicable_criteria, inputs)
+	message_map = _messages_by_criterion(result.messages)
 	return ScorecardCalculation(
 		integral_score=result.integral_score,
 		gate_pass=result.gate_pass,
 		messages=result.messages,
-		items=calculated_items,
+		items={
+			code: CalculatedItem(
+				criterion=item.criterion,
+				criterion_code=item.criterion_code,
+				raw_value=item.raw_value,
+				raw_numeric_value=item.raw_numeric_value,
+				normalized_score=item.normalized_score,
+				weighted_score=item.weighted_score,
+				weight=item.weight,
+				gate_pass=not bool(message_map.get(code)),
+			)
+			for code, item in calculated_items.items()
+		},
 		applicable_criteria=applicable_criteria,
 	)
 
@@ -126,6 +132,47 @@ def normalize_item(criterion: Any, item_row: Any) -> float:
 	raise ValueError(f"Unsupported criterion input type: {input_type}")
 
 
+def _build_item_input(criterion: Any, item_row: Any) -> CriterionInput | None:
+	if item_row is None:
+		return None
+
+	input_type = _value(criterion, "input_type")
+	raw_value = _value(item_row, "raw_value")
+	raw_numeric_value = _value(item_row, "raw_numeric_value")
+
+	if input_type == "Scale":
+		if raw_value in (None, ""):
+			return None
+		return CriterionInput(
+			normalized_score=normalize_item(criterion, item_row),
+			raw_value=raw_value,
+			raw_numeric_value=None,
+		)
+
+	if input_type in {"Number", "Currency", "Percent"}:
+		value = raw_numeric_value if raw_numeric_value not in (None, "") else raw_value
+		if value in (None, ""):
+			return None
+		numeric_value = float(value)
+		item_row.raw_numeric_value = numeric_value
+		return CriterionInput(
+			normalized_score=normalize_item(criterion, item_row),
+			raw_value=raw_value,
+			raw_numeric_value=numeric_value,
+		)
+
+	if input_type == "Boolean":
+		if raw_value in (None, ""):
+			return None
+		return CriterionInput(
+			normalized_score=normalize_item(criterion, item_row),
+			raw_value=str(raw_value),
+			raw_numeric_value=None,
+		)
+
+	raise ValueError(f"Unsupported criterion input type: {input_type}")
+
+
 def _profile_criterion(row: Any) -> ProfileCriterion:
 	return ProfileCriterion(
 		code=row.criterion,
@@ -146,3 +193,28 @@ def _children(document: Any, fieldname: str) -> list[Any]:
 
 def _value(document: Any, fieldname: str) -> Any:
 	return getattr(document, fieldname, None)
+
+
+def _messages_by_criterion(messages: list[str]) -> dict[str, list[str]]:
+	result: dict[str, list[str]] = {}
+	for message in messages:
+		code = _criterion_code_from_message(message)
+		if not code:
+			continue
+		result.setdefault(code, []).append(message)
+	return result
+
+
+def _coerce_float(value: Any) -> float | None:
+	if value in (None, ""):
+		return None
+	return float(value)
+
+
+def _criterion_code_from_message(message: str) -> str | None:
+	prefix = "Missing mandatory value for "
+	if message.startswith(prefix):
+		return message[len(prefix) :].strip() or None
+
+	parts = message.split(" ", 1)
+	return parts[0] if parts else None

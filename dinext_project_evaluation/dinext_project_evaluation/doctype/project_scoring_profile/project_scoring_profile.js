@@ -3,13 +3,17 @@
 
 frappe.provide("dinext_project_evaluation.project_scoring_profile");
 
-const DPE_GATE_FIELDS = [
+dinext_project_evaluation.project_scoring_profile.gate_fields = [
 	"minimum_normalized_score",
 	"minimum_raw_value",
 	"maximum_raw_value",
 ];
 
-const DPE_NUMERIC_INPUT_TYPES = new Set(["Number", "Currency", "Percent"]);
+dinext_project_evaluation.project_scoring_profile.numeric_input_types = new Set([
+	"Number",
+	"Currency",
+	"Percent",
+]);
 
 dinext_project_evaluation.project_scoring_profile.get_gate_field_mode = function (
 	requirement_level,
@@ -23,7 +27,11 @@ dinext_project_evaluation.project_scoring_profile.get_gate_field_mode = function
 		};
 	}
 
-	if (DPE_NUMERIC_INPUT_TYPES.has(input_type)) {
+	if (
+		dinext_project_evaluation.project_scoring_profile.numeric_input_types.has(
+			input_type
+		)
+	) {
 		return {
 			minimum_normalized_score: true,
 			minimum_raw_value: true,
@@ -68,7 +76,7 @@ dinext_project_evaluation.project_scoring_profile.apply_gate_fields = function (
 	const grid_row =
 		criteria_field && criteria_field.grid ? criteria_field.grid.get_row(cdn) : null;
 
-	DPE_GATE_FIELDS.forEach((fieldname) => {
+	dinext_project_evaluation.project_scoring_profile.gate_fields.forEach((fieldname) => {
 		const visible = mode[fieldname];
 
 		if (grid_row) {

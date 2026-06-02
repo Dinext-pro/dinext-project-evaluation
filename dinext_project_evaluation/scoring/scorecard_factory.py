@@ -1,11 +1,25 @@
 from __future__ import annotations
 
+import json
+
 import frappe
 from frappe import _
 
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
 
 PROJECT_SCORING_PROFILE_FIELD = "custom_project_scoring_profile"
+ITEM_VALUE_FIELDS = (
+	"value_display",
+	"scale_value",
+	"boolean_value",
+	"boolean_value_set",
+	"number_value",
+	"currency_value",
+	"percent_value",
+	"raw_value",
+	"raw_numeric_value",
+	"comment",
+)
 
 
 def get_project_scoring_profile_fieldname() -> str:
@@ -42,6 +56,14 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 				"influence_direction": criterion.influence_direction,
 				"weight": profile_row.weight,
 				"requirement_level": profile_row.requirement_level,
+				"scale_options": [
+					{
+						"label": scale.scale_label or str(scale.score),
+						"value": str(scale.score),
+						"score": scale.score,
+					}
+					for scale in criterion.scale_rows
+				],
 				"scale_rows": [
 					{
 						"scale_label": scale.scale_label,
@@ -88,17 +110,7 @@ def create_draft_scorecard(
 	elif stage:
 		scorecard.stage_at_evaluation = stage
 
-	current_stage = scorecard.stage_at_evaluation or frappe.db.get_value("Project", project, "current_stage")
-	for criterion in get_applicable_criteria_for_stage(project, profile, current_stage):
-		scorecard.append(
-			"items",
-			{
-				"criterion": criterion["criterion"],
-				"criterion_code": criterion["criterion_code"],
-				"weight": criterion["weight"],
-			},
-		)
-
+	sync_scorecard_items(scorecard, profile)
 	scorecard.insert()
 	return scorecard
 
@@ -157,3 +169,91 @@ def project_has_non_canceled_scorecards(project: str) -> bool:
 			{"project": project, "status": ["!=", "Canceled"]},
 		)
 	)
+
+
+def sync_scorecard_items(scorecard, profile: str | None = None) -> None:
+	profile_name = profile or getattr(scorecard, "profile", None)
+	project = getattr(scorecard, "project", None)
+	if not profile_name or not project:
+		return
+
+	current_stage = getattr(scorecard, "stage_at_evaluation", None) or frappe.db.get_value(
+		"Project", project, "current_stage"
+	)
+	existing_rows = {
+		getattr(item, "criterion", None): item
+		for item in list(getattr(scorecard, "items", None) or [])
+		if getattr(item, "criterion", None)
+	}
+	items = []
+	for criterion in get_applicable_criteria_for_stage(project, profile_name, current_stage):
+		existing_row = existing_rows.get(criterion["criterion"])
+		item = {
+			"criterion": criterion["criterion"],
+			"criterion_code": criterion["criterion_code"],
+			"criterion_name": criterion["criterion_name"],
+			"criterion_input_type": criterion["input_type"],
+			"weight": criterion["weight"],
+			"scale_options_json": json.dumps(criterion.get("scale_options", []), ensure_ascii=False),
+			"value_display": None,
+			"scale_value": None,
+			"boolean_value": 0,
+			"boolean_value_set": 0,
+			"number_value": None,
+			"currency_value": None,
+			"percent_value": None,
+			"raw_value": None,
+			"raw_numeric_value": None,
+			"comment": None,
+		}
+		if existing_row:
+			for fieldname in ITEM_VALUE_FIELDS:
+				if hasattr(existing_row, fieldname):
+					item[fieldname] = getattr(existing_row, fieldname)
+		item["value_display"] = item["value_display"] or _compact_value_display(
+			criterion["input_type"],
+			item,
+			criterion.get("scale_options", []),
+		)
+		items.append(item)
+
+	_set_table_value(scorecard, "items", items)
+
+
+def _set_table_value(document, fieldname: str, value) -> None:
+	if hasattr(document, "set"):
+		document.set(fieldname, value)
+		return
+	setattr(document, fieldname, value)
+
+
+def _compact_value_display(input_type: str, item: dict, scale_options: list[dict]) -> str | None:
+	if input_type == "Scale":
+		raw_value = item.get("scale_value") or item.get("raw_value")
+		if raw_value in (None, ""):
+			return None
+		for option in scale_options or []:
+			if str(option.get("value")) == str(raw_value):
+				return option.get("label") or str(raw_value)
+		return str(raw_value)
+
+	if input_type == "Boolean":
+		if item.get("boolean_value_set"):
+			return _("Yes") if item.get("boolean_value") else _("No")
+		raw_value = item.get("raw_value")
+		if raw_value in (None, ""):
+			return None
+		return _("Yes") if str(raw_value).lower() in {"1", "true", "yes", "да"} else _("No")
+
+	if input_type == "Number":
+		value = item.get("number_value")
+	elif input_type == "Currency":
+		value = item.get("currency_value")
+	elif input_type == "Percent":
+		value = item.get("percent_value")
+	else:
+		value = item.get("raw_numeric_value") if item.get("raw_numeric_value") not in (None, "") else item.get("raw_value")
+
+	if value in (None, ""):
+		return None
+	return str(value)

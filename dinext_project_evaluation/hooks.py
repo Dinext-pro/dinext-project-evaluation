@@ -78,6 +78,7 @@ fixtures = [
 # include js in doctype views
 doctype_js = {
 	"Project": "public/js/project_scoring_evaluation.js",
+	"Project Scorecard": "dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
