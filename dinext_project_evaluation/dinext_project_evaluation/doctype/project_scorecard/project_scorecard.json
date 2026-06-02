@@ -1,36 +1,28 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "naming_series:",
+ "autoname": "PSC-.YYYY.-.#####",
  "creation": "2026-04-30 01:06:49.441863",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "naming_series",
   "project",
   "profile",
   "portfolio",
-  "stage_at_evaluation",
-  "stage_instance_at_evaluation",
-  "status",
-  "evaluation_date",
-  "integral_score",
-  "gate_pass",
-  "gate_messages",
   "profile_snapshot",
+  "column_break_kqfq",
+  "status",
+  "stage_instance_at_evaluation",
+  "stage_at_evaluation",
+  "gate_messages",
+  "section_break_fovg",
+  "integral_score",
+  "evaluation_date",
+  "gate_pass",
   "items"
  ],
  "fields": [
-  {
-   "default": "PSC-.YYYY.-.#####",
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "hidden": 1,
-   "label": "Series",
-   "options": "PSC-.YYYY.-.#####",
-   "reqd": 1
-  },
   {
    "fieldname": "project",
    "fieldtype": "Link",
@@ -38,18 +30,22 @@
    "in_standard_filter": 1,
    "label": "Project",
    "options": "Project",
-   "reqd": 1
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
+   "fetch_from": "project.custom_project_scoring_profile",
    "fieldname": "profile",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Profile",
    "options": "Project Scoring Profile",
+   "read_only": 1,
    "reqd": 1
   },
   {
+   "fetch_from": "project.custom_project_portfolio",
    "fieldname": "portfolio",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -59,6 +55,7 @@
    "read_only": 1
   },
   {
+   "fetch_from": "stage_instance_at_evaluation.stage",
    "fieldname": "stage_at_evaluation",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -72,7 +69,8 @@
    "fieldtype": "Link",
    "label": "Stage Instance at Evaluation",
    "options": "Project Stage Instance",
-   "read_only": 1
+   "read_only": 1,
+   "set_only_once": 1
   },
   {
    "default": "Draft",
@@ -124,16 +122,24 @@
    "fieldtype": "Table",
    "label": "Items",
    "options": "Project Scorecard Item"
+  },
+  {
+   "fieldname": "column_break_kqfq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_fovg",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-30 01:06:49.441863",
+ "modified": "2026-06-03 01:22:57.481170",
  "modified_by": "Administrator",
  "module": "Dinext Project Evaluation",
  "name": "Project Scorecard",
- "naming_rule": "By \"Naming Series\" field",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
