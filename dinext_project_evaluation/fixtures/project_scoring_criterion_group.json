@@ -1,0 +1,82 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Strategy",
+  "group_name": "Strategy",
+  "name": "Strategy"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Benefits",
+  "group_name": "Benefits",
+  "name": "Benefits"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Market",
+  "group_name": "Market",
+  "name": "Market"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Finance",
+  "group_name": "Finance",
+  "name": "Finance"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Risks",
+  "group_name": "Risks",
+  "name": "Risks"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Resources",
+  "group_name": "Resources",
+  "name": "Resources"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Regulatory",
+  "group_name": "Regulatory",
+  "name": "Regulatory"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Priority",
+  "group_name": "Priority",
+  "name": "Priority"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Innovation",
+  "group_name": "Innovation",
+  "name": "Innovation"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Environment",
+  "group_name": "Environment",
+  "name": "Environment"
+ }
+]

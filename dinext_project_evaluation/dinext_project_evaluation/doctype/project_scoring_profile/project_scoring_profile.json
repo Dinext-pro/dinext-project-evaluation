@@ -13,7 +13,8 @@
   "project_type",
   "company",
   "description",
-  "criteria"
+  "criteria",
+  "criterion_stages"
  ],
  "fields": [
   {
@@ -73,6 +74,12 @@
    "label": "Criteria",
    "options": "Project Scoring Profile Criterion",
    "reqd": 1
+  },
+  {
+   "fieldname": "criterion_stages",
+   "fieldtype": "Table",
+   "label": "Criterion Stage Applicability",
+   "options": "Project Scoring Profile Criterion Stage"
   }
  ],
  "grid_page_length": 50,

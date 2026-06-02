@@ -3,7 +3,6 @@
   "company": "Dinext",
   "criteria": [
    {
-    "applicable_stages": [],
     "criterion": "STR_ALIGN",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.4,
@@ -15,7 +14,6 @@
     "weight": 3.0
    },
    {
-    "applicable_stages": [],
     "criterion": "BEN_FIN",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -27,7 +25,6 @@
     "weight": 2.0
    },
    {
-    "applicable_stages": [],
     "criterion": "BEN_NONFIN",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -39,7 +36,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "MKT_SHARE",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -51,7 +47,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "COST",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -63,7 +58,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "DEP_INT",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -75,7 +69,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "RISK_IMP",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -87,7 +80,6 @@
     "weight": 2.0
    },
    {
-    "applicable_stages": [],
     "criterion": "RISK_PROB",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -99,7 +91,6 @@
     "weight": 2.0
    },
    {
-    "applicable_stages": [],
     "criterion": "REG",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.4,
@@ -111,7 +102,6 @@
     "weight": 2.0
    },
    {
-    "applicable_stages": [],
     "criterion": "CAP_HUM_TECH",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -123,7 +113,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "URGENCY",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -135,7 +124,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "NPV",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -147,7 +135,6 @@
     "weight": 2.0
    },
    {
-    "applicable_stages": [],
     "criterion": "IRR",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -159,7 +146,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "PP",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -171,7 +157,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "PI",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -183,7 +168,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "ECV",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -195,7 +179,6 @@
     "weight": 2.0
    },
    {
-    "applicable_stages": [],
     "criterion": "PATENT",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -207,7 +190,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "RD_COST",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -219,7 +201,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "MFG_COST",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -231,7 +212,6 @@
     "weight": 1.0
    },
    {
-    "applicable_stages": [],
     "criterion": "TECH_SUCCESS",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -243,7 +223,6 @@
     "weight": 2.0
    },
    {
-    "applicable_stages": [],
     "criterion": "SALES_POT",
     "maximum_raw_value": 0.0,
     "minimum_normalized_score": 0.0,
@@ -255,10 +234,26 @@
     "weight": 2.0
    }
   ],
+  "criterion_stages": [
+   {
+    "criterion": "STR_ALIGN",
+    "parent": "a1fu4dph38",
+    "parentfield": "criterion_stages",
+    "parenttype": "Project Scoring Profile",
+    "stage": "Идея"
+   },
+   {
+    "criterion": "STR_ALIGN",
+    "parent": "a1fu4dph38",
+    "parentfield": "criterion_stages",
+    "parenttype": "Project Scoring Profile",
+    "stage": "Инициирование"
+   }
+  ],
   "description": "Типовой профиль скоринга проектов Dinext на основе стартового каталога критериев.",
   "docstatus": 0,
   "doctype": "Project Scoring Profile",
-  "modified": "2026-04-30 01:19:48.704592",
+  "modified": "2026-06-02 22:17:52.374847",
   "name": "a1fu4dph38",
   "portfolio": null,
   "profile_name": "Default Project Scoring Profile",

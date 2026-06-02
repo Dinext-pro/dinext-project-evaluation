@@ -11,6 +11,20 @@ LIKERT_SCALE = [
 ]
 
 
+DEFAULT_GROUPS = [
+	("Strategy", "Strategy"),
+	("Benefits", "Benefits"),
+	("Market", "Market"),
+	("Finance", "Finance"),
+	("Risks", "Risks"),
+	("Resources", "Resources"),
+	("Regulatory", "Regulatory"),
+	("Priority", "Priority"),
+	("Innovation", "Innovation"),
+	("Environment", "Environment"),
+]
+
+
 DEFAULT_CRITERIA = [
 	("STR_ALIGN", "Соответствие стратегии и целям компании", "Strategy", "Scale", "higher_is_better"),
 	("BEN_FIN", "Финансовые выгоды", "Benefits", "Scale", "higher_is_better"),
@@ -62,10 +76,23 @@ DEFAULT_PROFILE_WEIGHTS = {
 
 
 def seed_default_scoring_model():
+	for group_code, group_name in DEFAULT_GROUPS:
+		_upsert_criterion_group(group_code, group_name)
 	for code, title, group, input_type, direction in DEFAULT_CRITERIA:
 		_upsert_criterion(code, title, group, input_type, direction)
 	_upsert_default_profile()
 	frappe.db.commit()
+
+
+def _upsert_criterion_group(group_code, group_name):
+	if frappe.db.exists("Project Scoring Criterion Group", group_code):
+		doc = frappe.get_doc("Project Scoring Criterion Group", group_code)
+	else:
+		doc = frappe.new_doc("Project Scoring Criterion Group")
+		doc.group_code = group_code
+	doc.group_name = group_name
+	doc.enabled = 1
+	doc.save(ignore_permissions=True)
 
 
 def _upsert_criterion(code, title, group, input_type, direction):

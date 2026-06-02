@@ -6,10 +6,18 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "stage",
-  "stage_code"
+  "criterion",
+  "stage"
  ],
  "fields": [
+  {
+   "fieldname": "criterion",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Criterion",
+   "options": "Project Scoring Criterion",
+   "reqd": 1
+  },
   {
    "fieldname": "stage",
    "fieldtype": "Link",
@@ -17,13 +25,6 @@
    "label": "Stage",
    "options": "Project Stage",
    "reqd": 1
-  },
-  {
-   "fieldname": "stage_code",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Stage Code Snapshot",
-   "read_only": 1
   }
  ],
  "grid_page_length": 50,
