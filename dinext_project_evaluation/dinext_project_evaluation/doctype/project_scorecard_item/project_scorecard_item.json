@@ -57,7 +57,6 @@
   {
    "fieldname": "value_display",
    "fieldtype": "Data",
-   "hidden": 1,
    "in_list_view": 1,
    "label": "Value",
    "read_only": 1
