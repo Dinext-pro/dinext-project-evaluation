@@ -58,6 +58,34 @@ dinext_project_evaluation.project_scorecard.hide_row_form_field = function (grid
 	field.$wrapper.closest(".frappe-control").hide();
 };
 
+dinext_project_evaluation.project_scorecard.open_grid_select_control = function (control) {
+	if (!control?.$input?.length) {
+		return;
+	}
+	const input = control.$input.get(0);
+	if (!input || input.tagName !== "SELECT" || input.disabled) {
+		return;
+	}
+
+	input.focus();
+	if (typeof input.showPicker === "function") {
+		try {
+			input.showPicker();
+			return;
+		} catch (error) {
+			// fall through
+		}
+	}
+	input.click();
+};
+
+dinext_project_evaluation.project_scorecard.autopen_grid_value_select = function (gridRow) {
+	const control = gridRow.on_grid_fields_dict?.value_display;
+	if (control?.df?.fieldtype === "Select") {
+		dinext_project_evaluation.project_scorecard.open_grid_select_control(control);
+	}
+};
+
 dinext_project_evaluation.project_scorecard.setup_grid_value_control = function (frm, gridRow, column) {
 	const row = gridRow.doc;
 	if (!row || !column) {
@@ -120,6 +148,15 @@ dinext_project_evaluation.project_scorecard.bind_grid_value_column = function (f
 			}
 			return baseMakeControl(col);
 		};
+	}
+
+	if (!column._dpe_autopen_select_bound) {
+		column._dpe_autopen_select_bound = true;
+		column.on("click", () => {
+			setTimeout(() => {
+				dinext_project_evaluation.project_scorecard.autopen_grid_value_select(gridRow);
+			}, 0);
+		});
 	}
 };
 
