@@ -202,7 +202,13 @@ dinext_project_evaluation.project_scorecard.get_display_value = function (row) {
 		}
 		try {
 			const options = JSON.parse(row.scale_options_json || "[]");
-			const match = options.find((option) => String(option.value) === String(row.scale_value));
+			const resolved = dinext_project_evaluation.project_scorecard.resolve_scale_value(
+				row,
+				row.scale_value
+			);
+			const match = options.find(
+				(option) => String(option.value ?? option.score) === String(resolved)
+			);
 			return (match && match.label) || row.scale_value;
 		} catch (error) {
 			return row.scale_value;
@@ -230,22 +236,67 @@ dinext_project_evaluation.project_scorecard.get_display_value = function (row) {
 	return row.raw_value || null;
 };
 
+dinext_project_evaluation.project_scorecard.parse_scale_options = function (row) {
+	try {
+		return JSON.parse(row.scale_options_json || "[]");
+	} catch (error) {
+		return [];
+	}
+};
+
+dinext_project_evaluation.project_scorecard.resolve_scale_value = function (row, scaleValue) {
+	if (scaleValue == null || scaleValue === "") {
+		return "";
+	}
+
+	const options = dinext_project_evaluation.project_scorecard.parse_scale_options(row);
+	const normalized = String(scaleValue);
+
+	const byValue = options.find(
+		(option) => String(option.value ?? option.score) === normalized
+	);
+	if (byValue) {
+		return String(byValue.value ?? byValue.score);
+	}
+
+	const byLabel = options.find((option) => (option.label || "") === normalized);
+	if (byLabel) {
+		return String(byLabel.value ?? byLabel.score);
+	}
+
+	if (normalized.includes(":")) {
+		return normalized.slice(normalized.lastIndexOf(":") + 1);
+	}
+
+	return normalized;
+};
+
+dinext_project_evaluation.project_scorecard.get_scale_empty_option = function () {
+	// Zero-width space: non-empty for frappe_better_select_control, visually blank in UI.
+	return { label: "\u200b", value: "" };
+};
+
+dinext_project_evaluation.project_scorecard.get_scale_select_options = function (options) {
+	return [
+		dinext_project_evaluation.project_scorecard.get_scale_empty_option(),
+		...options.map((option) => ({
+			label: option.label || String(option.score ?? option.value),
+			value: String(option.value ?? option.score),
+		})),
+	];
+};
+
 dinext_project_evaluation.project_scorecard.get_active_control_df = function (row, fieldname = "active_value") {
 	if (!row) {
 		return null;
 	}
 
 	if (row.criterion_input_type === "Scale") {
-		let options = [];
-		try {
-			options = JSON.parse(row.scale_options_json || "[]");
-		} catch (error) {
-			options = [];
-		}
+		const options = dinext_project_evaluation.project_scorecard.parse_scale_options(row);
 		return {
 			fieldtype: "Select",
 			fieldname,
-			options: ["", ...options.map((option) => option.value)].join("\n"),
+			options: dinext_project_evaluation.project_scorecard.get_scale_select_options(options),
 		};
 	}
 
@@ -274,7 +325,9 @@ dinext_project_evaluation.project_scorecard.get_active_control_value = function 
 	}
 
 	if (row.criterion_input_type === "Scale") {
-		return row.scale_value || "";
+		return (
+			dinext_project_evaluation.project_scorecard.resolve_scale_value(row, row.scale_value) || ""
+		);
 	}
 
 	if (row.criterion_input_type === "Boolean") {
@@ -296,7 +349,9 @@ dinext_project_evaluation.project_scorecard.apply_active_control_value = functio
 	}
 
 	if (row.criterion_input_type === "Scale") {
-		row.scale_value = value || null;
+		const resolved =
+			dinext_project_evaluation.project_scorecard.resolve_scale_value(row, value) || null;
+		row.scale_value = resolved;
 	} else if (row.criterion_input_type === "Boolean") {
 		row.boolean_value = value ? 1 : 0;
 		row.boolean_value_set = 1;
