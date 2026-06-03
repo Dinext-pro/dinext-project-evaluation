@@ -65,7 +65,7 @@ dinext_project_evaluation.project_scorecard.setup_grid_value_control = function 
 	}
 
 	column.field_area.empty();
-	const df = dinext_project_evaluation.project_scorecard.get_active_control_df(row);
+	const df = dinext_project_evaluation.project_scorecard.get_active_control_df(row, "value_display");
 	if (!df) {
 		return;
 	}
@@ -230,7 +230,7 @@ dinext_project_evaluation.project_scorecard.get_display_value = function (row) {
 	return row.raw_value || null;
 };
 
-dinext_project_evaluation.project_scorecard.get_active_control_df = function (row) {
+dinext_project_evaluation.project_scorecard.get_active_control_df = function (row, fieldname = "active_value") {
 	if (!row) {
 		return null;
 	}
@@ -244,7 +244,7 @@ dinext_project_evaluation.project_scorecard.get_active_control_df = function (ro
 		}
 		return {
 			fieldtype: "Select",
-			fieldname: "active_value",
+			fieldname,
 			options: ["", ...options.map((option) => option.value)].join("\n"),
 		};
 	}
@@ -252,7 +252,7 @@ dinext_project_evaluation.project_scorecard.get_active_control_df = function (ro
 	if (row.criterion_input_type === "Boolean") {
 		return {
 			fieldtype: "Check",
-			fieldname: "active_value",
+			fieldname,
 		};
 	}
 
@@ -264,7 +264,7 @@ dinext_project_evaluation.project_scorecard.get_active_control_df = function (ro
 
 	return {
 		fieldtype: fieldtypeByCriterionType[row.criterion_input_type] || "Data",
-		fieldname: "active_value",
+		fieldname,
 	};
 };
 
