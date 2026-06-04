@@ -330,28 +330,30 @@ dinext_project_evaluation.project_scorecard.setup_grid_value_control = function 
 	}
 
 	column.field_area.empty();
-	const df = dinext_project_evaluation.project_scorecard.get_active_control_df(row, "value_display");
+	const df = dinext_project_evaluation.project_scorecard.get_active_control_df(row);
 	if (!df) {
 		return;
 	}
 
+	const activeValue = dinext_project_evaluation.project_scorecard.get_active_control_value(row);
 	const control = frappe.ui.form.make_control({
 		parent: column.field_area.get(0),
 		df,
 		only_input: true,
-		doc: row,
-		doctype: row.doctype,
-		docname: row.name,
-		frm,
-		grid: gridRow.grid,
-		grid_row: gridRow,
-		value: dinext_project_evaluation.project_scorecard.get_active_control_value(row),
+		render_input: true,
+		value: activeValue,
 	});
 	control.make_input();
-	control.set_value(dinext_project_evaluation.project_scorecard.get_active_control_value(row));
+	if (control.set_input) {
+		control.set_input(activeValue);
+	}
 	control.df.change = function () {
-		dinext_project_evaluation.project_scorecard.apply_active_control_value(row, control.get_value());
-		const displayValue = dinext_project_evaluation.project_scorecard.get_display_value(row);
+		const nextValues = dinext_project_evaluation.project_scorecard.compute_active_control_values(
+			row,
+			control.get_value()
+		);
+		dinext_project_evaluation.project_scorecard.persist_row_value_fields(row, nextValues);
+		const displayValue = nextValues?.value_display;
 		const text = displayValue == null || displayValue === "" ? "" : String(displayValue);
 		if (column.static_area) {
 			column.static_area.html(frappe.utils.escape_html(text));
@@ -404,7 +406,6 @@ dinext_project_evaluation.project_scorecard.setup_items_grid_lock = function (fr
 	frm._dpe_items_grid_lock_bound = true;
 	$(frm.wrapper).on("grid-row-render", (e, gridRow) => {
 		dinext_project_evaluation.project_scorecard.bind_grid_value_column(frm, gridRow);
-		dinext_project_evaluation.project_scorecard.lock_items_grid(frm);
 		if (gridRow.doc?.name) {
 			dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(
 				frm,
@@ -623,27 +624,46 @@ dinext_project_evaluation.project_scorecard.get_active_control_value = function 
 	return row.value_display || row.raw_value || null;
 };
 
-dinext_project_evaluation.project_scorecard.apply_active_control_value = function (row, value) {
+dinext_project_evaluation.project_scorecard.compute_active_control_values = function (row, value) {
 	if (!row) {
-		return;
+		return null;
 	}
 
-	if (row.criterion_input_type === "Scale") {
-		const resolved =
+	const nextValues = {};
+	const inputType = row.criterion_input_type;
+
+	if (inputType === "Scale") {
+		nextValues.scale_value =
 			dinext_project_evaluation.project_scorecard.resolve_scale_value(row, value) || null;
-		row.scale_value = resolved;
-	} else if (row.criterion_input_type === "Boolean") {
-		row.boolean_value = value ? 1 : 0;
-		row.boolean_value_set = 1;
+	} else if (inputType === "Boolean") {
+		nextValues.boolean_value = value ? 1 : 0;
+		nextValues.boolean_value_set = 1;
 	} else {
 		const numericField =
-			dinext_project_evaluation.project_scorecard.typed_field_by_type[row.criterion_input_type];
+			dinext_project_evaluation.project_scorecard.typed_field_by_type[inputType];
 		if (numericField) {
-			row[numericField] = value;
+			nextValues[numericField] = value;
 		}
 	}
 
-	row.value_display = dinext_project_evaluation.project_scorecard.get_display_value(row);
+	const previewRow = Object.assign({}, row, nextValues);
+	nextValues.value_display =
+		dinext_project_evaluation.project_scorecard.get_display_value(previewRow);
+
+	return nextValues;
+};
+
+dinext_project_evaluation.project_scorecard.persist_row_value_fields = function (row, nextValues) {
+	if (!row?.name || !nextValues) {
+		return;
+	}
+
+	const cdt = row.doctype;
+	const cdn = row.name;
+
+	Object.entries(nextValues).forEach(([fieldname, value]) => {
+		frappe.model.set_value(cdt, cdn, fieldname, value);
+	});
 };
 
 dinext_project_evaluation.project_scorecard.render_active_control = function (frm, cdt, cdn) {
@@ -671,9 +691,16 @@ dinext_project_evaluation.project_scorecard.render_active_control = function (fr
 		only_input: true,
 	});
 	control.make_input();
-	control.set_value(dinext_project_evaluation.project_scorecard.get_active_control_value(row));
+	const activeValue = dinext_project_evaluation.project_scorecard.get_active_control_value(row);
+	if (control.set_input) {
+		control.set_input(activeValue);
+	}
 	control.df.change = function () {
-		dinext_project_evaluation.project_scorecard.apply_active_control_value(row, control.get_value());
+		const nextValues = dinext_project_evaluation.project_scorecard.compute_active_control_values(
+			row,
+			control.get_value()
+		);
+		dinext_project_evaluation.project_scorecard.persist_row_value_fields(row, nextValues);
 		dinext_project_evaluation.project_scorecard.refresh_items_field(frm);
 	};
 };
