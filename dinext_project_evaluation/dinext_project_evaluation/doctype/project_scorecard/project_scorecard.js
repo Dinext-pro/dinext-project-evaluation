@@ -253,12 +253,12 @@ dinext_project_evaluation.project_scorecard.prepare_mandatory_validation = funct
 	frappe.ui.form.check_mandatory.__dpe_project_scorecard_wrapped = true;
 })();
 
-// Frappe toggle_checkboxes() only disables inputs; row-check column stays visible.
-dinext_project_evaluation.project_scorecard.hide_items_grid_checkbox_column = function (grid) {
+// Frappe has no API to hide row-check / row-index columns; hide them in the items grid only.
+dinext_project_evaluation.project_scorecard.hide_items_grid_leading_columns = function (grid) {
 	if (!grid || !grid.wrapper) {
 		return;
 	}
-	grid.wrapper.find(".row-check").hide();
+	grid.wrapper.find(".row-check, .row-index").hide();
 };
 
 dinext_project_evaluation.project_scorecard.lock_items_grid = function (frm) {
@@ -271,7 +271,7 @@ dinext_project_evaluation.project_scorecard.lock_items_grid = function (frm) {
 	grid.cannot_add_rows = true;
 	grid.df.cannot_delete_rows = true;
 	grid.toggle_checkboxes(false);
-	dinext_project_evaluation.project_scorecard.hide_items_grid_checkbox_column(grid);
+	dinext_project_evaluation.project_scorecard.hide_items_grid_leading_columns(grid);
 };
 
 dinext_project_evaluation.project_scorecard.refresh_items_field = function (frm) {
@@ -411,6 +411,7 @@ dinext_project_evaluation.project_scorecard.setup_items_grid_lock = function (fr
 	}
 	frm._dpe_items_grid_lock_bound = true;
 	$(frm.wrapper).on("grid-row-render", (e, gridRow) => {
+		gridRow.row?.find(".row-check, .row-index").hide();
 		dinext_project_evaluation.project_scorecard.bind_grid_value_column(frm, gridRow);
 		if (gridRow.doc?.name) {
 			dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(
