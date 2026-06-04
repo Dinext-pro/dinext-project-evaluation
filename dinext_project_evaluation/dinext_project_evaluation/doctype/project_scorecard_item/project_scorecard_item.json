@@ -182,14 +182,14 @@
    "fieldtype": "Small Text",
    "in_list_view": 1,
    "label": "Comment",
-   "mandatory_depends_on": "eval:(doc.requires_comment && ![\"Draft\",\"Canceled\"].includes( parent.status ))"
+   "mandatory_depends_on": "eval:(doc.requires_comment)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-05 01:16:11.227482",
+ "modified": "2026-06-05 01:42:10.877238",
  "modified_by": "Administrator",
  "module": "Dinext Project Evaluation",
  "name": "Project Scorecard Item",
