@@ -117,6 +117,7 @@
   {
    "fieldname": "profile_snapshot",
    "fieldtype": "JSON",
+   "hidden": 1,
    "label": "Profile Snapshot",
    "read_only": 1
   },
@@ -146,7 +147,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-03 02:19:01.909298",
+ "modified": "2026-06-05 02:25:33.619781",
  "modified_by": "Administrator",
  "module": "Dinext Project Evaluation",
  "name": "Project Scorecard",
@@ -227,7 +228,6 @@
   },
   {
    "create": 1,
-   "delete": 0,
    "email": 1,
    "export": 1,
    "print": 1,
@@ -238,8 +238,6 @@
    "write": 1
   },
   {
-   "create": 0,
-   "delete": 0,
    "email": 1,
    "export": 1,
    "print": 1,
@@ -250,8 +248,6 @@
    "write": 1
   },
   {
-   "create": 0,
-   "delete": 0,
    "email": 1,
    "export": 1,
    "print": 1,
