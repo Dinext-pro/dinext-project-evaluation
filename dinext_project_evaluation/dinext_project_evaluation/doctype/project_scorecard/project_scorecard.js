@@ -151,10 +151,11 @@ dinext_project_evaluation.project_scorecard.apply_item_row_state = function (frm
 	}
 
 	const row = gridRow.doc;
-	const isMandatory = (row.requirement_level || "Desired") === "Mandatory";
+	const showMandatoryOutline =
+		dinext_project_evaluation.project_scorecard.item_missing_mandatory_value(row);
 
 	$(frm.wrapper).addClass("dpe-project-scorecard-form");
-	rowEl.toggleClass("dpe-project-scorecard-mandatory-row", isMandatory);
+	rowEl.toggleClass("dpe-project-scorecard-mandatory-row", showMandatoryOutline);
 };
 
 dinext_project_evaluation.project_scorecard.apply_all_item_row_states = function (frm) {
