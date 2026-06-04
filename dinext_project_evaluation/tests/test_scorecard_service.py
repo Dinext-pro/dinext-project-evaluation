@@ -1,7 +1,14 @@
 from types import SimpleNamespace
 import unittest
 
-from dinext_project_evaluation.scoring.scorecard_service import calculate_scorecard_document
+from dinext_project_evaluation.scoring.scorecard_service import (
+	calculate_scorecard_document,
+	item_has_input_value,
+	item_missing_mandatory_value,
+	item_missing_required_comment,
+	missing_mandatory_criterion_codes,
+	scorecard_has_missing_required_items,
+)
 
 
 def row(**kwargs):
@@ -145,6 +152,42 @@ class TestScorecardService(unittest.TestCase):
 		self.assertIn("Missing mandatory value for STR_ALIGN", result.messages)
 		self.assertFalse(result.items["STR_ALIGN"].gate_pass)
 		self.assertEqual(result.items["STR_ALIGN"].normalized_score, 0)
+
+	def test_missing_mandatory_criterion_codes_extracts_codes_from_messages(self):
+		messages = [
+			"Missing mandatory value for STR_ALIGN",
+			"RISK_PROB normalized score 0.6000 is below required 0.7000",
+			"Missing mandatory value for COST",
+		]
+
+		self.assertEqual(missing_mandatory_criterion_codes(messages), ["STR_ALIGN", "COST"])
+
+	def test_item_missing_mandatory_value_and_required_comment(self):
+		mandatory_empty = row(
+			criterion_input_type="Scale",
+			requirement_level="Mandatory",
+		)
+		self.assertTrue(item_missing_mandatory_value(mandatory_empty))
+
+		mandatory_filled = row(
+			criterion_input_type="Scale",
+			requirement_level="Mandatory",
+			scale_value="5",
+		)
+		self.assertFalse(item_missing_mandatory_value(mandatory_filled))
+		self.assertTrue(item_has_input_value(mandatory_filled))
+
+		comment_required = row(requires_comment=1, comment="")
+		self.assertTrue(item_missing_required_comment(comment_required))
+
+		comment_optional = row(requires_comment=0, comment="")
+		self.assertFalse(item_missing_required_comment(comment_optional))
+
+		items = [
+			row(requirement_level="Mandatory", criterion_input_type="Scale"),
+			row(requires_comment=1, comment="filled"),
+		]
+		self.assertTrue(scorecard_has_missing_required_items(items))
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from frappe.utils import cint
+
 from dinext_project_evaluation.scoring.engine import (
 	BoolCriterion,
 	CriterionInput,
@@ -211,10 +213,54 @@ def _coerce_float(value: Any) -> float | None:
 	return float(value)
 
 
+MANDATORY_MISSING_PREFIX = "Missing mandatory value for "
+
+
+def missing_mandatory_criterion_codes(messages: list[str]) -> list[str]:
+	codes = []
+	for message in messages:
+		code = _criterion_code_from_message(message)
+		if code and message.startswith(MANDATORY_MISSING_PREFIX):
+			codes.append(code)
+	return codes
+
+
+def item_has_input_value(item_row: Any) -> bool:
+	input_type = _value(item_row, "criterion_input_type")
+	if input_type == "Scale":
+		return _value(item_row, "scale_value") not in (None, "") or _value(item_row, "raw_value") not in (None, "")
+	if input_type == "Boolean":
+		return bool(cint(_value(item_row, "boolean_value_set")))
+	if input_type == "Number":
+		return _value(item_row, "number_value") not in (None, "")
+	if input_type == "Currency":
+		return _value(item_row, "currency_value") not in (None, "")
+	if input_type == "Percent":
+		return _value(item_row, "percent_value") not in (None, "")
+	return bool(_value(item_row, "raw_value") or _value(item_row, "raw_numeric_value") not in (None, ""))
+
+
+def item_missing_mandatory_value(item_row: Any) -> bool:
+	return (_value(item_row, "requirement_level") or "Desired") == "Mandatory" and not item_has_input_value(item_row)
+
+
+def item_missing_required_comment(item_row: Any) -> bool:
+	if not cint(_value(item_row, "requires_comment")):
+		return False
+	comment = _value(item_row, "comment")
+	return comment in (None, "") or not str(comment).strip()
+
+
+def scorecard_has_missing_required_items(items: list[Any]) -> bool:
+	for item in items or []:
+		if item_missing_mandatory_value(item) or item_missing_required_comment(item):
+			return True
+	return False
+
+
 def _criterion_code_from_message(message: str) -> str | None:
-	prefix = "Missing mandatory value for "
-	if message.startswith(prefix):
-		return message[len(prefix) :].strip() or None
+	if message.startswith(MANDATORY_MISSING_PREFIX):
+		return message[len(MANDATORY_MISSING_PREFIX) :].strip() or None
 
 	parts = message.split(" ", 1)
 	return parts[0] if parts else None

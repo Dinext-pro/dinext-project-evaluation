@@ -1,6 +1,11 @@
 import frappe
 from frappe import _
 
+from dinext_project_evaluation.scoring.workflow import (
+	approve_scorecard_via_workflow,
+	mark_scorecard_reviewed,
+)
+from dinext_project_evaluation.scoring.workflow_constants import STATUS_CANCELED
 from dinext_project_evaluation.scoring.scorecard_factory import (
 	create_draft_scorecard,
 	ensure_scorecard_for_stage_instance,
@@ -10,9 +15,10 @@ from dinext_project_evaluation.scoring.scorecard_factory import (
 
 
 @frappe.whitelist()
-def get_applicable_criteria(project: str, profile: str):
+def get_applicable_criteria(project: str, profile: str, stage: str | None = None):
 	project_doc = frappe.get_doc("Project", project)
-	return get_applicable_criteria_for_stage(project, profile, project_doc.get("current_stage"))
+	current_stage = stage or project_doc.get("current_stage")
+	return get_applicable_criteria_for_stage(project, profile, current_stage)
 
 
 @frappe.whitelist()
@@ -34,21 +40,14 @@ def create_scorecard(project: str, profile: str | None = None):
 
 @frappe.whitelist()
 def calculate_scorecard(scorecard: str):
-	doc = frappe.get_doc("Project Scorecard", scorecard)
-	if doc.status == "Canceled":
-		frappe.throw(_("Canceled Project Scorecard cannot be calculated."))
-	doc.status = "Calculated"
-	doc.save()
+	"""Apply workflow action Mark Reviewed (replaces legacy Calculated status)."""
+	doc = mark_scorecard_reviewed(scorecard)
 	return doc.as_dict()
 
 
 @frappe.whitelist()
 def approve_scorecard(scorecard: str):
-	doc = frappe.get_doc("Project Scorecard", scorecard)
-	if doc.status == "Canceled":
-		frappe.throw(_("Canceled Project Scorecard cannot be approved."))
-	doc.status = "Approved"
-	doc.save()
+	doc = approve_scorecard_via_workflow(scorecard)
 	return doc.as_dict()
 
 
@@ -56,7 +55,7 @@ def approve_scorecard(scorecard: str):
 def get_scorecard_history(project: str, limit: int = 10):
 	return frappe.get_all(
 		"Project Scorecard",
-		filters={"project": project, "status": ["!=", "Canceled"]},
+		filters={"project": project, "status": ["!=", STATUS_CANCELED]},
 		fields=["name", "profile", "status", "evaluation_date", "integral_score", "gate_pass", "modified"],
 		order_by="modified desc",
 		limit_page_length=int(limit),

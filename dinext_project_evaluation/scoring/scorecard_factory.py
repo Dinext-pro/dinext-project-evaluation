@@ -4,6 +4,7 @@ import json
 
 import frappe
 from frappe import _
+from frappe.utils import cint
 
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
 
@@ -56,6 +57,7 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 				"influence_direction": criterion.influence_direction,
 				"weight": profile_row.weight,
 				"requirement_level": profile_row.requirement_level,
+				"requires_comment": cint(criterion.requires_comment),
 				"scale_options": [
 					{
 						"label": scale.scale_label or str(scale.score),
@@ -194,6 +196,8 @@ def sync_scorecard_items(scorecard, profile: str | None = None) -> None:
 			"criterion_name": criterion["criterion_name"],
 			"criterion_input_type": criterion["input_type"],
 			"weight": criterion["weight"],
+			"requirement_level": criterion.get("requirement_level") or "Desired",
+			"requires_comment": cint(criterion.get("requires_comment")),
 			"scale_options_json": json.dumps(criterion.get("scale_options", []), ensure_ascii=False),
 			"value_display": None,
 			"scale_value": None,

@@ -17,6 +17,8 @@ class TestScorecardFactory(unittest.TestCase):
 				"criterion_name": "Strategic Alignment",
 				"input_type": "Scale",
 				"weight": 2,
+				"requirement_level": "Mandatory",
+				"requires_comment": 1,
 				"scale_rows": [SimpleNamespace(score=0), SimpleNamespace(score=5)],
 			},
 			{
@@ -25,6 +27,8 @@ class TestScorecardFactory(unittest.TestCase):
 				"criterion_name": "Risk Probability",
 				"input_type": "Percent",
 				"weight": 1,
+				"requirement_level": "Desired",
+				"requires_comment": 0,
 				"scale_rows": [],
 			},
 		],
@@ -64,6 +68,10 @@ class TestScorecardFactory(unittest.TestCase):
 		self.assertEqual(scorecard.items[1]["percent_value"], 25)
 		self.assertEqual(scorecard.items[1]["value_display"], "25")
 		self.assertEqual(scorecard.items[1]["comment"], "Keep me")
+		self.assertEqual(scorecard.items[0]["requirement_level"], "Mandatory")
+		self.assertEqual(scorecard.items[0]["requires_comment"], 1)
+		self.assertEqual(scorecard.items[1]["requirement_level"], "Desired")
+		self.assertEqual(scorecard.items[1]["requires_comment"], 0)
 
 	@patch("dinext_project_evaluation.scoring.scorecard_factory.frappe.db.exists", return_value=True)
 	def test_project_has_non_canceled_scorecards(self, _exists):

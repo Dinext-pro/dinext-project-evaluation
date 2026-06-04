@@ -16,6 +16,243 @@ dinext_project_evaluation.project_scorecard.get_items_grid = function (frm) {
 	return field && field.grid ? field.grid : null;
 };
 
+dinext_project_evaluation.project_scorecard.load_applicable_criteria = function (frm) {
+	if (!frm.doc.project || !frm.doc.profile) {
+		frm._dpe_applicable_criteria = [];
+		return Promise.resolve([]);
+	}
+
+	return frappe
+		.call({
+			method: "dinext_project_evaluation.api.get_applicable_criteria",
+			args: {
+				project: frm.doc.project,
+				profile: frm.doc.profile,
+				stage: frm.doc.stage_at_evaluation || undefined,
+			},
+		})
+		.then((response) => {
+			frm._dpe_applicable_criteria = response.message || [];
+			dinext_project_evaluation.project_scorecard.merge_item_mandatory_metadata(frm);
+			return frm._dpe_applicable_criteria;
+		});
+};
+
+dinext_project_evaluation.project_scorecard.merge_item_mandatory_metadata = function (frm) {
+	const criteria = frm._dpe_applicable_criteria || [];
+	if (!criteria.length) {
+		return;
+	}
+
+	const criteriaByName = Object.fromEntries(
+		criteria.map((criterion) => [criterion.criterion, criterion])
+	);
+
+	(frm.doc.items || []).forEach((row) => {
+		const meta = criteriaByName[row.criterion];
+		if (!meta) {
+			return;
+		}
+		row.requirement_level = meta.requirement_level || "Desired";
+		row.requires_comment = meta.requires_comment ? 1 : 0;
+	});
+};
+
+dinext_project_evaluation.project_scorecard.ensure_mandatory_metadata = function (frm) {
+	if (!frm.doc.project || !frm.doc.profile || !(frm.doc.items || []).length) {
+		return;
+	}
+
+	if (!frm._dpe_applicable_criteria?.length) {
+		frappe.call({
+			method: "dinext_project_evaluation.api.get_applicable_criteria",
+			args: {
+				project: frm.doc.project,
+				profile: frm.doc.profile,
+				stage: frm.doc.stage_at_evaluation || undefined,
+			},
+			async: false,
+			callback(response) {
+				frm._dpe_applicable_criteria = response.message || [];
+			},
+		});
+	}
+
+	dinext_project_evaluation.project_scorecard.merge_item_mandatory_metadata(frm);
+};
+
+dinext_project_evaluation.project_scorecard.item_has_input_value = function (row) {
+	if (!row) {
+		return false;
+	}
+
+	const inputType = row.criterion_input_type;
+	if (inputType === "Scale") {
+		return !!(row.scale_value || row.raw_value);
+	}
+	if (inputType === "Boolean") {
+		return !!row.boolean_value_set;
+	}
+	if (inputType === "Number") {
+		return row.number_value !== undefined && row.number_value !== null && row.number_value !== "";
+	}
+	if (inputType === "Currency") {
+		return row.currency_value !== undefined && row.currency_value !== null && row.currency_value !== "";
+	}
+	if (inputType === "Percent") {
+		return row.percent_value !== undefined && row.percent_value !== null && row.percent_value !== "";
+	}
+
+	return !!(row.raw_value || (row.raw_numeric_value !== undefined && row.raw_numeric_value !== null && row.raw_numeric_value !== ""));
+};
+
+dinext_project_evaluation.project_scorecard.item_missing_required_comment = function (row) {
+	if (!row?.requires_comment) {
+		return false;
+	}
+	const comment = row.comment;
+	return comment == null || comment === "" || !String(comment).trim();
+};
+
+dinext_project_evaluation.project_scorecard.item_missing_mandatory_value = function (row) {
+	return (row.requirement_level || "Desired") === "Mandatory" &&
+		!dinext_project_evaluation.project_scorecard.item_has_input_value(row);
+};
+
+dinext_project_evaluation.project_scorecard.highlight_missing_required_items = function (frm) {
+	const grid = dinext_project_evaluation.project_scorecard.get_items_grid(frm);
+	if (!grid) {
+		return;
+	}
+
+	(frm.doc.items || []).forEach((row) => {
+		if (!row?.name) {
+			return;
+		}
+
+		const gridRow = grid.get_row(row.name);
+		if (!gridRow) {
+			return;
+		}
+
+		const valueMissing = dinext_project_evaluation.project_scorecard.item_missing_mandatory_value(row);
+		const commentMissing = dinext_project_evaluation.project_scorecard.item_missing_required_comment(row);
+
+		dinext_project_evaluation.project_scorecard.set_grid_reqd_if_changed(
+			gridRow,
+			"value_display",
+			valueMissing || row.requirement_level === "Mandatory"
+		);
+		dinext_project_evaluation.project_scorecard.set_grid_reqd_if_changed(
+			gridRow,
+			"comment",
+			commentMissing || !!row.requires_comment
+		);
+
+		const valueControl = gridRow.on_grid_fields_dict?.value_display;
+		if (valueControl?.set_mandatory) {
+			valueControl.set_mandatory(
+				dinext_project_evaluation.project_scorecard.get_display_value(row)
+			);
+		}
+
+		const commentControl = gridRow.on_grid_fields_dict?.comment;
+		if (commentControl?.set_mandatory) {
+			commentControl.set_mandatory(row.comment);
+		}
+	});
+};
+
+dinext_project_evaluation.project_scorecard.sync_item_display_values = function (frm) {
+	(frm.doc.items || []).forEach((row) => {
+		row.value_display = dinext_project_evaluation.project_scorecard.get_display_value(row);
+	});
+};
+
+dinext_project_evaluation.project_scorecard.set_grid_reqd_if_changed = function (gridRow, fieldname, reqd) {
+	const field = gridRow.on_grid_fields_dict?.[fieldname];
+	const reqdInt = reqd ? 1 : 0;
+	if (!field || cint(field.df.reqd) === reqdInt) {
+		return;
+	}
+	gridRow.toggle_reqd(fieldname, reqd);
+};
+
+dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags = function (frm, cdn) {
+	if (frm.doc.status === "Canceled") {
+		return;
+	}
+
+	const grid = dinext_project_evaluation.project_scorecard.get_items_grid(frm);
+	if (!grid) {
+		return;
+	}
+
+	const rows = cdn
+		? [(frm.doc.items || []).find((row) => row.name === cdn)].filter(Boolean)
+		: frm.doc.items || [];
+
+	rows.forEach((row) => {
+		if (!row?.name) {
+			return;
+		}
+
+		const gridRow = grid.get_row(row.name);
+		if (!gridRow) {
+			return;
+		}
+
+		const valueRequired = row.requirement_level === "Mandatory";
+		const commentRequired = !!row.requires_comment;
+
+		dinext_project_evaluation.project_scorecard.set_grid_reqd_if_changed(
+			gridRow,
+			"value_display",
+			valueRequired
+		);
+		dinext_project_evaluation.project_scorecard.set_grid_reqd_if_changed(
+			gridRow,
+			"comment",
+			commentRequired
+		);
+	});
+};
+
+dinext_project_evaluation.project_scorecard.prepare_mandatory_validation = function (frm) {
+	if (frm.doc.status === "Canceled") {
+		return;
+	}
+
+	dinext_project_evaluation.project_scorecard.ensure_mandatory_metadata(frm);
+	dinext_project_evaluation.project_scorecard.sync_item_display_values(frm);
+	dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(frm);
+	dinext_project_evaluation.project_scorecard.highlight_missing_required_items(frm);
+	$(frm.wrapper).addClass("validated-form");
+};
+
+(function () {
+	if (frappe.ui.form.check_mandatory.__dpe_project_scorecard_wrapped) {
+		return;
+	}
+
+	const baseCheckMandatory = frappe.ui.form.check_mandatory;
+	frappe.ui.form.check_mandatory = function (frm) {
+		if (frm?.doc?.doctype === "Project Scorecard" && frm.doc.status !== "Canceled") {
+			dinext_project_evaluation.project_scorecard.prepare_mandatory_validation(frm);
+		}
+		const isValid = baseCheckMandatory(frm);
+		if (
+			!isValid &&
+			frm?.doc?.doctype === "Project Scorecard" &&
+			frm.doc.status !== "Canceled"
+		) {
+			dinext_project_evaluation.project_scorecard.highlight_missing_required_items(frm);
+		}
+		return isValid;
+	};
+	frappe.ui.form.check_mandatory.__dpe_project_scorecard_wrapped = true;
+})();
+
 // Frappe toggle_checkboxes() only disables inputs; row-check column stays visible.
 dinext_project_evaluation.project_scorecard.hide_items_grid_checkbox_column = function (grid) {
 	if (!grid || !grid.wrapper) {
@@ -168,6 +405,12 @@ dinext_project_evaluation.project_scorecard.setup_items_grid_lock = function (fr
 	$(frm.wrapper).on("grid-row-render", (e, gridRow) => {
 		dinext_project_evaluation.project_scorecard.bind_grid_value_column(frm, gridRow);
 		dinext_project_evaluation.project_scorecard.lock_items_grid(frm);
+		if (gridRow.doc?.name) {
+			dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(
+				frm,
+				gridRow.doc.name
+			);
+		}
 	});
 };
 
@@ -451,11 +694,21 @@ frappe.ui.form.on("Project Scorecard", {
 		dinext_project_evaluation.project_scorecard.setup_items_grid_lock(frm);
 		dinext_project_evaluation.project_scorecard.lock_items_grid(frm);
 		dinext_project_evaluation.project_scorecard.hydrate_grid_rows(frm);
+		dinext_project_evaluation.project_scorecard.load_applicable_criteria(frm).then(() => {
+			dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(frm);
+		});
+	},
+	validate(frm) {
+		dinext_project_evaluation.project_scorecard.prepare_mandatory_validation(frm);
 	},
 });
 
 frappe.ui.form.on("Project Scorecard Item", {
+	comment(frm, cdt, cdn) {
+		dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(frm, cdn);
+	},
 	form_render(frm, cdt, cdn) {
 		dinext_project_evaluation.project_scorecard.render_row_editor(frm, cdt, cdn);
+		dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(frm, cdn);
 	},
 });

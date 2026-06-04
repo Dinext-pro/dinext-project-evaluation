@@ -8,7 +8,16 @@ from frappe.utils import now_datetime
 
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
 from dinext_project_evaluation.scoring.scorecard_factory import sync_scorecard_items
-from dinext_project_evaluation.scoring.scorecard_service import calculate_scorecard_document
+from dinext_project_evaluation.scoring.scorecard_service import (
+	calculate_scorecard_document,
+	scorecard_has_missing_required_items,
+)
+from dinext_project_evaluation.scoring.workflow_constants import (
+	SCORECARD_CALCULATION_STATUSES,
+	SCORECARD_LOCKED_STATUSES,
+	STATUS_CANCELED,
+	STATUS_DRAFT,
+)
 
 
 class ProjectScorecard(Document):
@@ -25,11 +34,12 @@ class ProjectScorecard(Document):
 		self._sync_items_from_profile()
 		self._prepare_item_inputs()
 		self._validate_unique_stage_instance()
-		if self.status in {"Calculated", "Approved"}:
+		self._validate_required_items()
+		if self.status in SCORECARD_CALCULATION_STATUSES:
 			self.calculate()
 
 	def on_update(self):
-		if self.status in {"Calculated", "Approved"}:
+		if self.status in SCORECARD_CALCULATION_STATUSES:
 			self._update_project_last_score()
 
 	def calculate(self):
@@ -65,11 +75,11 @@ class ProjectScorecard(Document):
 			self.stage_instance_at_evaluation = project.get("current_stage_instance")
 
 	def _prevent_locked_edits(self):
-		if self.is_new() or self.status in {"Approved", "Canceled"}:
+		if self.is_new() or self.status in SCORECARD_LOCKED_STATUSES:
 			return
 
 		previous_status = frappe.db.get_value(self.doctype, self.name, "status")
-		if previous_status in {"Approved", "Canceled"}:
+		if previous_status in SCORECARD_LOCKED_STATUSES:
 			frappe.throw(
 				_("Approved or canceled Project Scorecard cannot be edited. Create a new scorecard instead.")
 			)
@@ -106,8 +116,15 @@ class ProjectScorecard(Document):
 			if item.value_display is None:
 				item.value_display = item.get("value_display")
 
+	def _validate_required_items(self):
+		if self.status == STATUS_CANCELED or self.status == STATUS_DRAFT:
+			return
+
+		if scorecard_has_missing_required_items(self.items):
+			frappe.throw(_("Mandatory fields required in {0}").format(_("Items")))
+
 	def _validate_unique_stage_instance(self):
-		if not self.stage_instance_at_evaluation or self.status == "Canceled":
+		if not self.stage_instance_at_evaluation or self.status == STATUS_CANCELED:
 			return
 
 		existing = frappe.db.get_value(

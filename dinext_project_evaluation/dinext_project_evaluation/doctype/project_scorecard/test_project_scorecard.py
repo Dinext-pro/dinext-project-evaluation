@@ -64,3 +64,55 @@ class TestProjectScorecard(FrappeTestCase):
 		doc.onload()
 
 		sync_items.assert_called_once_with(doc, "PROFILE-001")
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.scorecard_has_missing_required_items",
+		return_value=True,
+	)
+	def test_validate_required_items_blocks_save_with_generic_message(self, _has_missing):
+		doc = SimpleNamespace(
+			status="Draft",
+			items=[frappe._dict(criterion="STR_ALIGN", requirement_level="Mandatory")],
+		)
+		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
+			doc, ProjectScorecard
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			doc._validate_required_items()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.scorecard_has_missing_required_items"
+	)
+	def test_validate_required_items_skips_canceled(self, has_missing):
+		doc = SimpleNamespace(status="Canceled", items=[])
+		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
+			doc, ProjectScorecard
+		)
+
+		doc._validate_required_items()
+
+		has_missing.assert_not_called()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.scorecard_has_missing_required_items",
+		return_value=False,
+	)
+	def test_validate_required_items_allows_save_when_complete(self, _has_missing):
+		doc = SimpleNamespace(
+			status="Draft",
+			items=[
+				frappe._dict(
+					criterion="STR_ALIGN",
+					requirement_level="Mandatory",
+					scale_value="5",
+					requires_comment=1,
+					comment="ok",
+				)
+			],
+		)
+		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
+			doc, ProjectScorecard
+		)
+
+		doc._validate_required_items()
