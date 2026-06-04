@@ -11,6 +11,12 @@ app_license = "mit"
 required_apps = ["erpnext"]
 
 from dinext_project_evaluation.seed import DEFAULT_CRITERIA, DEFAULT_GROUPS
+from dinext_project_evaluation.scoring.workflow_constants import (
+	SCORECARD_WORKFLOW_ACTIONS,
+	SCORECARD_WORKFLOW_ROLES,
+	SCORECARD_WORKFLOW_STATES,
+	WORKFLOW_NAME,
+)
 
 _SCORING_GROUP_NAMES = [group_code for group_code, _ in DEFAULT_GROUPS]
 _SCORING_CRITERION_NAMES = [code for code, *_ in DEFAULT_CRITERIA]
@@ -40,6 +46,22 @@ fixtures = [
 	{
 		"doctype": "Custom Field",
 		"filters": [["module", "=", "Dinext Project Evaluation"]],
+	},
+	{
+		"doctype": "Role",
+		"filters": [["name", "in", list(SCORECARD_WORKFLOW_ROLES)], ["disabled", "=", 0]],
+	},
+	{
+		"doctype": "Workflow",
+		"filters": [["name", "in", [WORKFLOW_NAME]]],
+	},
+	{
+		"doctype": "Workflow State",
+		"filters": [["workflow_state_name", "in", list(SCORECARD_WORKFLOW_STATES)]],
+	},
+	{
+		"doctype": "Workflow Action Master",
+		"filters": [["workflow_action_name", "in", list(SCORECARD_WORKFLOW_ACTIONS)]],
 	},
 ]
 

@@ -1,6 +1,8 @@
 import frappe
 from frappe import _
 
+from dinext_project_evaluation.scoring.workflow_constants import SCORECARD_REPORT_STATUSES
+
 
 PROJECT_LIMIT = 100
 
@@ -42,6 +44,7 @@ def get_columns():
 
 def get_data(filters):
 	conditions, values = _conditions(filters)
+	values["report_statuses"] = SCORECARD_REPORT_STATUSES
 	query = f"""
 		SELECT
 			p.name AS project,
@@ -60,7 +63,7 @@ def get_data(filters):
 				SELECT MAX(ps2.modified)
 				FROM `tabProject Scorecard` ps2
 				WHERE ps2.project = p.name
-				AND ps2.status IN ('Calculated', 'Approved')
+				AND ps2.status IN %(report_statuses)s
 			)
 		WHERE {conditions}
 		ORDER BY ps.integral_score DESC, p.modified DESC
