@@ -358,6 +358,9 @@ dinext_project_evaluation.project_scorecard.setup_grid_value_control = function 
 		if (column.static_area) {
 			column.static_area.html(frappe.utils.escape_html(text));
 		}
+		if (control.$input?.length && control.$input.get(0).tagName === "SELECT") {
+			control.$input.get(0).blur();
+		}
 	};
 	column.field = control;
 	gridRow.on_grid_fields_dict.value_display = control;
@@ -391,7 +394,10 @@ dinext_project_evaluation.project_scorecard.bind_grid_value_column = function (f
 
 	if (!column._dpe_autopen_select_bound) {
 		column._dpe_autopen_select_bound = true;
-		column.on("click", () => {
+		column.on("click", (event) => {
+			if (column.field_area?.is(":visible") && column.field_area.has(event.target).length) {
+				return;
+			}
 			setTimeout(() => {
 				dinext_project_evaluation.project_scorecard.autopen_grid_value_select(gridRow);
 			}, 0);
@@ -701,6 +707,9 @@ dinext_project_evaluation.project_scorecard.render_active_control = function (fr
 			control.get_value()
 		);
 		dinext_project_evaluation.project_scorecard.persist_row_value_fields(row, nextValues);
+		if (control.$input?.length && control.$input.get(0).tagName === "SELECT") {
+			control.$input.get(0).blur();
+		}
 		dinext_project_evaluation.project_scorecard.refresh_items_field(frm);
 	};
 };
