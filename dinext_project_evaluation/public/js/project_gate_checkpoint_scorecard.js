@@ -9,8 +9,14 @@ const SCORECARD_SUMMARY_FIELDS = [
 	"scorecard_gate_warning",
 ];
 
-const CHECKPOINT_SCORECARD_WIDGET_CLASS = "dpe-checkpoint-scorecard-widget";
+const CHECKPOINT_SCORECARD_WIDGET_MOUNT_CLASS = "dpe-checkpoint-scorecard-widget-mount";
+const CHECKPOINT_SCORECARD_SECTION_CLASS = "dpe-checkpoint-scorecard-section";
 const CHECKPOINT_SCORECARD_KPI_CONTEXT = "Project Gate Checkpoint.StageScorecard";
+
+dinext_project_evaluation.stage_gate_checkpoint.get_widget_mount = function (frm) {
+	const field = frm.get_field("stage_scorecard_widget_mount");
+	return field?.$wrapper || null;
+};
 
 dinext_project_evaluation.stage_gate_checkpoint.ensure_dashboard_styles = function () {
 	if (dinext_project_evaluation.stage_gate_checkpoint._dashboard_styles_loaded) {
@@ -217,11 +223,28 @@ dinext_project_evaluation.stage_gate_checkpoint.build_scorecard_widget_html = fu
 		</div>`;
 };
 
-dinext_project_evaluation.stage_gate_checkpoint.clear_scorecard_widget = function (frm) {
-	if (!frm.dashboard?.parent?.length) {
+dinext_project_evaluation.stage_gate_checkpoint.apply_widget_section_layout = function (frm) {
+	const $mount = dinext_project_evaluation.stage_gate_checkpoint.get_widget_mount(frm);
+	if (!$mount?.length) {
 		return;
 	}
-	frm.dashboard.parent.find(`.${CHECKPOINT_SCORECARD_WIDGET_CLASS}`).remove();
+
+	const $section = $mount.closest(
+		`.form-section[data-fieldname="section_break_stage_scorecard"]`
+	);
+	if (!$section.length) {
+		return;
+	}
+
+	$section.addClass(CHECKPOINT_SCORECARD_SECTION_CLASS);
+};
+
+dinext_project_evaluation.stage_gate_checkpoint.clear_scorecard_widget = function (frm) {
+	const $mount = dinext_project_evaluation.stage_gate_checkpoint.get_widget_mount(frm);
+	if (!$mount?.length) {
+		return;
+	}
+	$mount.removeClass(CHECKPOINT_SCORECARD_WIDGET_MOUNT_CLASS).empty();
 };
 
 dinext_project_evaluation.stage_gate_checkpoint.open_linked_scorecard = function (scorecardName) {
@@ -232,11 +255,12 @@ dinext_project_evaluation.stage_gate_checkpoint.open_linked_scorecard = function
 };
 
 dinext_project_evaluation.stage_gate_checkpoint.bind_scorecard_widget_navigation = function (frm) {
-	if (!frm.dashboard?.parent?.length) {
+	const $mount = dinext_project_evaluation.stage_gate_checkpoint.get_widget_mount(frm);
+	if (!$mount?.length) {
 		return;
 	}
 
-	const $widget = frm.dashboard.parent.find(".dpe-checkpoint-scorecard-dashboard-kpis");
+	const $widget = $mount.find(".dpe-checkpoint-scorecard-dashboard-kpis");
 	$widget.off("click.dpeCheckpointScorecard keydown.dpeCheckpointScorecard");
 	$widget.on("click.dpeCheckpointScorecard", function () {
 		const scorecardName = $(this).attr("data-scorecard");
@@ -253,9 +277,12 @@ dinext_project_evaluation.stage_gate_checkpoint.bind_scorecard_widget_navigation
 };
 
 dinext_project_evaluation.stage_gate_checkpoint.render_scorecard_widget = function (frm) {
-	if (!frm.dashboard) {
+	const $mount = dinext_project_evaluation.stage_gate_checkpoint.get_widget_mount(frm);
+	if (!$mount?.length) {
 		return;
 	}
+
+	dinext_project_evaluation.stage_gate_checkpoint.apply_widget_section_layout(frm);
 
 	const renderToken = (frm._dpe_checkpoint_scorecard_widget_token =
 		(frm._dpe_checkpoint_scorecard_widget_token || 0) + 1);
@@ -271,6 +298,11 @@ dinext_project_evaluation.stage_gate_checkpoint.render_scorecard_widget = functi
 			return;
 		}
 
+		const $currentMount = dinext_project_evaluation.stage_gate_checkpoint.get_widget_mount(frm);
+		if (!$currentMount?.length) {
+			return;
+		}
+
 		dinext_project_evaluation.stage_gate_checkpoint.clear_scorecard_widget(frm);
 
 		if (!dinext_project_evaluation.stage_gate_checkpoint.has_linked_scorecard(frm)) {
@@ -278,13 +310,10 @@ dinext_project_evaluation.stage_gate_checkpoint.render_scorecard_widget = functi
 		}
 
 		const html = dinext_project_evaluation.stage_gate_checkpoint.build_scorecard_widget_html(frm);
-		frm.dashboard.add_section(
-			html,
-			__("Stage Scorecard", null, CHECKPOINT_SCORECARD_KPI_CONTEXT),
-			`custom ${CHECKPOINT_SCORECARD_WIDGET_CLASS}`
-		);
+		$currentMount
+			.addClass(CHECKPOINT_SCORECARD_WIDGET_MOUNT_CLASS)
+			.html(html);
 		dinext_project_evaluation.stage_gate_checkpoint.bind_scorecard_widget_navigation(frm);
-		frm.dashboard.show();
 	});
 };
 

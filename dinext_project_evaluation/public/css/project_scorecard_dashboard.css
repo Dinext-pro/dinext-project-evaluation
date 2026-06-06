@@ -146,8 +146,36 @@
 	margin-top: 4px;
 }
 
-.dpe-checkpoint-scorecard-widget .section-body {
+.dpe-checkpoint-scorecard-section .section-body {
+	width: 100%;
+}
+
+.dpe-checkpoint-scorecard-section .form-column:first-child {
+	flex: 0 0 100%;
+	max-width: 100%;
+	width: 100%;
+}
+
+.dpe-checkpoint-scorecard-section .form-column:not(:first-child) {
+	display: none !important;
+}
+
+.dpe-checkpoint-scorecard-widget-mount {
 	padding: 0;
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.dpe-checkpoint-scorecard-widget-mount .control-label,
+.dpe-checkpoint-scorecard-widget-mount .like-disabled-input {
+	display: none;
+}
+
+.dpe-checkpoint-scorecard-section .dpe-checkpoint-scorecard-dashboard-kpis {
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
 }
 
 .dpe-checkpoint-scorecard-dashboard-kpis {
