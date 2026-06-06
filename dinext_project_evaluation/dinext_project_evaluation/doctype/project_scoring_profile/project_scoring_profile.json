@@ -7,11 +7,13 @@
  "engine": "InnoDB",
  "field_order": [
   "profile_name",
-  "status",
   "portfolio",
   "project_type",
   "company",
+  "column_break_uqch",
+  "status",
   "description",
+  "section_break_ogca",
   "criteria"
  ],
  "fields": [
@@ -64,12 +66,20 @@
    "label": "Criteria",
    "options": "Project Scoring Profile Criterion",
    "reqd": 1
+  },
+  {
+   "fieldname": "column_break_uqch",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_ogca",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-03 00:25:36.427405",
+ "modified": "2026-06-06 18:15:12.300545",
  "modified_by": "Administrator",
  "module": "Dinext Project Evaluation",
  "name": "Project Scoring Profile",
