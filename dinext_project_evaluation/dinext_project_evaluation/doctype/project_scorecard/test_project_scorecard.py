@@ -564,3 +564,167 @@ class TestProjectScorecard(FrappeTestCase):
 		doc.on_submit()
 
 		set_value.assert_called()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.db.set_value"
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard._load_criteria",
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_doc",
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.calculate_scorecard_document",
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.now_datetime",
+		return_value="2026-06-06 15:30:00",
+	)
+	def test_recalculate_in_place_persists_results_and_preserves_status(
+		self,
+		_now_datetime,
+		calculate_scorecard_document,
+		get_doc,
+		load_criteria,
+		set_value,
+	):
+		from dinext_project_evaluation.scoring.scorecard_service import CalculatedItem, ScorecardCalculation
+
+		profile = SimpleNamespace(name="PROFILE-001", criteria=[])
+		get_doc.return_value = profile
+		load_criteria.return_value = {
+			"STR_ALIGN": frappe._dict(criterion_name="Strategic Alignment"),
+		}
+		calculate_scorecard_document.return_value = ScorecardCalculation(
+			integral_score=0.85,
+			gate_pass=True,
+			messages=[],
+			items={
+				"STR_ALIGN": CalculatedItem(
+					criterion="STR_ALIGN",
+					criterion_code="STR_ALIGN",
+					raw_value="5",
+					raw_numeric_value=None,
+					normalized_score=0.85,
+					weighted_score=0.85,
+					weight=1,
+					gate_pass=True,
+				)
+			},
+			applicable_criteria=[],
+		)
+		doc = SimpleNamespace(
+			doctype="Project Scorecard",
+			name="PSC-001",
+			status="Reviewed",
+			docstatus=0,
+			project="PRJ-001",
+			profile="PROFILE-001",
+			items=[
+				frappe._dict(
+					doctype="Project Scorecard Item",
+					name="ITEM-001",
+					criterion="STR_ALIGN",
+					criterion_name="Strategic Alignment",
+					criterion_input_type="Scale",
+					scale_value="5",
+				)
+			],
+		)
+		doc.get = lambda fieldname, default=None: getattr(doc, fieldname, default)
+		doc.check_permission = lambda perm: None
+		doc.recalculate_in_place = ProjectScorecard.recalculate_in_place.__get__(doc, ProjectScorecard)
+		doc._prepare_item_inputs = ProjectScorecard._prepare_item_inputs.__get__(doc, ProjectScorecard)
+		doc.calculate = ProjectScorecard.calculate.__get__(doc, ProjectScorecard)
+		doc._persist_calculation_results = ProjectScorecard._persist_calculation_results.__get__(
+			doc, ProjectScorecard
+		)
+
+		doc.recalculate_in_place()
+
+		self.assertEqual(doc.status, "Reviewed")
+		self.assertEqual(doc.integral_score, 0.85)
+		self.assertEqual(doc.gate_pass, 1)
+		self.assertEqual(doc.evaluation_date, "2026-06-06 15:30:00")
+		self.assertTrue(set_value.called)
+
+	def test_recalculate_in_place_blocks_canceled(self):
+		doc = SimpleNamespace(
+			doctype="Project Scorecard",
+			name="PSC-001",
+			status="Canceled",
+			items=[],
+		)
+		doc.get = lambda fieldname, default=None: getattr(doc, fieldname, default)
+		doc.check_permission = lambda perm: None
+		doc.recalculate_in_place = ProjectScorecard.recalculate_in_place.__get__(doc, ProjectScorecard)
+
+		with self.assertRaises(frappe.ValidationError):
+			doc.recalculate_in_place()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_meta"
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.db.set_value"
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard._load_criteria",
+		return_value={},
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_doc",
+		return_value=SimpleNamespace(name="PROFILE-001", criteria=[]),
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.calculate_scorecard_document",
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.now_datetime",
+		return_value="2026-06-06 16:00:00",
+	)
+	def test_recalculate_in_place_updates_project_for_approved(
+		self,
+		_now_datetime,
+		calculate_scorecard_document,
+		_get_doc,
+		_load_criteria,
+		set_value,
+		get_meta,
+	):
+		from dinext_project_evaluation.scoring.scorecard_service import ScorecardCalculation
+
+		calculate_scorecard_document.return_value = ScorecardCalculation(
+			integral_score=4.2,
+			gate_pass=True,
+			messages=[],
+			items={},
+			applicable_criteria=[],
+		)
+		get_meta.return_value = SimpleNamespace(has_field=lambda fieldname: True)
+		doc = SimpleNamespace(
+			doctype="Project Scorecard",
+			name="PSC-001",
+			status="Approved",
+			docstatus=SCORECARD_AGREED_DOCSTATUS,
+			project="PRJ-001",
+			profile="PROFILE-001",
+			items=[],
+		)
+		doc.get = lambda fieldname, default=None: getattr(doc, fieldname, default)
+		doc.check_permission = lambda perm: None
+		doc.recalculate_in_place = ProjectScorecard.recalculate_in_place.__get__(doc, ProjectScorecard)
+		doc._prepare_item_inputs = ProjectScorecard._prepare_item_inputs.__get__(doc, ProjectScorecard)
+		doc.calculate = ProjectScorecard.calculate.__get__(doc, ProjectScorecard)
+		doc._persist_calculation_results = ProjectScorecard._persist_calculation_results.__get__(
+			doc, ProjectScorecard
+		)
+		doc._update_project_last_score = ProjectScorecard._update_project_last_score.__get__(
+			doc, ProjectScorecard
+		)
+
+		doc.recalculate_in_place()
+
+		self.assertEqual(doc.status, "Approved")
+		self.assertGreaterEqual(set_value.call_count, 2)

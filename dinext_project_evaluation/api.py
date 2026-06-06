@@ -46,6 +46,15 @@ def calculate_scorecard(scorecard: str):
 
 
 @frappe.whitelist()
+def recalculate_scorecard(scorecard: str):
+	"""Recalculate integral score and gate in place without changing workflow status."""
+	doc = frappe.get_doc("Project Scorecard", scorecard)
+	doc.recalculate_in_place()
+	doc.reload()
+	return doc.as_dict()
+
+
+@frappe.whitelist()
 def approve_scorecard(scorecard: str):
 	doc = approve_scorecard_via_workflow(scorecard)
 	return doc.as_dict()
