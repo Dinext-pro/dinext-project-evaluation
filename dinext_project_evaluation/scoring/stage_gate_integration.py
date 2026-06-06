@@ -204,6 +204,22 @@ def sync_checkpoint_scorecard_fields(checkpoint) -> None:
 	apply_checkpoint_scorecard_summary(checkpoint, summary)
 
 
+def apply_scorecard_requirement_to_checklist_completed(checkpoint) -> None:
+	"""Force checklist_completed off when an agreed scorecard is required but missing.
+
+	Call only from the ``validate`` doc_event hook, after the base controller has
+	already run ``_sync_checklist_completed()``. This function adjusts the
+	already-computed value; it does not replace standard checklist logic.
+	"""
+	if not checkpoint_requires_agreed_scorecard(checkpoint):
+		return
+	if not _checkpoint_has_summary_fields():
+		return
+	if checkpoint.get("linked_stage_scorecard"):
+		return
+	checkpoint.checklist_completed = 0
+
+
 def refresh_checkpoints_for_stage_instance(stage_instance: str | None) -> None:
 	if not stage_instance or not frappe.db.exists("DocType", "Project Gate Checkpoint"):
 		return

@@ -110,6 +110,31 @@ class TestStageGateIntegrationService(unittest.TestCase):
 		self.assertEqual(fields["scorecard_gate_warning"], "Gate failed")
 		self.assertEqual(fields["scorecard_gate_pass"], 0)
 
+	def test_apply_scorecard_requirement_overrides_post_calc_checklist_completed(self):
+		"""Simulates base _sync_checklist_completed() having set checklist_completed=1."""
+		checkpoint = frappe._dict(
+			require_agreed_stage_scorecard=1,
+			linked_stage_scorecard=None,
+			checklist_completed=1,
+		)
+		checkpoint.set = lambda fieldname, value: checkpoint.update({fieldname: value})
+		with patch.object(stage_gate_integration, "_checkpoint_has_require_field", return_value=True):
+			with patch.object(stage_gate_integration, "_checkpoint_has_summary_fields", return_value=True):
+				stage_gate_integration.apply_scorecard_requirement_to_checklist_completed(checkpoint)
+		self.assertEqual(int(checkpoint.checklist_completed or 0), 0)
+
+	def test_apply_scorecard_requirement_leaves_completed_when_scorecard_linked(self):
+		checkpoint = frappe._dict(
+			require_agreed_stage_scorecard=1,
+			linked_stage_scorecard="PSC-001",
+			checklist_completed=1,
+		)
+		checkpoint.set = lambda fieldname, value: checkpoint.update({fieldname: value})
+		with patch.object(stage_gate_integration, "_checkpoint_has_require_field", return_value=True):
+			with patch.object(stage_gate_integration, "_checkpoint_has_summary_fields", return_value=True):
+				stage_gate_integration.apply_scorecard_requirement_to_checklist_completed(checkpoint)
+		self.assertEqual(int(checkpoint.checklist_completed or 0), 1)
+
 
 @unittest.skipUnless(
 	frappe.db.exists("DocType", "Project Gate Checkpoint"),
@@ -162,6 +187,34 @@ class TestStageGateScorecardIntegration(FrappeTestCase):
 		self.assertEqual(int(checkpoint.require_agreed_stage_scorecard or 0), 0)
 		checkpoint.status = "In Review"
 		validate_project_gate_checkpoint(checkpoint)
+
+	def test_checklist_completed_false_when_scorecard_required_but_missing(self):
+		if not frappe.get_meta("Project Gate Checkpoint").has_field(
+			stage_gate_integration.CHECKPOINT_REQUIRE_FIELD
+		):
+			self.skipTest("Stage Gate scorecard custom fields are not installed")
+
+		checkpoint, _template = self._create_checkpoint_fixture(require_scorecard=True)
+		self._mark_checklist_terminal(checkpoint)
+		checkpoint.save(ignore_permissions=True)
+		checkpoint.reload()
+		self.assertFalse(checkpoint.linked_stage_scorecard)
+		self.assertEqual(int(checkpoint.checklist_completed or 0), 0)
+
+	def test_checklist_completed_true_when_scorecard_required_and_linked(self):
+		if not frappe.get_meta("Project Gate Checkpoint").has_field(
+			stage_gate_integration.CHECKPOINT_REQUIRE_FIELD
+		):
+			self.skipTest("Stage Gate scorecard custom fields are not installed")
+
+		checkpoint, _template = self._create_checkpoint_fixture(require_scorecard=True)
+		scorecard = self._insert_scorecard_for_checkpoint(checkpoint)
+		checkpoint.reload()
+		self._mark_checklist_terminal(checkpoint)
+		checkpoint.save(ignore_permissions=True)
+		checkpoint.reload()
+		self.assertEqual(checkpoint.linked_stage_scorecard, scorecard.name)
+		self.assertEqual(int(checkpoint.checklist_completed or 0), 1)
 
 	def test_template_change_after_creation_does_not_change_checkpoint_requirement(self):
 		if not frappe.get_meta("Project Gate Checkpoint").has_field(
@@ -290,6 +343,10 @@ class TestStageGateScorecardIntegration(FrappeTestCase):
 		self.assertEqual(checkpoint.scorecard_integral_score, 1.0)
 		self.assertEqual(checkpoint.scorecard_gate_pass, 0)
 		self.assertEqual(checkpoint.scorecard_gate_warning, "Gate failed")
+
+	def _mark_checklist_terminal(self, checkpoint) -> None:
+		for row in checkpoint.checklist or []:
+			row.status = "Done"
 
 	def _create_checkpoint_fixture(self, *, require_scorecard: bool):
 		company = frappe.get_all("Company", pluck="name", limit=1)[0]
