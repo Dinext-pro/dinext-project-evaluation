@@ -7,6 +7,10 @@ from frappe import _
 from frappe.utils import cint
 
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
+from dinext_project_evaluation.scoring.workflow_constants import (
+	SCORECARD_AGREED_DOCSTATUS,
+	STATUS_CANCELED,
+)
 
 PROJECT_SCORING_PROFILE_FIELD = "custom_project_scoring_profile"
 
@@ -105,8 +109,27 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 def find_scorecard_for_stage_instance(stage_instance: str, *, include_canceled: bool = False) -> str | None:
 	filters = {"stage_instance_at_evaluation": stage_instance}
 	if not include_canceled:
-		filters["status"] = ["!=", "Canceled"]
+		filters["status"] = ["!=", STATUS_CANCELED]
 	return frappe.db.get_value("Project Scorecard", filters, "name")
+
+
+def find_agreed_scorecard_for_stage_instance(stage_instance: str) -> str | None:
+	return frappe.db.get_value(
+		"Project Scorecard",
+		{
+			"stage_instance_at_evaluation": stage_instance,
+			"docstatus": SCORECARD_AGREED_DOCSTATUS,
+		},
+		"name",
+	)
+
+
+def has_agreed_scorecard_for_stage_instance(stage_instance: str) -> bool:
+	return bool(find_agreed_scorecard_for_stage_instance(stage_instance))
+
+
+def is_agreed_scorecard(docstatus) -> bool:
+	return cint(docstatus) == SCORECARD_AGREED_DOCSTATUS
 
 
 def create_draft_scorecard(
@@ -159,20 +182,9 @@ def ensure_scorecard_for_stage_instance(stage_instance_doc) -> str | None:
 
 
 def cancel_project_scorecards(project: str) -> list[str]:
-	scorecard_names = frappe.get_all(
-		"Project Scorecard",
-		filters={"project": project, "status": ["!=", "Canceled"]},
-		pluck="name",
-	)
-	canceled = []
-	for name in scorecard_names:
-		doc = frappe.get_doc("Project Scorecard", name)
-		doc.status = "Canceled"
-		doc.save(ignore_permissions=True)
-		canceled.append(name)
+	from dinext_project_evaluation.scoring.scorecard_cancel import cancel_project_scorecards as _cancel
 
-	_clear_project_last_score_fields(project)
-	return canceled
+	return _cancel(project)
 
 
 def _clear_project_last_score_fields(project: str) -> None:
@@ -189,7 +201,16 @@ def project_has_non_canceled_scorecards(project: str) -> bool:
 	return bool(
 		frappe.db.exists(
 			"Project Scorecard",
-			{"project": project, "status": ["!=", "Canceled"]},
+			{"project": project, "status": ["!=", STATUS_CANCELED]},
+		)
+	)
+
+
+def project_has_agreed_scorecards(project: str) -> bool:
+	return bool(
+		frappe.db.exists(
+			"Project Scorecard",
+			{"project": project, "docstatus": SCORECARD_AGREED_DOCSTATUS},
 		)
 	)
 

@@ -8,14 +8,18 @@ from frappe.utils import now_datetime
 
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
 from dinext_project_evaluation.scoring.scorecard_factory import ITEM_VALUE_FIELDS, sync_scorecard_items
+from dinext_project_evaluation.scoring.scorecard_cancel import (
+	create_replacement_draft_after_cancel,
+	validate_scorecard_cancel_allowed,
+)
 from dinext_project_evaluation.scoring.scorecard_service import (
 	calculate_scorecard_document,
 	scorecard_validation_error_message,
 )
 from dinext_project_evaluation.scoring.workflow_constants import (
+	SCORECARD_AGREED_DOCSTATUS,
 	SCORECARD_CALCULATION_STATUSES,
 	SCORECARD_CONTENT_EDITABLE_STATUSES,
-	SCORECARD_LOCKED_STATUSES,
 	SCORECARD_TERMINAL_STATUSES,
 	STATUS_CANCELED,
 	STATUS_DRAFT,
@@ -52,6 +56,18 @@ class ProjectScorecard(Document):
 		self._prevent_content_edits_outside_draft()
 
 	def on_update(self):
+		if cint(self.docstatus) == SCORECARD_AGREED_DOCSTATUS:
+			self._update_project_last_score()
+
+	def before_cancel(self):
+		if frappe.flags.get("skip_scorecard_cancel_validation"):
+			return
+		validate_scorecard_cancel_allowed(self)
+
+	def on_cancel(self):
+		create_replacement_draft_after_cancel(self)
+
+	def on_submit(self):
 		if self.status in SCORECARD_CALCULATION_STATUSES:
 			self._update_project_last_score()
 
@@ -167,7 +183,7 @@ class ProjectScorecard(Document):
 			{
 				"stage_instance_at_evaluation": self.stage_instance_at_evaluation,
 				"name": ["!=", self.name or ""],
-				"status": ["!=", "Canceled"],
+				"status": ["!=", STATUS_CANCELED],
 			},
 			"name",
 		)
