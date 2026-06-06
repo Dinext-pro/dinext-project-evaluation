@@ -11,7 +11,7 @@
 - **Каталог критериев скоринга** — числовые, валютные, процентные, логические и качественные (шкала) значения с направлением влияния и опциональными шкалами Likert.
 - **Профили оценки** — веса, обязательность критериев, пороги gate по обязательным критериям (нормализованный балл и/или сырое число), применимость по стадиям; в UI показываются только релевантные пороговые поля.
 - **Project Scorecard** — submittable DocType с workflow **Dinext Project Scorecard Approval** (отдельные роли согласования, не stage-gate), снимок профиля, расчёт интегрального балла и gate; проверка mandatory-критериев при уходе из Draft. **Согласованной** считается только submitted-оценка (`docstatus = 1`); поле `status` остаётся бизнес-индикатором для UI. Подробнее — раздел [Workflow согласования](#workflow-согласования-project-scorecard).
-- **UI карточки Project** — Client Script: создание scorecard, история оценок, переход к отчёту портфеля.
+- **UI карточки Project** — form script (`project_scoring_evaluation.js`): выбор профиля оценки (только при заданной Governance Model), история scorecard, переход к отчёту портфеля; сброс профиля при смене/очистке модели управления.
 - **UI Project Portfolio** — переход к отчёту скоринга и пузырьковой диаграмме для выбранного портфеля.
 - **Project Scoring Report** — фильтры по портфелю, проекту, профилю и стадии; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и SVG-диаграмма на клиенте.
 - **Seed-данные по умолчанию** — типовые критерии (стратегическое соответствие, финансовая выгода и др.) и `Default Project Scoring Profile` согласно [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
@@ -153,12 +153,38 @@ bench --site <site> export-fixtures
    - **Mandatory + шкала/да-нет** — доступен только **Minimum Normalized Score** (0…1).
    - **Mandatory + Number/Currency/Percent** — доступны normalized score и **Minimum/Maximum Raw Value**.
    - Неактуальные пороги автоматически очищаются при изменении строки и при сохранении профиля; при открытии формы выполняется только скрытие/показ полей.
-3. На форме **Project** — действия оценки (Client Script): создать scorecard для текущей стадии и профиля.
-4. Заполните строки scorecard в статусе **Draft**. При переходе в любой другой статус (кроме **Canceled**) сервер и форма проверяют, что все **Mandatory**-критерии заполнены; незаполненные ячейки подсвечиваются в колонке **Value**.
-5. Переведите scorecard по workflow: **Submit for Review** → **Mark Reviewed** (расчёт интегрального балла и gate) → **Approve** (submit, `docstatus = 1`). Утверждённые submitted scorecard обновляют денормализованные поля Project.
-6. При необходимости **Cancel** (только **Approver**, только пока stage instance **Active**) — создаётся новый Draft для той же стадии.
-7. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
-8. В отчёте используйте фильтры: портфель, проект, профиль, стадия.
+3. На форме **Project** задайте **Governance Model** (из приложения stage-gate) — поле **Project Scoring Profile** (`custom_project_scoring_profile`) доступно только при заполненной модели управления. Фильтр link query учитывает портфель, компанию и тип проекта.
+4. Заполните **Project Scoring Profile** и сохраните проект. При смене профиля или модели управления активные scorecard отменяются (см. [Сброс профиля и scorecard на Project](#сброс-профиля-и-scorecard-на-project)).
+5. Заполните строки scorecard в статусе **Draft**. При переходе в любой другой статус (кроме **Canceled**) сервер и форма проверяют, что все **Mandatory**-критерии заполнены; незаполненные ячейки подсвечиваются в колонке **Value**.
+6. Переведите scorecard по workflow: **Submit for Review** → **Mark Reviewed** (расчёт интегрального балла и gate) → **Approve** (submit, `docstatus = 1`). Утверждённые submitted scorecard обновляют денормализованные поля Project.
+7. При необходимости **Cancel** (только **Approver**, только пока stage instance **Active**) — создаётся новый Draft для той же стадии.
+8. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
+9. В отчёте используйте фильтры: портфель, проект, профиль, стадия.
+
+### Сброс профиля и scorecard на Project
+
+Профиль оценки привязан к **Governance Model**: поле `custom_project_scoring_profile` скрыто и недоступно, пока модель управления не задана (`depends_on: eval:doc.governance_model` в Custom Field).
+
+При **смене или очистке Governance Model** приложение сбрасывает профиль оценки и отменяет все неотменённые **Project Scorecard** проекта. Подтверждение использует тот же флаг, что и stage-gate reset: `confirm_governance_reset` (отдельный scoring-диалог при смене governance не показывается).
+
+| Сценарий | Подтверждение на форме | Сервер при save |
+|----------|------------------------|-----------------|
+| Смена/очистка **Governance Model** при наличии scorecard | `confirm_governance_reset = 1` (диалог stage-gate) | `cancel_project_scorecards()`, очистка `custom_project_scoring_profile` |
+| Смена/очистка **Governance Model** без scorecard | не требуется | только очистка профиля |
+| Прямая смена **Project Scoring Profile** при наличии scorecard | `confirm_scoring_profile_reset = 1` | `cancel_project_scorecards()` |
+
+**Клиент** (`public/js/project_scoring_evaluation.js`):
+
+- при смене governance model профиль очищается на форме без второго confirm;
+- при отмене смены governance (stage-gate возвращает прежнее значение) профиль восстанавливается из временного stash до сохранения.
+
+**Сервер** (`scoring/project_hooks.py`, hooks на **Project**):
+
+- `validate` — блокирует save без подтверждения, если есть активные scorecard;
+- `before_save` — отменяет scorecard и очищает профиль;
+- `after_save` — при наличии профиля и Active stage instance создаёт новый Draft scorecard (`ensure_scorecard_for_stage_instance`).
+
+Custom Fields на **Project** (fixtures): `custom_project_scoring_profile`, `confirm_scoring_profile_reset` (hidden). Поле `governance_model` и `confirm_governance_reset` определены в приложении stage-gate.
 
 ### Валидация обязательных критериев (Mandatory)
 
@@ -218,7 +244,9 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 
 | Расположение | Назначение |
 |--------------|------------|
-| `dinext_project_evaluation/hooks.py` | `required_apps`, `fixtures`, `after_install` |
+| `dinext_project_evaluation/hooks.py` | `required_apps`, `fixtures`, `after_install`, `doc_events` на Project / Project Stage Instance |
+| `dinext_project_evaluation/public/js/project_scoring_evaluation.js` | Форма Project: профиль оценки, сброс при смене governance model, история scorecard |
+| `dinext_project_evaluation/scoring/project_hooks.py` | Validate / before_save / after_save: сброс профиля, отмена scorecard, provision Draft |
 | `dinext_project_evaluation/fixtures/` | Экспорт Client Scripts, Custom Fields, критериев, профилей, Report |
 | `dinext_project_evaluation/seed.py` | Коды критериев по умолчанию, шкалы, веса профиля, пороги gate для обязательных критериев |
 | `dinext_project_evaluation/scoring/criterion_config.py` | Валидация конфигурации критериев и введённых значений scorecard |
@@ -251,7 +279,7 @@ Fixtures из `hooks.py` экспортируют:
 
 - Administrator с установленным **ERPNext** (`required_apps = ["erpnext"]`)
 - Python **>= 3.10**
-- Расширения Dinext на сайте: **Project Portfolio**, **Project Stage** и поля stage instance на Project (используются при заполнении scorecard)
+- Расширения Dinext на сайте: **Project Portfolio**, **Project Stage**, **Governance Model** / stage-gate на Project (поля stage instance, `governance_model`, `confirm_governance_reset`)
 - Для разработки: [pre-commit](https://pre-commit.com/#installation)
 
 ## 🤝 Участие в разработке
@@ -292,8 +320,8 @@ pre-commit install
 
 | Commit | Кратко |
 |--------|--------|
-| *(текущая ветка)* | Submittable Project Scorecard (`docstatus` lifecycle); Cancel только Approver + Active stage; replacement draft после Cancel; отчёт по `docstatus = 1` |
-| *(предыдущая)* | Валидация mandatory-критериев при уходе из Draft; workflow Project Scorecard; подсветка ячеек в grid |
+| *(текущая ветка)* | Сброс `custom_project_scoring_profile` и отмена scorecard при смене/очистке Governance Model; единый confirm через `confirm_governance_reset` |
+| *(предыдущая)* | Submittable Project Scorecard (`docstatus` lifecycle); Cancel только Approver + Active stage; replacement draft после Cancel; отчёт по `docstatus = 1` |
 | `089e159` | Выравнивание с Dinext: зависимость erpnext, AGENTS.md |
 | `c448318` | Инициализация каркаса приложения |
 
@@ -317,6 +345,7 @@ dinext_project_evaluation/
     │   ├── gate_fields.py             # релевантность и sanitize порогов gate
     │   ├── scorecard_service.py       # адаптер Frappe document ↔ engine
     │   ├── scorecard_factory.py       # создание/sync строк scorecard из профиля
+    │   ├── project_hooks.py           # Project hooks: сброс профиля, cancel scorecard
     │   ├── scorecard_cancel.py        # cancel, replacement draft, bulk cancel
     │   ├── scorecard_provision.py     # автосоздание Draft по stage instance
     │   ├── workflow_constants.py      # статусы, роли, docstatus/cancel constants
@@ -331,6 +360,7 @@ dinext_project_evaluation/
     │   ├── test_scorecard_factory.py
     │   └── test_scorecard_cancel.py
     ├── fixtures/                      # вывод bench export-fixtures (+ workflow)
+    ├── public/js/project_scoring_evaluation.js  # форма Project: профиль, governance reset
     ├── translations/ru.csv
     └── dinext_project_evaluation/
         ├── doctype/                   # DocTypes скоринга + Project Scorecard
@@ -343,7 +373,8 @@ dinext_project_evaluation/
 | `scoring/engine.py` | Нормализация вводов, веса, правила gate |
 | `scoring/gate_fields.py` | Какие пороги gate допустимы для строки профиля; очистка неактуальных значений |
 | `scoring/scorecard_service.py` | Преобразование строк Scorecard в входные данные engine; `missing_mandatory_criterion_codes()` |
-| `scoring/scorecard_factory.py` | Создание/sync строк scorecard; поиск agreed/non-canceled scorecard для стадии |
+| `scoring/scorecard_factory.py` | Создание/sync строк scorecard; поиск agreed/non-canceled scorecard для стадии; `cancel_project_scorecards()` |
+| `scoring/project_hooks.py` | Validate/before_save/after_save на Project: сброс профиля при смене governance model или профиля |
 | `scoring/scorecard_cancel.py` | Валидация Cancel, replacement draft, `cancel_project_scorecards()` |
 | `scoring/workflow.py` | Workflow-переходы scorecard (Submit for Review, Mark Reviewed, Approve, Cancel) |
 | `doctype/project_scorecard/` | Submittable lifecycle, `before_cancel` / `on_cancel`, расчёт при save, mandatory |
@@ -394,7 +425,9 @@ flowchart TB
   R -->|latest scorecard| SC
 ```
 
-**Поток данных (scorecard):** создаётся **Draft** (вручную, API или при Active **Project Stage Instance**) → заполнение критериев → workflow **Submit for Review** → **Mark Reviewed** (расчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии.
+**Поток данных (scorecard):** создаётся **Draft** (вручную, API, `after_save` на Project или при Active **Project Stage Instance**) → заполнение критериев → workflow **Submit for Review** → **Mark Reviewed** (расчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии.
+
+**Поток сброса на Project:** смена **Governance Model** или **Project Scoring Profile** → подтверждение на форме → `before_save` отменяет неотменённые scorecard и при смене governance очищает профиль → после save при Active stage и заданном профиле создаётся новый Draft.
 
 **Поток валидации:** при любом уходе из **Draft**, кроме **Canceled**, сервер и форма требуют заполнения mandatory-критериев (см. раздел «Валидация обязательных критериев»).
 
