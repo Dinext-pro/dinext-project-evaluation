@@ -9,6 +9,12 @@ dinext_project_evaluation.project_scoring_profile.gate_fields = [
 	"maximum_raw_value",
 ];
 
+dinext_project_evaluation.project_scoring_profile.gate_field_labels = {
+	minimum_normalized_score: __("Minimum Normalized Score"),
+	minimum_raw_value: __("Minimum Raw Value"),
+	maximum_raw_value: __("Maximum Raw Value"),
+};
+
 dinext_project_evaluation.project_scoring_profile.numeric_input_types = new Set([
 	"Number",
 	"Currency",
@@ -60,6 +66,62 @@ dinext_project_evaluation.project_scoring_profile.is_blank_gate_value = function
 	return value === undefined || value === null || value === "";
 };
 
+dinext_project_evaluation.project_scoring_profile.validate_gate_field_value = function (
+	fieldname,
+	value
+) {
+	if (dinext_project_evaluation.project_scoring_profile.is_blank_gate_value(value)) {
+		return null;
+	}
+
+	const trimmed = String(value).trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const numeric = flt(trimmed);
+	if (isNaN(numeric)) {
+		const label =
+			dinext_project_evaluation.project_scoring_profile.gate_field_labels[fieldname] ||
+			fieldname;
+		return __("{0} must be numeric.", [label]);
+	}
+
+	return null;
+};
+
+dinext_project_evaluation.project_scoring_profile.validate_row_gate_values = function (
+	row,
+	input_type
+) {
+	if (!row) {
+		return [];
+	}
+
+	const mode = dinext_project_evaluation.project_scoring_profile.get_gate_field_mode(
+		row.requirement_level,
+		input_type
+	);
+	const errors = [];
+	const criterion = row.criterion || __("row");
+
+	dinext_project_evaluation.project_scoring_profile.gate_fields.forEach((fieldname) => {
+		if (!mode[fieldname]) {
+			return;
+		}
+
+		const error = dinext_project_evaluation.project_scoring_profile.validate_gate_field_value(
+			fieldname,
+			row[fieldname]
+		);
+		if (error) {
+			errors.push(__("Criterion {0}: {1}", [criterion, error]));
+		}
+	});
+
+	return errors;
+};
+
 dinext_project_evaluation.project_scoring_profile.normalize_gate_field_value = function (
 	fieldname,
 	value
@@ -68,11 +130,25 @@ dinext_project_evaluation.project_scoring_profile.normalize_gate_field_value = f
 		return null;
 	}
 
-	if (fieldname === "maximum_raw_value" && flt(value) === 0) {
+	const trimmed = String(value).trim();
+	if (!trimmed) {
 		return null;
 	}
 
-	return value;
+	const numeric = flt(trimmed);
+	if (isNaN(numeric)) {
+		return null;
+	}
+
+	if (numeric === cint(numeric)) {
+		return String(cint(numeric));
+	}
+
+	return String(numeric);
+};
+
+dinext_project_evaluation.project_scoring_profile.clear_gate_threshold = function (row, fieldname) {
+	row[fieldname] = null;
 };
 
 dinext_project_evaluation.project_scoring_profile.normalize_row_gate_values = function (
@@ -90,7 +166,10 @@ dinext_project_evaluation.project_scoring_profile.normalize_row_gate_values = fu
 
 	dinext_project_evaluation.project_scoring_profile.gate_fields.forEach((fieldname) => {
 		if (!mode[fieldname]) {
-			row[fieldname] = null;
+			dinext_project_evaluation.project_scoring_profile.clear_gate_threshold(
+				row,
+				fieldname
+			);
 			return;
 		}
 
@@ -226,6 +305,55 @@ dinext_project_evaluation.project_scoring_profile.refresh_all_criteria_rows = fu
 		});
 };
 
+dinext_project_evaluation.project_scoring_profile.validate_all_criteria_gate_values = function (frm) {
+	const criteria = frm.doc.criteria || [];
+	if (!criteria.length) {
+		return Promise.resolve();
+	}
+
+	const criterion_codes = [
+		...new Set(criteria.map((row) => row.criterion).filter(Boolean)),
+	];
+
+	if (!criterion_codes.length) {
+		const errors = criteria.flatMap((row) =>
+			dinext_project_evaluation.project_scoring_profile.validate_row_gate_values(row, null)
+		);
+		if (errors.length) {
+			frappe.throw({
+				title: __("Invalid gate thresholds"),
+				message: errors.join("<br>"),
+			});
+		}
+		return Promise.resolve();
+	}
+
+	return frappe.db
+		.get_list("Project Scoring Criterion", {
+			fields: ["name", "input_type"],
+			filters: { name: ["in", criterion_codes] },
+			limit: criterion_codes.length,
+		})
+		.then((records) => {
+			const input_type_by_criterion = Object.fromEntries(
+				records.map((record) => [record.name, record.input_type])
+			);
+			const errors = criteria.flatMap((row) =>
+				dinext_project_evaluation.project_scoring_profile.validate_row_gate_values(
+					row,
+					input_type_by_criterion[row.criterion] || null
+				)
+			);
+
+			if (errors.length) {
+				frappe.throw({
+					title: __("Invalid gate thresholds"),
+					message: errors.join("<br>"),
+				});
+			}
+		});
+};
+
 dinext_project_evaluation.project_scoring_profile.normalize_all_criteria_gate_values = function (frm) {
 	const criteria = frm.doc.criteria || [];
 	if (!criteria.length) {
@@ -268,9 +396,13 @@ frappe.ui.form.on("Project Scoring Profile", {
 		dinext_project_evaluation.project_scoring_profile.refresh_all_criteria_rows(frm, false);
 	},
 	validate(frm) {
-		return dinext_project_evaluation.project_scoring_profile.normalize_all_criteria_gate_values(
-			frm
-		);
+		return dinext_project_evaluation.project_scoring_profile
+			.validate_all_criteria_gate_values(frm)
+			.then(() =>
+				dinext_project_evaluation.project_scoring_profile.normalize_all_criteria_gate_values(
+					frm
+				)
+			);
 	},
 	criteria_add(frm, cdt, cdn) {
 		dinext_project_evaluation.project_scoring_profile.apply_gate_fields(
