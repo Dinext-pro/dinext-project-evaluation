@@ -10,7 +10,7 @@ from dinext_project_evaluation.scoring.profile_stages import get_applicable_stag
 from dinext_project_evaluation.scoring.scorecard_factory import ITEM_VALUE_FIELDS, sync_scorecard_items
 from dinext_project_evaluation.scoring.scorecard_service import (
 	calculate_scorecard_document,
-	scorecard_has_missing_required_items,
+	scorecard_validation_error_message,
 )
 from dinext_project_evaluation.scoring.workflow_constants import (
 	SCORECARD_CALCULATION_STATUSES,
@@ -125,7 +125,12 @@ class ProjectScorecard(Document):
 			item.raw_numeric_value = None
 			item.value_display = None
 
-			if input_type == "Scale":
+			if input_type == "Scale" and item.get("criterion_scale_type") == "Interval":
+				item.raw_numeric_value = (
+					item.get("number_value") if item.get("number_value") not in ("", None) else None
+				)
+				item.value_display = _string_value(item.raw_numeric_value)
+			elif input_type == "Scale":
 				item.raw_value = item.get("scale_value") or None
 				item.value_display = _scale_value_label(item)
 			elif input_type == "Boolean":
@@ -149,8 +154,14 @@ class ProjectScorecard(Document):
 		if self.status == STATUS_CANCELED or self.status == STATUS_DRAFT:
 			return
 
-		if scorecard_has_missing_required_items(self.items):
-			frappe.throw(_("Mandatory fields required in {0}").format(_("Items")))
+		if not self.profile:
+			return
+
+		profile = frappe.get_doc("Project Scoring Profile", self.profile)
+		criteria_by_name = _load_criteria(profile)
+		message = scorecard_validation_error_message(self.items, criteria_by_name)
+		if message:
+			frappe.throw(message)
 
 	def _validate_unique_stage_instance(self):
 		if not self.stage_instance_at_evaluation or self.status == STATUS_CANCELED:

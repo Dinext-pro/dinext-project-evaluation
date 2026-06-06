@@ -1,13 +1,16 @@
 from types import SimpleNamespace
 import unittest
 
-from dinext_project_evaluation.scoring.scorecard_service import (
-	calculate_scorecard_document,
+from dinext_project_evaluation.scoring.criterion_config import (
 	item_has_input_value,
 	item_missing_mandatory_value,
 	item_missing_required_comment,
-	missing_mandatory_criterion_codes,
 	scorecard_has_missing_required_items,
+)
+from dinext_project_evaluation.scoring.scorecard_service import (
+	calculate_scorecard_document,
+	missing_mandatory_criterion_codes,
+	normalize_item,
 )
 
 
@@ -188,6 +191,19 @@ class TestScorecardService(unittest.TestCase):
 			row(requires_comment=1, comment="filled"),
 		]
 		self.assertTrue(scorecard_has_missing_required_items(items))
+
+	def test_normalize_interval_scale_uses_numeric_range(self):
+		crit = row(
+			input_type="Scale",
+			scale_type="Interval",
+			influence_direction="higher_is_better",
+			min_value=0,
+			max_value=100,
+			scale_rows=[],
+		)
+		item = row(raw_value=None, raw_numeric_value=50)
+
+		self.assertAlmostEqual(normalize_item(crit, item), 0.5)
 
 
 if __name__ == "__main__":
