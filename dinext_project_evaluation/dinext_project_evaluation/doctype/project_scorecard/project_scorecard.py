@@ -7,17 +7,29 @@ from frappe.utils import cint
 from frappe.utils import now_datetime
 
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
-from dinext_project_evaluation.scoring.scorecard_factory import sync_scorecard_items
+from dinext_project_evaluation.scoring.scorecard_factory import ITEM_VALUE_FIELDS, sync_scorecard_items
 from dinext_project_evaluation.scoring.scorecard_service import (
 	calculate_scorecard_document,
 	scorecard_has_missing_required_items,
 )
 from dinext_project_evaluation.scoring.workflow_constants import (
 	SCORECARD_CALCULATION_STATUSES,
+	SCORECARD_CONTENT_EDITABLE_STATUSES,
 	SCORECARD_LOCKED_STATUSES,
+	SCORECARD_TERMINAL_STATUSES,
 	STATUS_CANCELED,
 	STATUS_DRAFT,
 )
+
+PARENT_IMMUTABLE_OUTSIDE_DRAFT = (
+	"project",
+	"profile",
+	"portfolio",
+	"stage_at_evaluation",
+	"stage_instance_at_evaluation",
+)
+
+ITEM_STRUCTURE_FIELDS = ("criterion",)
 
 
 class ProjectScorecard(Document):
@@ -37,6 +49,7 @@ class ProjectScorecard(Document):
 		self._validate_required_items()
 		if self.status in SCORECARD_CALCULATION_STATUSES:
 			self.calculate()
+		self._prevent_content_edits_outside_draft()
 
 	def on_update(self):
 		if self.status in SCORECARD_CALCULATION_STATUSES:
@@ -75,17 +88,33 @@ class ProjectScorecard(Document):
 			self.stage_instance_at_evaluation = project.get("current_stage_instance")
 
 	def _prevent_locked_edits(self):
-		if self.is_new() or self.status in SCORECARD_LOCKED_STATUSES:
+		if self.is_new():
 			return
 
-		previous_status = frappe.db.get_value(self.doctype, self.name, "status")
-		if previous_status in SCORECARD_LOCKED_STATUSES:
+		previous = self.get_doc_before_save()
+		previous_status = previous.status if previous else frappe.db.get_value(self.doctype, self.name, "status")
+		if previous_status in SCORECARD_TERMINAL_STATUSES and self.status not in SCORECARD_TERMINAL_STATUSES:
 			frappe.throw(
 				_("Approved or canceled Project Scorecard cannot be edited. Create a new scorecard instead.")
 			)
 
+	def _prevent_content_edits_outside_draft(self):
+		if self.is_new() or self.status in SCORECARD_CONTENT_EDITABLE_STATUSES:
+			return
+
+		previous = self.get_doc_before_save()
+		if not previous:
+			return
+
+		if previous.status in SCORECARD_CONTENT_EDITABLE_STATUSES:
+			return
+
+		_assert_no_immutable_content_changes(previous, self)
+
 	def _sync_items_from_profile(self):
 		if not self.project or not self.profile:
+			return
+		if self.status not in SCORECARD_CONTENT_EDITABLE_STATUSES:
 			return
 		sync_scorecard_items(self, self.profile)
 
@@ -195,3 +224,76 @@ def _string_value(value):
 	if value in (None, ""):
 		return None
 	return str(value)
+
+
+def _assert_no_immutable_content_changes(previous, current):
+	for fieldname in PARENT_IMMUTABLE_OUTSIDE_DRAFT:
+		if _field_value_changed(_doc_value(previous, fieldname), _doc_value(current, fieldname)):
+			_raise_content_locked()
+
+	_previous_items = _items_by_criterion(getattr(previous, "items", None))
+	_current_items = _items_by_criterion(getattr(current, "items", None))
+
+	if set(_previous_items) != set(_current_items):
+		_raise_content_locked()
+
+	for criterion, previous_row in _previous_items.items():
+		current_row = _current_items.get(criterion)
+		if not current_row:
+			_raise_content_locked()
+
+		for fieldname in ITEM_STRUCTURE_FIELDS:
+			if _field_value_changed(_doc_value(previous_row, fieldname), _doc_value(current_row, fieldname)):
+				_raise_content_locked()
+
+		for fieldname in ITEM_VALUE_FIELDS:
+			if _field_value_changed(_doc_value(previous_row, fieldname), _doc_value(current_row, fieldname)):
+				_raise_content_locked()
+
+
+def _doc_value(doc, fieldname):
+	if doc is None:
+		return None
+	if hasattr(doc, "get"):
+		return doc.get(fieldname)
+	return getattr(doc, fieldname, None)
+
+
+def _items_by_criterion(items):
+	rows = {}
+	for item in _iter_child_rows(items):
+		criterion = item.get("criterion") if hasattr(item, "get") else getattr(item, "criterion", None)
+		if criterion:
+			rows[criterion] = item
+	return rows
+
+
+def _iter_child_rows(items):
+	if items is None:
+		return []
+	if callable(items):
+		return list(items() or [])
+	return list(items)
+
+
+def _field_value_changed(previous_value, current_value):
+	return _normalize_field_value(previous_value) != _normalize_field_value(current_value)
+
+
+def _normalize_field_value(value):
+	if value in (None, ""):
+		return None
+	if isinstance(value, float):
+		return float(value)
+	if isinstance(value, int):
+		return int(value)
+	if isinstance(value, str):
+		stripped = value.strip()
+		return stripped or None
+	return value
+
+
+def _raise_content_locked():
+	frappe.throw(
+		_("Project Scorecard can only be edited in Draft. Change status to Draft or create a new scorecard.")
+	)
