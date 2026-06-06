@@ -14,7 +14,10 @@ from dinext_project_evaluation.dinext_project_evaluation.doctype.project_scoreca
 	_format_gate_messages_for_display,
 	build_scorecard_title,
 )
-from dinext_project_evaluation.scoring.workflow_constants import SCORECARD_AGREED_DOCSTATUS
+from dinext_project_evaluation.scoring.workflow_constants import (
+	SCORECARD_AGREED_DOCSTATUS,
+	SCORECARD_CANCELED_DOCSTATUS,
+)
 
 
 class TestProjectScorecard(FrappeTestCase):
@@ -299,7 +302,15 @@ class TestProjectScorecard(FrappeTestCase):
 		doc._validate_required_items()
 
 	def test_validate_required_items_skips_canceled(self):
-		doc = SimpleNamespace(status="Canceled", profile="PROFILE-001", items=[])
+		doc = SimpleNamespace(status="Canceled", docstatus=SCORECARD_CANCELED_DOCSTATUS, profile="PROFILE-001", items=[])
+		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
+			doc, ProjectScorecard
+		)
+
+		doc._validate_required_items()
+
+	def test_validate_required_items_skips_renamed_canceled_status(self):
+		doc = SimpleNamespace(status="Отменено", docstatus=SCORECARD_CANCELED_DOCSTATUS, profile="PROFILE-001", items=[])
 		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
 			doc, ProjectScorecard
 		)
@@ -456,7 +467,7 @@ class TestProjectScorecard(FrappeTestCase):
 
 	@patch(
 		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.db.get_value",
-		return_value="Approved",
+		return_value=SCORECARD_AGREED_DOCSTATUS,
 	)
 	def test_prevent_locked_edits_blocks_terminal_status_rollback(self, _get_value):
 		doc = SimpleNamespace(
@@ -464,12 +475,46 @@ class TestProjectScorecard(FrappeTestCase):
 			doctype="Project Scorecard",
 			name="PSC-001",
 			status="Draft",
+			docstatus=0,
 			get_doc_before_save=lambda: None,
 		)
 		doc._prevent_locked_edits = ProjectScorecard._prevent_locked_edits.__get__(doc, ProjectScorecard)
 
 		with self.assertRaises(frappe.ValidationError):
 			doc._prevent_locked_edits()
+
+	def test_prevent_locked_edits_blocks_renamed_agreed_status_rollback(self):
+		doc = SimpleNamespace(
+			is_new=lambda: False,
+			doctype="Project Scorecard",
+			name="PSC-001",
+			status="Draft",
+			docstatus=0,
+			get_doc_before_save=lambda: SimpleNamespace(status="Согласовано", docstatus=SCORECARD_AGREED_DOCSTATUS),
+		)
+		doc._prevent_locked_edits = ProjectScorecard._prevent_locked_edits.__get__(doc, ProjectScorecard)
+
+		with self.assertRaises(frappe.ValidationError):
+			doc._prevent_locked_edits()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.db.get_value",
+		return_value=None,
+	)
+	def test_validate_unique_stage_instance_ignores_renamed_canceled_scorecard(self, get_value):
+		doc = SimpleNamespace(
+			stage_instance_at_evaluation="STAGE-001",
+			name="PSC-NEW",
+			status="Отменено",
+			docstatus=SCORECARD_CANCELED_DOCSTATUS,
+		)
+		doc._validate_unique_stage_instance = ProjectScorecard._validate_unique_stage_instance.__get__(
+			doc, ProjectScorecard
+		)
+
+		doc._validate_unique_stage_instance()
+
+		get_value.assert_not_called()
 
 	@patch(
 		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.sync_scorecard_items"
@@ -725,6 +770,7 @@ class TestProjectScorecard(FrappeTestCase):
 			doctype="Project Scorecard",
 			name="PSC-001",
 			status="Canceled",
+			docstatus=2,
 			items=[],
 		)
 		doc.get = lambda fieldname, default=None: getattr(doc, fieldname, default)
@@ -734,68 +780,17 @@ class TestProjectScorecard(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			doc.recalculate_in_place()
 
-	@patch(
-		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_meta"
-	)
-	@patch(
-		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.db.set_value"
-	)
-	@patch(
-		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard._load_criteria",
-		return_value={},
-	)
-	@patch(
-		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_doc",
-		return_value=SimpleNamespace(name="PROFILE-001", criteria=[]),
-	)
-	@patch(
-		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.calculate_scorecard_document",
-	)
-	@patch(
-		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.now_datetime",
-		return_value="2026-06-06 16:00:00",
-	)
-	def test_recalculate_in_place_updates_project_for_approved(
-		self,
-		_now_datetime,
-		calculate_scorecard_document,
-		_get_doc,
-		_load_criteria,
-		set_value,
-		get_meta,
-	):
-		from dinext_project_evaluation.scoring.scorecard_service import ScorecardCalculation
-
-		calculate_scorecard_document.return_value = ScorecardCalculation(
-			integral_score=4.2,
-			gate_pass=True,
-			messages=[],
-			items={},
-			applicable_criteria=[],
-		)
-		get_meta.return_value = SimpleNamespace(has_field=lambda fieldname: True)
+	def test_recalculate_in_place_blocks_submitted_docstatus(self):
 		doc = SimpleNamespace(
 			doctype="Project Scorecard",
 			name="PSC-001",
 			status="Approved",
 			docstatus=SCORECARD_AGREED_DOCSTATUS,
-			project="PRJ-001",
-			profile="PROFILE-001",
 			items=[],
 		)
 		doc.get = lambda fieldname, default=None: getattr(doc, fieldname, default)
 		doc.check_permission = lambda perm: None
 		doc.recalculate_in_place = ProjectScorecard.recalculate_in_place.__get__(doc, ProjectScorecard)
-		doc._prepare_item_inputs = ProjectScorecard._prepare_item_inputs.__get__(doc, ProjectScorecard)
-		doc.calculate = ProjectScorecard.calculate.__get__(doc, ProjectScorecard)
-		doc._persist_calculation_results = ProjectScorecard._persist_calculation_results.__get__(
-			doc, ProjectScorecard
-		)
-		doc._update_project_last_score = ProjectScorecard._update_project_last_score.__get__(
-			doc, ProjectScorecard
-		)
 
-		doc.recalculate_in_place()
-
-		self.assertEqual(doc.status, "Approved")
-		self.assertGreaterEqual(set_value.call_count, 2)
+		with self.assertRaises(frappe.ValidationError):
+			doc.recalculate_in_place()

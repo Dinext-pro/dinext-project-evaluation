@@ -402,7 +402,7 @@ dinext_project_evaluation.project_scorecard.set_grid_reqd_if_changed = function 
 };
 
 dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags = function (frm, cdn) {
-	if (frm.doc.status === "Canceled") {
+	if (dinext_project_evaluation.project_scorecard.is_canceled(frm.doc)) {
 		return;
 	}
 
@@ -444,7 +444,7 @@ dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags = functio
 };
 
 dinext_project_evaluation.project_scorecard.prepare_mandatory_validation = function (frm) {
-	if (frm.doc.status === "Canceled") {
+	if (dinext_project_evaluation.project_scorecard.is_canceled(frm.doc)) {
 		return;
 	}
 
@@ -462,14 +462,17 @@ dinext_project_evaluation.project_scorecard.prepare_mandatory_validation = funct
 
 	const baseCheckMandatory = frappe.ui.form.check_mandatory;
 	frappe.ui.form.check_mandatory = function (frm) {
-		if (frm?.doc?.doctype === "Project Scorecard" && frm.doc.status !== "Canceled") {
+		if (
+			frm?.doc?.doctype === "Project Scorecard" &&
+			!dinext_project_evaluation.project_scorecard.is_canceled(frm.doc)
+		) {
 			dinext_project_evaluation.project_scorecard.prepare_mandatory_validation(frm);
 		}
 		const isValid = baseCheckMandatory(frm);
 		if (
 			!isValid &&
 			frm?.doc?.doctype === "Project Scorecard" &&
-			frm.doc.status !== "Canceled"
+			!dinext_project_evaluation.project_scorecard.is_canceled(frm.doc)
 		) {
 			dinext_project_evaluation.project_scorecard.highlight_missing_required_items(frm);
 		}
@@ -1163,8 +1166,18 @@ dinext_project_evaluation.project_scorecard.format_last_recalculated = function 
 	return frappe.datetime.str_to_user(doc.evaluation_date);
 };
 
+dinext_project_evaluation.project_scorecard.NON_RECALCULABLE_DOCSTATUSES = [1, 2];
+
+dinext_project_evaluation.project_scorecard.is_canceled = function (doc) {
+	return cint(doc?.docstatus) === 2;
+};
+
 dinext_project_evaluation.project_scorecard.can_recalculate = function (frm) {
-	return !frm.is_new() && frm.doc.status !== "Canceled";
+	const docstatus = cint(frm.doc.docstatus);
+	return (
+		!frm.is_new() &&
+		!dinext_project_evaluation.project_scorecard.NON_RECALCULABLE_DOCSTATUSES.includes(docstatus)
+	);
 };
 
 dinext_project_evaluation.project_scorecard.trigger_manual_recalculate = function (frm) {

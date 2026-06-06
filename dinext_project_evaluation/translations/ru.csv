@@ -21,5 +21,5 @@
 "Last Recalculated","Последний пересчёт","Project Scorecard.KPI"
 "Recalculate Score","Пересчитать балл","Project Scorecard.KPI"
 "Score recalculated successfully","Балл успешно пересчитан","Project Scorecard.KPI"
-"Canceled Project Scorecard cannot be recalculated.","Отменённую карточку оценки нельзя пересчитать.",""
+"Submitted or canceled Project Scorecard cannot be recalculated.","Пересчёт недоступен для отправленной или отменённой карточки оценки.",""
 "Canceled","Отменено",""

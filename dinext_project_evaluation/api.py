@@ -5,7 +5,7 @@ from dinext_project_evaluation.scoring.workflow import (
 	approve_scorecard_via_workflow,
 	mark_scorecard_reviewed,
 )
-from dinext_project_evaluation.scoring.workflow_constants import STATUS_CANCELED
+from dinext_project_evaluation.scoring.workflow_constants import SCORECARD_CANCELED_DOCSTATUS
 from dinext_project_evaluation.scoring.scorecard_factory import (
 	create_draft_scorecard,
 	ensure_scorecard_for_stage_instance,
@@ -64,7 +64,7 @@ def approve_scorecard(scorecard: str):
 def get_scorecard_history(project: str, limit: int = 10):
 	return frappe.get_all(
 		"Project Scorecard",
-		filters={"project": project, "status": ["!=", STATUS_CANCELED]},
+		filters={"project": project, "docstatus": ["!=", SCORECARD_CANCELED_DOCSTATUS]},
 		fields=["name", "profile", "status", "evaluation_date", "integral_score", "gate_pass", "modified"],
 		order_by="modified desc",
 		limit_page_length=int(limit),

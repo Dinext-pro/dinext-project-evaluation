@@ -62,7 +62,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Value",
-   "mandatory_depends_on": "eval:(doc.requirement_level=='Mandatory' && ![\"Draft\",\"Canceled\"].includes( parent.status )) ",
+   "mandatory_depends_on": "eval:(doc.requirement_level=='Mandatory' && parent.status != 'Draft' && parent.docstatus != 2) ",
    "read_only": 1
   },
   {

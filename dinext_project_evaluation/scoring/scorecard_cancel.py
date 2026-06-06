@@ -12,7 +12,10 @@ from dinext_project_evaluation.scoring.scorecard_factory import (
 from dinext_project_evaluation.scoring.workflow_constants import (
 	ACTION_CANCEL,
 	SCORECARD_CANCEL_ROLES,
+	SCORECARD_CANCELED_DOCSTATUS,
 	STATUS_CANCELED,
+	get_workflow_state_for_docstatus,
+	is_canceled_scorecard,
 )
 
 
@@ -61,7 +64,7 @@ def create_replacement_draft_after_cancel(canceled_doc) -> str | None:
 
 
 def cancel_scorecard_document(doc, *, skip_permission_checks: bool = False) -> frappe.Document:
-	if doc.status == STATUS_CANCELED and cint(doc.docstatus) == 2:
+	if is_canceled_scorecard(doc):
 		return doc
 
 	if skip_permission_checks:
@@ -81,18 +84,19 @@ def cancel_scorecard_document(doc, *, skip_permission_checks: bool = False) -> f
 			doc.reload()
 			return doc
 
-		doc.status = STATUS_CANCELED
+		canceled_status = get_workflow_state_for_docstatus(SCORECARD_CANCELED_DOCSTATUS) or STATUS_CANCELED
+		doc.status = canceled_status
 		if cint(doc.docstatus) == 1:
 			doc.cancel()
 		elif cint(doc.docstatus) == 0:
 			frappe.db.set_value(
 				doc.doctype,
 				doc.name,
-				{"status": STATUS_CANCELED, "docstatus": 2},
+				{"status": canceled_status, "docstatus": SCORECARD_CANCELED_DOCSTATUS},
 				update_modified=True,
 			)
-			doc.status = STATUS_CANCELED
-			doc.docstatus = 2
+			doc.status = canceled_status
+			doc.docstatus = SCORECARD_CANCELED_DOCSTATUS
 			create_replacement_draft_after_cancel(doc)
 		doc.reload()
 		return doc
@@ -104,7 +108,7 @@ def cancel_scorecard_document(doc, *, skip_permission_checks: bool = False) -> f
 def cancel_project_scorecards(project: str) -> list[str]:
 	scorecard_names = frappe.get_all(
 		"Project Scorecard",
-		filters={"project": project, "status": ["!=", STATUS_CANCELED]},
+		filters={"project": project, "docstatus": ["!=", SCORECARD_CANCELED_DOCSTATUS]},
 		pluck="name",
 	)
 	canceled = []
