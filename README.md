@@ -10,7 +10,8 @@
 
 - **Каталог критериев скоринга** — числовые, валютные, процентные, логические и качественные (шкала) значения с направлением влияния и опциональными шкалами Likert.
 - **Профили оценки** — веса, обязательность критериев, пороги gate по обязательным критериям (нормализованный балл и/или сырое число), применимость по стадиям; в UI показываются только релевантные пороговые поля.
-- **Project Scorecard** — submittable DocType с workflow **Dinext Project Scorecard Approval** (отдельные роли согласования, не stage-gate), снимок профиля, расчёт интегрального балла и gate; проверка mandatory-критериев при уходе из Draft. **Согласованной** считается только submitted-оценка (`docstatus = 1`); поле `status` остаётся бизнес-индикатором для UI. Подробнее — раздел [Workflow согласования](#workflow-согласования-project-scorecard).
+- **Project Scorecard** — submittable DocType с workflow **Dinext Project Scorecard Approval** (отдельные роли согласования, не stage-gate), снимок профиля, расчёт интегрального балла и gate; проверка mandatory-критериев при уходе из Draft. **Dashboard KPI** на форме scorecard: компактные блоки **Integral Score** и **Gate Pass** в `frm.dashboard` после расчёта (секция «Evaluation Summary»). **Согласованной** считается только submitted-оценка (`docstatus = 1`); поле `status` остаётся бизнес-индикатором для UI. Подробнее — раздел [Workflow согласования](#workflow-согласования-project-scorecard) и [Dashboard KPI на форме Project Scorecard](#dashboard-kpi-на-форме-project-scorecard).
+- **Автосоздание Draft scorecard** — при назначении профиля оценки проекту с активной стадией или при переходе **Project Stage Instance** в статус **Active** (если на проекте уже задан профиль); идемпотентно, без дубликатов на одну stage instance.
 - **UI карточки Project** — form script (`project_scoring_evaluation.js`): выбор профиля оценки (только при заданной Governance Model), история scorecard, переход к отчёту портфеля; сброс профиля при смене/очистке модели управления.
 - **UI Project Portfolio** — переход к отчёту скоринга и пузырьковой диаграмме для выбранного портфеля.
 - **Project Scoring Report** — фильтры по портфелю, проекту, профилю и стадии; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и SVG-диаграмма на клиенте.
@@ -154,9 +155,9 @@ bench --site <site> export-fixtures
    - **Mandatory + Number/Currency/Percent** — доступны normalized score и **Minimum/Maximum Raw Value**.
    - Неактуальные пороги автоматически очищаются при изменении строки и при сохранении профиля; при открытии формы выполняется только скрытие/показ полей.
 3. На форме **Project** задайте **Governance Model** (из приложения stage-gate) — поле **Project Scoring Profile** (`custom_project_scoring_profile`) доступно только при заполненной модели управления. Фильтр link query учитывает портфель, компанию и тип проекта.
-4. Заполните **Project Scoring Profile** и сохраните проект. При смене профиля или модели управления активные scorecard отменяются (см. [Сброс профиля и scorecard на Project](#сброс-профиля-и-scorecard-на-project)).
-5. Заполните строки scorecard в статусе **Draft**. При переходе в любой другой статус (кроме **Canceled**) сервер и форма проверяют, что все **Mandatory**-критерии заполнены; незаполненные ячейки подсвечиваются в колонке **Value**.
-6. Переведите scorecard по workflow: **Submit for Review** → **Mark Reviewed** (расчёт интегрального балла и gate) → **Approve** (submit, `docstatus = 1`). Утверждённые submitted scorecard обновляют денормализованные поля Project.
+4. Заполните **Project Scoring Profile** и сохраните проект. При **первом** назначении профиля на проект с уже активной стадией автоматически создаётся **Draft** scorecard для текущей **Project Stage Instance** (см. [Автоматическое создание Project Scorecard](#автоматическое-создание-project-scorecard)). При смене профиля или модели управления активные scorecard отменяются (см. [Сброс профиля и scorecard на Project](#сброс-профиля-и-scorecard-на-project)).
+5. Заполните строки scorecard в статусе **Draft** (или откройте автоматически созданный черновик через **Open Scorecards**). При переходе в любой другой статус (кроме **Canceled**) сервер и форма проверяют, что все **Mandatory**-критерии заполнены; незаполненные ячейки подсвечиваются в колонке **Value**.
+6. Переведите scorecard по workflow: **Submit for Review** → **Mark Reviewed** (расчёт интегрального балла и gate) → **Approve** (submit, `docstatus = 1`). После расчёта на форме scorecard в dashboard появляется секция **Evaluation Summary** с KPI **Integral Score** и **Gate Pass** (см. [Dashboard KPI](#dashboard-kpi-на-форме-project-scorecard)). Утверждённые submitted scorecard обновляют денормализованные поля Project.
 7. При необходимости **Cancel** (только **Approver**, только пока stage instance **Active**) — создаётся новый Draft для той же стадии.
 8. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
 9. В отчёте используйте фильтры: портфель, проект, профиль, стадия.
@@ -184,7 +185,30 @@ bench --site <site> export-fixtures
 - `before_save` — отменяет scorecard и очищает профиль;
 - `on_update` — при наличии профиля и Active stage instance создаёт новый Draft scorecard (`ensure_scorecard_for_stage_instance`).
 
+> **Frappe 15:** серверный хук провижининга зарегистрирован на **`on_update`**, а не на `after_save`. Событие `after_save` в `doc_events` на сервере не вызывается при `doc.save()`; клиентский `after_save` в form script — отдельный механизм UI.
+
 Custom Fields на **Project** (fixtures): `custom_project_scoring_profile`, `confirm_scoring_profile_reset` (hidden). Поле `governance_model` и `confirm_governance_reset` определены в приложении stage-gate.
+
+### Автоматическое создание Project Scorecard
+
+Draft scorecard создаётся сервером через `ensure_scorecard_for_stage_instance()` (`scoring/scorecard_factory.py`) — без ручного вызова API, если выполнены условия ниже.
+
+| Триггер | Файл / событие | Когда срабатывает |
+|---------|----------------|-------------------|
+| Назначение или сохранение профиля на **Project** | `project_hooks.py` → `on_update` | На проекте задан `custom_project_scoring_profile`, текущая **Project Stage Instance** в статусе **Active** |
+| Активация стадии | `scorecard_provision.py` → `on_update` на **Project Stage Instance** | Статус instance **перешёл** в **Active** (не повторно при save уже Active стадии) |
+| Ручной / интеграционный вызов | `api.create_scorecard` | По запросу клиента или внешней системы |
+
+**Условия провижининга:**
+
+1. На **Project** задан **Project Scoring Profile** (`custom_project_scoring_profile`).
+2. У проекта есть **current_stage_instance** (поле stage-gate); если в in-memory документе поле пустое, хук читает значение из сохранённой записи **Project** в БД.
+3. Связанная **Project Stage Instance** имеет статус **Active**.
+4. Для этой stage instance ещё нет неотменённого scorecard (идемпотентность).
+
+**Порядок с stage-gate:** на `Project.on_update` сначала выполняется `dinext_project_stage_gate` (`sync_project_stage_chain`), затем провижининг evaluation — чтобы `current_stage_instance` успел обновиться при одновременной смене governance model и профиля.
+
+**После деплоя** изменений hooks перезапустите bench (`bench restart`) или очистите кэш (`bench --site <site> clear-cache`), иначе воркеры могут держать старую регистрацию событий.
 
 ### Валидация обязательных критериев (Mandatory)
 
@@ -195,6 +219,29 @@ Custom Fields на **Project** (fixtures): `custom_project_scoring_profile`, `co
 - **Project Scoring Criterion**: серверная `validate()` проверяет согласованность конфигурации по `input_type` (`Scale` — только дискретная шкала через `scale_rows`; `Number`/`Currency`/`Percent` — диапазон `min_value`/`max_value`); форма скрывает неактуальные поля через metadata + form script.
 - Переход **Draft → Canceled** не требует заполнения mandatory-критериев.
 - Обязательность определяется полем **Requirement Level** в строках **Project Scoring Profile**, а не статическим `reqd` в DocType child table.
+
+### Dashboard KPI на форме Project Scorecard
+
+На форме **Project Scorecard** form script (`project_scorecard.js`) добавляет в **dashboard** (`frm.dashboard`) секцию **Evaluation Summary** с двумя компактными KPI-карточками:
+
+| KPI | Содержимое |
+|-----|------------|
+| **Integral Score** | Интегральный балл (формат `flt(..., 2)`) |
+| **Gate Pass** | Статус Passed / Failed с цветовым индикатором (green / red) |
+
+При неуспешном gate под карточками выводится список причин из поля `gate_messages`.
+
+**Когда виджет показывается:** только после серверного расчёта — когда заполнены **`evaluation_date`** и **`integral_score`** (оба выставляются в `calculate()` при save в статусах **Reviewed** / **Approved**). На **Draft** и **Submitted for Review** dashboard KPI **скрыт**, даже если Float-поле `integral_score` на клиенте отображается как `0`.
+
+**Rejected** с сохранённым `evaluation_date` и рассчитанным баллом показывает последний результат расчёта.
+
+**Технические детали:**
+
+- Стили: [`public/css/project_scorecard_dashboard.css`](dinext_project_evaluation/public/css/project_scorecard_dashboard.css), lazy-load через `frappe.require`; CSS-переменные Desk для light/dark theme.
+- Идемпотентный refresh: очистка секции `.dpe-scorecard-kpi-dashboard`, render-token против дублирования при async-загрузке CSS.
+- Переводы: контекст `Project Scorecard.KPI` в [`translations/ru.csv`](dinext_project_evaluation/translations/ru.csv).
+
+На форме **Project** по-прежнему отображается **история scorecard** (`project_scoring_evaluation.js`) — это отдельный dashboard-блок, не KPI текущей карточки.
 
 ### Whitelisted API (Client Scripts и интеграции)
 
@@ -237,7 +284,7 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 
 - **Python 3.10+** — scoring engine, контроллеры DocType, backend Script Report, whitelisted API
 - **Frappe Framework / ERPNext** — DocTypes, fixtures, Client Scripts, Query Report
-- **JavaScript** — Client Scripts (Project, Project Portfolio), отрисовка bubble chart в отчёте
+- **JavaScript** — Client Scripts (Project, Project Portfolio), form script Project Scorecard (grid + dashboard KPI), отрисовка bubble chart в отчёте
 - **Ruff, ESLint, Prettier** — линтинг и форматирование через pre-commit
 
 ## 🔧 Конфигурация
@@ -245,8 +292,10 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 | Расположение | Назначение |
 |--------------|------------|
 | `dinext_project_evaluation/hooks.py` | `required_apps`, `fixtures`, `after_install`, `doc_events` на Project / Project Stage Instance |
-| `dinext_project_evaluation/public/js/project_scoring_evaluation.js` | Форма Project: профиль оценки, сброс при смене governance model, история scorecard |
-| `dinext_project_evaluation/scoring/project_hooks.py` | Validate / before_save / on_update: сброс профиля, отмена scorecard, provision Draft |
+| `dinext_project_evaluation/public/js/project_scoring_evaluation.js` | Форма Project: профиль оценки, сброс при смене governance model, история scorecard в dashboard |
+| `dinext_project_evaluation/public/css/project_scorecard_dashboard.css` | KPI-карточки Integral Score / Gate Pass на dashboard формы Project Scorecard |
+| `dinext_project_evaluation/scoring/project_hooks.py` | Validate / before_save / on_update: сброс профиля, отмена scorecard, автосоздание Draft scorecard |
+| `dinext_project_evaluation/scoring/scorecard_provision.py` | `on_update` на Project Stage Instance: Draft scorecard при переходе стадии в Active |
 | `dinext_project_evaluation/fixtures/` | Экспорт Client Scripts, Custom Fields, критериев, профилей, Report |
 | `dinext_project_evaluation/seed.py` | Коды критериев по умолчанию, шкалы, веса профиля, пороги gate для обязательных критериев |
 | `dinext_project_evaluation/scoring/criterion_config.py` | Валидация конфигурации критериев и введённых значений scorecard |
@@ -255,7 +304,7 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 | `dinext_project_evaluation/scoring/workflow.py` | Whitelisted workflow-переходы (calculate / approve / cancel) |
 | `dinext_project_evaluation/scoring/scorecard_cancel.py` | Проверки Cancel (роль Approver, Active stage), replacement draft, bulk cancel |
 | `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_profile/project_scoring_profile.js` | Условная видимость порогов gate в форме профиля |
-| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js` | Grid ввода значений критериев, валидация mandatory при уходе из Draft, подсветка ячеек |
+| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js` | Grid ввода значений критериев, валидация mandatory при уходе из Draft, подсветка ячеек, **dashboard KPI** (Integral Score / Gate Pass) |
 | `dinext_project_evaluation/translations/ru.csv` | Русские переводы |
 
 Fixtures из `hooks.py` экспортируют:
@@ -320,7 +369,9 @@ pre-commit install
 
 | Commit | Кратко |
 |--------|--------|
-| *(текущая ветка)* | Сброс `custom_project_scoring_profile` и отмена scorecard при смене/очистке Governance Model; единый confirm через `confirm_governance_reset` |
+| *(текущая ветка)* | Dashboard KPI на форме Project Scorecard: Integral Score и Gate Pass в `frm.dashboard`; видимость после расчёта (`evaluation_date` + `integral_score`); CSS `project_scorecard_dashboard.css` |
+| *(предыдущая)* | Автосоздание Draft scorecard при назначении профиля: серверный хук на `Project.on_update` (не `after_save`); резолв `current_stage_instance` из документа или БД |
+| *(предыдущая)* | Сброс `custom_project_scoring_profile` и отмена scorecard при смене/очистке Governance Model; единый confirm через `confirm_governance_reset` |
 | *(предыдущая)* | Submittable Project Scorecard (`docstatus` lifecycle); Cancel только Approver + Active stage; replacement draft после Cancel; отчёт по `docstatus = 1` |
 | `089e159` | Выравнивание с Dinext: зависимость erpnext, AGENTS.md |
 | `c448318` | Инициализация каркаса приложения |
@@ -345,7 +396,7 @@ dinext_project_evaluation/
     │   ├── gate_fields.py             # релевантность и sanitize порогов gate
     │   ├── scorecard_service.py       # адаптер Frappe document ↔ engine
     │   ├── scorecard_factory.py       # создание/sync строк scorecard из профиля
-    │   ├── project_hooks.py           # Project hooks: сброс профиля, cancel scorecard
+    │   ├── project_hooks.py           # Project hooks: сброс профиля, cancel, on_update provision
     │   ├── scorecard_cancel.py        # cancel, replacement draft, bulk cancel
     │   ├── scorecard_provision.py     # автосоздание Draft по stage instance
     │   ├── workflow_constants.py      # статусы, роли, docstatus/cancel constants
@@ -360,7 +411,9 @@ dinext_project_evaluation/
     │   ├── test_scorecard_factory.py
     │   └── test_scorecard_cancel.py
     ├── fixtures/                      # вывод bench export-fixtures (+ workflow)
-    ├── public/js/project_scoring_evaluation.js  # форма Project: профиль, governance reset
+    ├── public/
+    │   ├── js/project_scoring_evaluation.js  # форма Project: профиль, governance reset, история scorecard
+    │   └── css/project_scorecard_dashboard.css  # KPI dashboard на форме Project Scorecard
     ├── translations/ru.csv
     └── dinext_project_evaluation/
         ├── doctype/                   # DocTypes скоринга + Project Scorecard
@@ -374,11 +427,12 @@ dinext_project_evaluation/
 | `scoring/gate_fields.py` | Какие пороги gate допустимы для строки профиля; очистка неактуальных значений |
 | `scoring/scorecard_service.py` | Преобразование строк Scorecard в входные данные engine; `missing_mandatory_criterion_codes()` |
 | `scoring/scorecard_factory.py` | Создание/sync строк scorecard; поиск agreed/non-canceled scorecard для стадии; `cancel_project_scorecards()` |
-| `scoring/project_hooks.py` | Validate/before_save/on_update на Project: сброс профиля при смене governance model или профиля |
+| `scoring/project_hooks.py` | Validate/before_save/on_update на Project: сброс профиля, автосоздание Draft при профиле + Active stage |
+| `scoring/scorecard_provision.py` | on_update на Project Stage Instance: Draft при переходе стадии в Active |
 | `scoring/scorecard_cancel.py` | Валидация Cancel, replacement draft, `cancel_project_scorecards()` |
 | `scoring/workflow.py` | Workflow-переходы scorecard (Submit for Review, Mark Reviewed, Approve, Cancel) |
 | `doctype/project_scorecard/` | Submittable lifecycle, `before_cancel` / `on_cancel`, расчёт при save, mandatory |
-| `doctype/project_scorecard/project_scorecard.js` | Grid ввода значений, client-side валидация и подсветка mandatory-ячеек |
+| `doctype/project_scorecard/project_scorecard.js` | Grid ввода значений, client-side валидация, подсветка mandatory-ячеек, dashboard KPI |
 | `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля с опциональной стадией и порогами gate |
 | `doctype/project_scoring_profile/project_scoring_profile.js` | Условное отображение порогов gate по обязательности и типу критерия |
 | `report/project_scoring_report/` | Аналитика портфеля и bubble payload |
@@ -390,6 +444,7 @@ dinext_project_evaluation/
 flowchart TB
   subgraph UI["Интерфейс Desk"]
     P[Форма Project]
+    SCUI[Форма Project Scorecard]
     PP[Project Portfolio]
     R[Project Scoring Report]
   end
@@ -411,6 +466,8 @@ flowchart TB
   end
 
   P -->|Client Script| A
+  P -->|save profile on_update| SC
+  SCUI -->|dashboard KPI| SC
   PP -->|Client Script| R
   A -->|create / calculate| SC
   SC --> SVC
@@ -425,9 +482,11 @@ flowchart TB
   R -->|latest scorecard| SC
 ```
 
-**Поток данных (scorecard):** создаётся **Draft** (вручную, API, `on_update` на Project или при Active **Project Stage Instance**) → заполнение критериев → workflow **Submit for Review** → **Mark Reviewed** (расчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии.
+**Поток данных (scorecard):** создаётся **Draft** (вручную, API, `Project.on_update` при назначении профиля, или `Project Stage Instance.on_update` при активации стадии) → заполнение критериев → workflow **Submit for Review** → **Mark Reviewed** (расчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии.
 
-**Поток сброса на Project:** смена **Governance Model** или **Project Scoring Profile** → подтверждение на форме → `before_save` отменяет неотменённые scorecard и при смене governance очищает профиль → после save при Active stage и заданном профиле создаётся новый Draft.
+**Поток автопровижининга на Project:** сохранение **Project** с заданным профилем → `on_update` (после stage-gate) → `ensure_scorecard_for_stage_instance` → **Draft** scorecard с критериями текущей стадии, если stage instance **Active** и карточки для неё ещё нет.
+
+**Поток сброса на Project:** смена **Governance Model** или **Project Scoring Profile** → подтверждение на форме → `before_save` отменяет неотменённые scorecard и при смене governance очищает профиль → `on_update` при Active stage и заданном профиле создаёт новый Draft.
 
 **Поток валидации:** при любом уходе из **Draft**, кроме **Canceled**, сервер и форма требуют заполнения mandatory-критериев (см. раздел «Валидация обязательных критериев»).
 

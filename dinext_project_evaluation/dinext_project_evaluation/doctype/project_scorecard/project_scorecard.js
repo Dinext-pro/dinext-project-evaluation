@@ -1142,7 +1142,7 @@ dinext_project_evaluation.project_scorecard.ensure_dashboard_styles = function (
 };
 
 dinext_project_evaluation.project_scorecard.is_score_computed = function (doc) {
-	if (!doc) {
+	if (!doc?.evaluation_date) {
 		return false;
 	}
 	const score = doc.integral_score;
@@ -1273,6 +1273,10 @@ dinext_project_evaluation.project_scorecard.render_dashboard_kpis = function (fr
 		}
 
 		dinext_project_evaluation.project_scorecard.clear_dashboard_kpis(frm);
+
+		if (!dinext_project_evaluation.project_scorecard.is_score_computed(frm.doc)) {
+			return;
+		}
 
 		const html = dinext_project_evaluation.project_scorecard.build_dashboard_kpi_html(frm);
 		frm.dashboard.add_section(
