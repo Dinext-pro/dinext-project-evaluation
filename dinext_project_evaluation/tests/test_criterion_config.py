@@ -15,7 +15,6 @@ from dinext_project_evaluation.scoring.criterion_config import (
 def criterion(**kwargs):
 	defaults = {
 		"input_type": "Scale",
-		"scale_type": "Discrete",
 		"influence_direction": "higher_is_better",
 		"scale_rows": [],
 		"min_value": None,
@@ -36,7 +35,6 @@ class TestCriterionConfig(unittest.TestCase):
 	def test_sanitize_numeric_criterion_clears_scale_fields(self):
 		doc = criterion(
 			input_type="Number",
-			scale_type="Discrete",
 			scale_rows=[scale_row(1)],
 			boolean_true_score=1,
 			boolean_false_score=0,
@@ -46,13 +44,25 @@ class TestCriterionConfig(unittest.TestCase):
 
 		sanitize_criterion_config(doc)
 
-		self.assertIsNone(doc.scale_type)
 		self.assertEqual(doc.scale_rows, [])
 		self.assertIsNone(doc.boolean_true_score)
 		self.assertIsNone(doc.boolean_false_score)
 
+	def test_sanitize_scale_criterion_clears_numeric_range(self):
+		doc = criterion(
+			input_type="Scale",
+			scale_rows=[scale_row(1)],
+			min_value=0,
+			max_value=100,
+		)
+
+		sanitize_criterion_config(doc)
+
+		self.assertIsNone(doc.min_value)
+		self.assertIsNone(doc.max_value)
+
 	def test_validate_discrete_scale_requires_rows(self):
-		doc = criterion(input_type="Scale", scale_type="Discrete", scale_rows=[])
+		doc = criterion(input_type="Scale", scale_rows=[])
 
 		with self.assertRaises(frappe.ValidationError):
 			validate_criterion_config(doc)
@@ -60,15 +70,8 @@ class TestCriterionConfig(unittest.TestCase):
 	def test_validate_discrete_scale_rejects_duplicate_scores(self):
 		doc = criterion(
 			input_type="Scale",
-			scale_type="Discrete",
 			scale_rows=[scale_row(1), scale_row(1)],
 		)
-
-		with self.assertRaises(frappe.ValidationError):
-			validate_criterion_config(doc)
-
-	def test_validate_interval_scale_requires_range(self):
-		doc = criterion(input_type="Scale", scale_type="Interval", min_value=None, max_value=10)
 
 		with self.assertRaises(frappe.ValidationError):
 			validate_criterion_config(doc)

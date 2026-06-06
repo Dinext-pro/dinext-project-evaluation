@@ -8,10 +8,8 @@ from frappe import _
 NUMERIC_INPUT_TYPES = frozenset({"Number", "Currency", "Percent"})
 SUPPORTED_INPUT_TYPES = frozenset({"Scale", "Number", "Currency", "Percent", "Boolean"})
 SUPPORTED_INFLUENCE_DIRECTIONS = frozenset({"higher_is_better", "lower_is_better"})
-SUPPORTED_SCALE_TYPES = frozenset({"Discrete", "Interval"})
 
 CRITERION_CONFIG_FIELDS = (
-	"scale_type",
 	"min_value",
 	"max_value",
 	"boolean_true_score",
@@ -20,29 +18,19 @@ CRITERION_CONFIG_FIELDS = (
 )
 
 
-def effective_scale_type(criterion: Any) -> str:
-	input_type = _value(criterion, "input_type")
-	if input_type != "Scale":
-		return ""
-	return _value(criterion, "scale_type") or "Discrete"
-
-
 def get_field_visibility(criterion: Any) -> dict[str, bool]:
 	input_type = _value(criterion, "input_type")
-	scale_type = effective_scale_type(criterion)
 
 	if input_type == "Scale":
 		return {
-			"scale_type": True,
-			"scale_rows": scale_type == "Discrete",
-			"min_value": scale_type == "Interval",
-			"max_value": scale_type == "Interval",
+			"scale_rows": True,
+			"min_value": False,
+			"max_value": False,
 			"boolean_true_score": False,
 			"boolean_false_score": False,
 		}
 	if input_type in NUMERIC_INPUT_TYPES:
 		return {
-			"scale_type": False,
 			"scale_rows": False,
 			"min_value": True,
 			"max_value": True,
@@ -51,7 +39,6 @@ def get_field_visibility(criterion: Any) -> dict[str, bool]:
 		}
 	if input_type == "Boolean":
 		return {
-			"scale_type": False,
 			"scale_rows": False,
 			"min_value": False,
 			"max_value": False,
@@ -59,7 +46,6 @@ def get_field_visibility(criterion: Any) -> dict[str, bool]:
 			"boolean_false_score": True,
 		}
 	return {
-		"scale_type": False,
 		"scale_rows": False,
 		"min_value": False,
 		"max_value": False,
@@ -70,23 +56,15 @@ def get_field_visibility(criterion: Any) -> dict[str, bool]:
 
 def sanitize_criterion_config(criterion: Any) -> None:
 	input_type = _value(criterion, "input_type")
-	scale_type = effective_scale_type(criterion)
 
-	if input_type != "Scale":
-		_set(criterion, "scale_type", None)
-
-	if input_type == "Scale" and scale_type == "Discrete":
+	if input_type == "Scale":
 		_set(criterion, "min_value", None)
 		_set(criterion, "max_value", None)
-	elif input_type == "Scale" and scale_type == "Interval":
-		_set(criterion, "scale_rows", [])
 	elif input_type in NUMERIC_INPUT_TYPES:
-		_set(criterion, "scale_type", None)
 		_set(criterion, "scale_rows", [])
 		_set(criterion, "boolean_true_score", None)
 		_set(criterion, "boolean_false_score", None)
 	elif input_type == "Boolean":
-		_set(criterion, "scale_type", None)
 		_set(criterion, "scale_rows", [])
 		_set(criterion, "min_value", None)
 		_set(criterion, "max_value", None)
@@ -150,8 +128,6 @@ def collect_scorecard_item_validation_errors(
 def item_has_input_value(item_row: Any) -> bool:
 	input_type = _value(item_row, "criterion_input_type")
 	if input_type == "Scale":
-		if _value(item_row, "criterion_scale_type") == "Interval":
-			return _value(item_row, "number_value") not in (None, "")
 		return _value(item_row, "scale_value") not in (None, "") or _value(item_row, "raw_value") not in (
 			None,
 			"",
@@ -221,36 +197,24 @@ def scorecard_validation_error_message(
 
 
 def _validate_scale_config(criterion: Any) -> None:
-	scale_type = effective_scale_type(criterion)
-	if scale_type not in SUPPORTED_SCALE_TYPES:
-		raise frappe.ValidationError(_("Unsupported scale type: {0}").format(scale_type))
-
-	if scale_type == "Discrete":
-		rows = list(_children(criterion, "scale_rows"))
-		if not rows:
-			raise frappe.ValidationError(
-				_("Scale criteria with Discrete scale type must define at least one scale row")
-			)
-
-		seen_scores: set[str] = set()
-		for row in rows:
-			score = _value(row, "score")
-			if score in (None, ""):
-				raise frappe.ValidationError(_("Each scale row must have a numeric score"))
-			try:
-				score_key = str(float(score))
-			except (TypeError, ValueError) as exc:
-				raise frappe.ValidationError(_("Scale row score must be numeric")) from exc
-			if score_key in seen_scores:
-				raise frappe.ValidationError(_("Scale row scores must be unique"))
-			seen_scores.add(score_key)
-		return
-
-	min_value, max_value = _require_numeric_range(criterion, _("Interval scale"))
-	if min_value >= max_value:
+	rows = list(_children(criterion, "scale_rows"))
+	if not rows:
 		raise frappe.ValidationError(
-			_("Minimum value must be less than maximum value for interval scale criteria")
+			_("Scale criteria must define at least one scale row")
 		)
+
+	seen_scores: set[str] = set()
+	for row in rows:
+		score = _value(row, "score")
+		if score in (None, ""):
+			raise frappe.ValidationError(_("Each scale row must have a numeric score"))
+		try:
+			score_key = str(float(score))
+		except (TypeError, ValueError) as exc:
+			raise frappe.ValidationError(_("Scale row score must be numeric")) from exc
+		if score_key in seen_scores:
+			raise frappe.ValidationError(_("Scale row scores must be unique"))
+		seen_scores.add(score_key)
 
 
 def _validate_numeric_config(criterion: Any) -> None:
@@ -275,18 +239,9 @@ def _validate_boolean_config(criterion: Any) -> None:
 
 
 def _validate_scale_item_value(item_row: Any, criterion: Any, criterion_code: str) -> list[str]:
-	scale_type = effective_scale_type(criterion)
 	raw_value = _value(item_row, "scale_value") or _value(item_row, "raw_value")
 	if raw_value in (None, ""):
 		return []
-
-	if scale_type == "Interval":
-		value = _value(item_row, "number_value")
-		if value in (None, ""):
-			value = _value(item_row, "raw_numeric_value")
-		if value in (None, ""):
-			value = raw_value
-		return _numeric_range_errors(value, criterion, criterion_code)
 
 	allowed = {str(float(row.score)) for row in _children(criterion, "scale_rows") if _value(row, "score") not in (None, "")}
 	try:

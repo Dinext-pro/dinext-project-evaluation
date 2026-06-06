@@ -136,12 +136,11 @@ class TestProjectScorecard(FrappeTestCase):
 
 		doc._validate_required_items()
 
-	def test_prepare_item_inputs_maps_interval_scale_to_numeric_fields(self):
+	def test_prepare_item_inputs_maps_number_to_numeric_fields(self):
 		doc = SimpleNamespace(
 			items=[
 				frappe._dict(
-					criterion_input_type="Scale",
-					criterion_scale_type="Interval",
+					criterion_input_type="Number",
 					number_value=42,
 				)
 			]

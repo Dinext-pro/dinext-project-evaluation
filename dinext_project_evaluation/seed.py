@@ -105,7 +105,6 @@ def _upsert_criterion(code, title, group, input_type, direction):
 	doc.enabled = 1
 	doc.min_value = 0
 	doc.max_value = 100 if input_type in {"Percent", "Currency", "Number"} else 5
-	doc.scale_type = "Discrete" if input_type == "Scale" else None
 	doc.set("scale_rows", [])
 	if input_type == "Scale":
 		for label, score, phrases in LIKERT_SCALE:

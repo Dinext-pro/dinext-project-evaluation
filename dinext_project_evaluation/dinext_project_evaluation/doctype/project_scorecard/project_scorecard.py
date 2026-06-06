@@ -125,12 +125,7 @@ class ProjectScorecard(Document):
 			item.raw_numeric_value = None
 			item.value_display = None
 
-			if input_type == "Scale" and item.get("criterion_scale_type") == "Interval":
-				item.raw_numeric_value = (
-					item.get("number_value") if item.get("number_value") not in ("", None) else None
-				)
-				item.value_display = _string_value(item.raw_numeric_value)
-			elif input_type == "Scale":
+			if input_type == "Scale":
 				item.raw_value = item.get("scale_value") or None
 				item.value_display = _scale_value_label(item)
 			elif input_type == "Boolean":

@@ -6,7 +6,6 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-from dinext_project_evaluation.scoring.criterion_config import effective_scale_type
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
 
 PROJECT_SCORING_PROFILE_FIELD = "custom_project_scoring_profile"
@@ -48,7 +47,6 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 			continue
 
 		criterion = frappe.get_doc("Project Scoring Criterion", profile_row.criterion)
-		scale_type = effective_scale_type(criterion)
 		rows.append(
 			{
 				"criterion": criterion.name,
@@ -56,7 +54,6 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 				"criterion_name": criterion.criterion_name,
 				"criterion_group": criterion.criterion_group,
 				"input_type": criterion.input_type,
-				"scale_type": scale_type,
 				"min_value": criterion.min_value,
 				"max_value": criterion.max_value,
 				"influence_direction": criterion.influence_direction,
@@ -200,7 +197,6 @@ def sync_scorecard_items(scorecard, profile: str | None = None) -> None:
 			"criterion_code": criterion["criterion_code"],
 			"criterion_name": criterion["criterion_name"],
 			"criterion_input_type": criterion["input_type"],
-			"criterion_scale_type": criterion.get("scale_type") or "",
 			"criterion_min_value": criterion.get("min_value"),
 			"criterion_max_value": criterion.get("max_value"),
 			"weight": criterion["weight"],
@@ -240,12 +236,6 @@ def _set_table_value(document, fieldname: str, value) -> None:
 
 
 def _compact_value_display(input_type: str, item: dict, scale_options: list[dict]) -> str | None:
-	if input_type == "Scale" and item.get("criterion_scale_type") == "Interval":
-		value = item.get("number_value")
-		if value in (None, ""):
-			return None
-		return str(value)
-
 	if input_type == "Scale":
 		raw_value = item.get("scale_value") or item.get("raw_value")
 		if raw_value in (None, ""):

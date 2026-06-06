@@ -11,14 +11,12 @@ dinext_project_evaluation.project_scoring_criterion.numeric_input_types = new Se
 
 dinext_project_evaluation.project_scoring_criterion.get_field_visibility = function (doc) {
 	const inputType = doc?.input_type;
-	const scaleType = doc?.scale_type || "Discrete";
 
 	if (inputType === "Scale") {
 		return {
-			scale_type: true,
-			scale_rows: scaleType === "Discrete",
-			min_value: scaleType === "Interval",
-			max_value: scaleType === "Interval",
+			scale_rows: true,
+			min_value: false,
+			max_value: false,
 			boolean_true_score: false,
 			boolean_false_score: false,
 		};
@@ -26,7 +24,6 @@ dinext_project_evaluation.project_scoring_criterion.get_field_visibility = funct
 
 	if (dinext_project_evaluation.project_scoring_criterion.numeric_input_types.has(inputType)) {
 		return {
-			scale_type: false,
 			scale_rows: false,
 			min_value: true,
 			max_value: true,
@@ -37,7 +34,6 @@ dinext_project_evaluation.project_scoring_criterion.get_field_visibility = funct
 
 	if (inputType === "Boolean") {
 		return {
-			scale_type: false,
 			scale_rows: false,
 			min_value: false,
 			max_value: false,
@@ -47,7 +43,6 @@ dinext_project_evaluation.project_scoring_criterion.get_field_visibility = funct
 	}
 
 	return {
-		scale_type: false,
 		scale_rows: false,
 		min_value: false,
 		max_value: false,
@@ -71,9 +66,6 @@ frappe.ui.form.on("Project Scoring Criterion", {
 		dinext_project_evaluation.project_scoring_criterion.apply_field_visibility(frm);
 	},
 	input_type(frm) {
-		dinext_project_evaluation.project_scoring_criterion.apply_field_visibility(frm);
-	},
-	scale_type(frm) {
 		dinext_project_evaluation.project_scoring_criterion.apply_field_visibility(frm);
 	},
 });
