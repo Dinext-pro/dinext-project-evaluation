@@ -3,11 +3,18 @@ frappe.provide("dinext_project_evaluation.project_scoring");
 frappe.ui.form.on("Project", {
 	refresh(frm) {
 		frm._dpe_prev_scoring_profile = frm.doc.custom_project_scoring_profile;
+		frm._dpe_prev_governance_model = frm.doc.governance_model;
 		dinext_project_evaluation.project_scoring.setup_profile_field(frm);
 		dinext_project_evaluation.project_scoring.refresh(frm);
 	},
 	after_save(frm) {
 		frm._dpe_prev_scoring_profile = frm.doc.custom_project_scoring_profile;
+		frm._dpe_prev_governance_model = frm.doc.governance_model;
+		frm._dpe_stashed_scoring_profile = null;
+		frm._dpe_governance_before_attempt = null;
+	},
+	governance_model(frm) {
+		dinext_project_evaluation.project_scoring.on_governance_change(frm);
 	},
 	custom_project_scoring_profile(frm) {
 		dinext_project_evaluation.project_scoring.on_profile_change(frm);
@@ -44,6 +51,56 @@ dinext_project_evaluation.project_scoring.setup_profile_field = function (frm) {
 	}));
 };
 
+dinext_project_evaluation.project_scoring.on_governance_change = function (frm) {
+	if (frm.is_new()) {
+		frm._dpe_prev_governance_model = frm.doc.governance_model;
+		dinext_project_evaluation.project_scoring.setup_profile_field(frm);
+		return;
+	}
+
+	const previous = frm._dpe_prev_governance_model;
+	const next_value = frm.doc.governance_model;
+	if (previous === next_value) {
+		return;
+	}
+
+	if (
+		frm._dpe_stashed_scoring_profile &&
+		next_value === frm._dpe_governance_before_attempt
+	) {
+		dinext_project_evaluation.project_scoring.clear_profile_silently(
+			frm,
+			frm._dpe_stashed_scoring_profile
+		);
+		frm._dpe_stashed_scoring_profile = null;
+		frm._dpe_governance_before_attempt = null;
+		frm._dpe_prev_governance_model = next_value;
+		dinext_project_evaluation.project_scoring.setup_profile_field(frm);
+		return;
+	}
+
+	frm._dpe_prev_governance_model = next_value;
+	dinext_project_evaluation.project_scoring.setup_profile_field(frm);
+
+	if (!frm.doc.custom_project_scoring_profile) {
+		frm._dpe_prev_scoring_profile = null;
+		return;
+	}
+
+	frm._dpe_governance_before_attempt = previous;
+	frm._dpe_stashed_scoring_profile = frm.doc.custom_project_scoring_profile;
+	dinext_project_evaluation.project_scoring.clear_profile_silently(frm, null);
+};
+
+dinext_project_evaluation.project_scoring.clear_profile_silently = function (frm, value) {
+	frm._dpe_suppress_profile_confirm = true;
+	frm._dpe_prev_scoring_profile = value;
+	return frm.set_value("custom_project_scoring_profile", value).finally(() => {
+		frm._dpe_prev_scoring_profile = value;
+		frm._dpe_suppress_profile_confirm = false;
+	});
+};
+
 dinext_project_evaluation.project_scoring.on_profile_change = function (frm) {
 	if (frm.is_new()) {
 		frm._dpe_prev_scoring_profile = frm.doc.custom_project_scoring_profile;
@@ -53,6 +110,11 @@ dinext_project_evaluation.project_scoring.on_profile_change = function (frm) {
 	const previous = frm._dpe_prev_scoring_profile;
 	const next_value = frm.doc.custom_project_scoring_profile;
 	if (previous === next_value) {
+		return;
+	}
+
+	if (frm._dpe_suppress_profile_confirm) {
+		frm._dpe_prev_scoring_profile = next_value;
 		return;
 	}
 

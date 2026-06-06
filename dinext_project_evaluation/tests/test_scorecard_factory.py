@@ -282,24 +282,44 @@ class TestScorecardProvision(unittest.TestCase):
 
 
 class TestProjectScoringHooks(unittest.TestCase):
+	def _make_project_doc(self, **overrides):
+		defaults = {
+			"is_new": lambda: False,
+			"name": "PRJ-001",
+			"governance_model": "GM-OLD",
+			"custom_project_scoring_profile": None,
+			"confirm_scoring_profile_reset": 0,
+			"confirm_governance_reset": 0,
+		}
+		defaults.update(overrides)
+		doc = SimpleNamespace(**defaults)
+		doc.get = lambda key, default=None: getattr(doc, key, default)
+		doc.set = lambda key, value: setattr(doc, key, value)
+		return doc
+
+	def _db_get_value(self, *, profile=None, governance="GM-OLD"):
+		def get_value(_doctype, _name, fieldname, *_args, **_kwargs):
+			values = {
+				"custom_project_scoring_profile": profile,
+				"governance_model": governance,
+			}
+			return values.get(fieldname)
+
+		return get_value
+
 	@patch(
 		"dinext_project_evaluation.scoring.project_hooks.project_has_non_canceled_scorecards",
 		return_value=True,
 	)
 	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
-	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value", return_value="PROFILE-OLD")
-	def test_validate_requires_confirmation(self, _get_value, get_meta, _has_scorecards):
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
+	def test_validate_requires_confirmation(self, get_value, get_meta, _has_scorecards):
 		meta = MagicMock()
 		meta.has_field.return_value = True
 		get_meta.return_value = meta
+		get_value.side_effect = self._db_get_value(profile="PROFILE-OLD")
 
-		doc = SimpleNamespace(
-			is_new=lambda: False,
-			name="PRJ-001",
-			custom_project_scoring_profile="PROFILE-NEW",
-			confirm_scoring_profile_reset=0,
-		)
-		doc.get = lambda key, default=None: getattr(doc, key, default)
+		doc = self._make_project_doc(custom_project_scoring_profile="PROFILE-NEW")
 
 		with self.assertRaises(Exception):
 			project_hooks.validate_project_scoring_profile_change(doc)
@@ -309,21 +329,16 @@ class TestProjectScoringHooks(unittest.TestCase):
 		return_value=False,
 	)
 	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
-	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value", return_value=None)
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
 	def test_validate_allows_initial_profile_without_confirmation(
-		self, _get_value, get_meta, _has_scorecards
+		self, get_value, get_meta, _has_scorecards
 	):
 		meta = MagicMock()
 		meta.has_field.return_value = True
 		get_meta.return_value = meta
+		get_value.side_effect = self._db_get_value(profile=None)
 
-		doc = SimpleNamespace(
-			is_new=lambda: False,
-			name="PRJ-001",
-			custom_project_scoring_profile="PROFILE-NEW",
-			confirm_scoring_profile_reset=0,
-		)
-		doc.get = lambda key, default=None: getattr(doc, key, default)
+		doc = self._make_project_doc(custom_project_scoring_profile="PROFILE-NEW")
 
 		project_hooks.validate_project_scoring_profile_change(doc)
 
@@ -332,24 +347,96 @@ class TestProjectScoringHooks(unittest.TestCase):
 		return_value=["PSC-001"],
 	)
 	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
-	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value", return_value="PROFILE-OLD")
-	def test_before_save_cancels_with_confirmation(self, _get_value, get_meta, cancel):
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
+	def test_before_save_cancels_with_confirmation(self, get_value, get_meta, cancel):
 		meta = MagicMock()
 		meta.has_field.return_value = True
 		get_meta.return_value = meta
+		get_value.side_effect = self._db_get_value(profile="PROFILE-OLD")
 
-		doc = SimpleNamespace(
-			is_new=lambda: False,
-			name="PRJ-001",
+		doc = self._make_project_doc(
 			custom_project_scoring_profile="PROFILE-NEW",
 			confirm_scoring_profile_reset=1,
 		)
-		doc.get = lambda key, default=None: getattr(doc, key, default)
 
 		project_hooks.before_save_project_scoring_profile_reset(doc)
 
 		cancel.assert_called_once_with("PRJ-001")
 		self.assertEqual(doc.confirm_scoring_profile_reset, 0)
+
+	@patch(
+		"dinext_project_evaluation.scoring.project_hooks.project_has_non_canceled_scorecards",
+		return_value=True,
+	)
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
+	def test_validate_governance_change_requires_confirmation(
+		self, get_value, get_meta, _has_scorecards
+	):
+		meta = MagicMock()
+		meta.has_field.return_value = True
+		get_meta.return_value = meta
+		get_value.side_effect = self._db_get_value(profile="PROFILE-OLD", governance="GM-OLD")
+
+		doc = self._make_project_doc(
+			governance_model="GM-NEW",
+			custom_project_scoring_profile="PROFILE-OLD",
+		)
+
+		with self.assertRaises(Exception):
+			project_hooks.validate_project_scoring_profile_change(doc)
+
+	@patch.object(project_hooks, "cancel_project_scorecards", return_value=["PSC-001"])
+	@patch(
+		"dinext_project_evaluation.scoring.project_hooks.project_has_non_canceled_scorecards",
+		return_value=True,
+	)
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
+	def test_before_save_governance_change_clears_profile_and_cancels_scorecards(
+		self, get_value, get_meta, _has_scorecards, cancel
+	):
+		meta = MagicMock()
+		meta.has_field.return_value = True
+		get_meta.return_value = meta
+		get_value.side_effect = self._db_get_value(profile="PROFILE-OLD", governance="GM-OLD")
+
+		doc = self._make_project_doc(
+			governance_model="GM-NEW",
+			custom_project_scoring_profile="PROFILE-OLD",
+			confirm_governance_reset=1,
+		)
+
+		project_hooks.before_save_project_scoring_profile_reset(doc)
+
+		cancel.assert_called_once_with("PRJ-001")
+		self.assertIsNone(doc.custom_project_scoring_profile)
+		self.assertEqual(doc.confirm_scoring_profile_reset, 0)
+
+	@patch.object(project_hooks, "cancel_project_scorecards")
+	@patch(
+		"dinext_project_evaluation.scoring.project_hooks.project_has_non_canceled_scorecards",
+		return_value=False,
+	)
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
+	def test_before_save_governance_clear_without_scorecards_skips_cancel(
+		self, get_value, get_meta, _has_scorecards, cancel
+	):
+		meta = MagicMock()
+		meta.has_field.return_value = True
+		get_meta.return_value = meta
+		get_value.side_effect = self._db_get_value(profile="PROFILE-OLD", governance="GM-OLD")
+
+		doc = self._make_project_doc(
+			governance_model=None,
+			custom_project_scoring_profile="PROFILE-OLD",
+		)
+
+		project_hooks.before_save_project_scoring_profile_reset(doc)
+
+		cancel.assert_not_called()
+		self.assertIsNone(doc.custom_project_scoring_profile)
 
 
 if __name__ == "__main__":
