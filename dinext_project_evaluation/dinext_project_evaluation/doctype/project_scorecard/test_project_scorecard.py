@@ -69,56 +69,89 @@ class TestProjectScorecard(FrappeTestCase):
 		sync_items.assert_called_once_with(doc, "PROFILE-001")
 
 	@patch(
-		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.scorecard_has_missing_required_items",
-		return_value=True,
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard._load_criteria",
+		return_value={"STR_ALIGN": frappe._dict(criterion_code="STR_ALIGN", input_type="Scale", scale_rows=[])},
 	)
-	def test_validate_required_items_blocks_save_with_generic_message(self, _has_missing):
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_doc",
+		return_value=SimpleNamespace(criteria=[]),
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.scorecard_validation_error_message",
+		return_value="Mandatory criteria require a value: STR_ALIGN",
+	)
+	def test_validate_required_items_blocks_save_with_specific_message(
+		self, _validation_message, _get_doc, _load_criteria
+	):
 		doc = SimpleNamespace(
 			status="Submitted for Review",
+			profile="PROFILE-001",
 			items=[frappe._dict(criterion="STR_ALIGN", requirement_level="Mandatory")],
 		)
 		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
 			doc, ProjectScorecard
 		)
 
-		with self.assertRaises(frappe.ValidationError):
+		with self.assertRaises(frappe.ValidationError) as context:
 			doc._validate_required_items()
 
+		self.assertIn("STR_ALIGN", str(context.exception))
+
 	@patch(
-		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.scorecard_has_missing_required_items"
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard._load_criteria",
+		return_value={},
 	)
-	def test_validate_required_items_skips_canceled(self, has_missing):
-		doc = SimpleNamespace(status="Canceled", items=[])
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_doc",
+		return_value=SimpleNamespace(criteria=[]),
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.scorecard_validation_error_message",
+		return_value=None,
+	)
+	def test_validate_required_items_skips_when_no_validation_message(
+		self, _validation_message, _get_doc, _load_criteria
+	):
+		doc = SimpleNamespace(status="Submitted for Review", profile="PROFILE-001", items=[])
+
 		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
 			doc, ProjectScorecard
 		)
 
 		doc._validate_required_items()
 
-		has_missing.assert_not_called()
+	def test_validate_required_items_skips_canceled(self):
+		doc = SimpleNamespace(status="Canceled", profile="PROFILE-001", items=[])
+		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
+			doc, ProjectScorecard
+		)
 
-	@patch(
-		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.scorecard_has_missing_required_items",
-		return_value=False,
-	)
-	def test_validate_required_items_allows_save_when_complete(self, _has_missing):
+		doc._validate_required_items()
+
+	def test_validate_required_items_skips_draft(self):
+		doc = SimpleNamespace(status="Draft", profile="PROFILE-001", items=[])
+		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
+			doc, ProjectScorecard
+		)
+
+		doc._validate_required_items()
+
+	def test_prepare_item_inputs_maps_interval_scale_to_numeric_fields(self):
 		doc = SimpleNamespace(
-			status="Draft",
 			items=[
 				frappe._dict(
-					criterion="STR_ALIGN",
-					requirement_level="Mandatory",
-					scale_value="5",
-					requires_comment=1,
-					comment="ok",
+					criterion_input_type="Scale",
+					criterion_scale_type="Interval",
+					number_value=42,
 				)
-			],
+			]
 		)
-		doc._validate_required_items = ProjectScorecard._validate_required_items.__get__(
-			doc, ProjectScorecard
-		)
+		doc._prepare_item_inputs = ProjectScorecard._prepare_item_inputs.__get__(doc, SimpleNamespace)
 
-		doc._validate_required_items()
+		doc._prepare_item_inputs()
+
+		self.assertEqual(doc.items[0].raw_numeric_value, 42)
+		self.assertEqual(doc.items[0].value_display, "42")
 
 	def test_field_value_changed_treats_empty_and_numeric_equivalents(self):
 		self.assertFalse(_field_value_changed(None, ""))
