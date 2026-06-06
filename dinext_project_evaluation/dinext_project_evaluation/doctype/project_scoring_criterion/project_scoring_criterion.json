@@ -7,18 +7,22 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "enabled",
   "criterion_code",
   "criterion_name",
   "criterion_group",
+  "column_break_oavm",
   "description",
+  "section_break_fgmu",
   "input_type",
   "influence_direction",
+  "column_break_rdep",
+  "requires_comment",
+  "section_break_rsvn",
   "min_value",
   "max_value",
   "boolean_true_score",
   "boolean_false_score",
-  "requires_comment",
-  "enabled",
   "scale_rows"
  ],
  "fields": [
@@ -44,6 +48,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Criterion Group",
+   "link_filters": "[[\"Project Scoring Criterion Group\",\"enabled\",\"=\",1]]",
    "options": "Project Scoring Criterion Group",
    "reqd": 1
   },
@@ -115,12 +120,28 @@
    "fieldtype": "Table",
    "label": "Scale Rows",
    "options": "Project Scoring Criterion Scale"
+  },
+  {
+   "fieldname": "column_break_oavm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_rsvn",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_fgmu",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_rdep",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-02 01:41:27.848671",
+ "modified": "2026-06-06 18:28:49.539159",
  "modified_by": "Administrator",
  "module": "Dinext Project Evaluation",
  "name": "Project Scoring Criterion",
