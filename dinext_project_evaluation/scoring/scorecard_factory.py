@@ -9,6 +9,30 @@ from frappe.utils import cint
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
 
 PROJECT_SCORING_PROFILE_FIELD = "custom_project_scoring_profile"
+
+
+def _scale_row_sort_key(scale, index: int) -> tuple:
+	sort_order = scale.sort_order
+	if sort_order in (None, ""):
+		return (1, index, float(scale.score))
+	return (0, cint(sort_order), index, float(scale.score))
+
+
+def build_scale_options(scale_rows) -> list[dict]:
+	rows = list(scale_rows or [])
+	sorted_rows = sorted(enumerate(rows), key=lambda item: _scale_row_sort_key(item[1], item[0]))
+	return [
+		{
+			"label": scale.scale_label or str(scale.score),
+			"value": str(scale.score),
+			"score": scale.score,
+			"sort_order": scale.sort_order,
+			"key_phrases": scale.key_phrases,
+		}
+		for _, scale in sorted_rows
+	]
+
+
 ITEM_VALUE_FIELDS = (
 	"value_display",
 	"scale_value",
@@ -47,6 +71,7 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 			continue
 
 		criterion = frappe.get_doc("Project Scoring Criterion", profile_row.criterion)
+		scale_options = build_scale_options(criterion.scale_rows)
 		rows.append(
 			{
 				"criterion": criterion.name,
@@ -60,22 +85,15 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 				"weight": profile_row.weight,
 				"requirement_level": profile_row.requirement_level,
 				"requires_comment": cint(criterion.requires_comment),
-				"scale_options": [
-					{
-						"label": scale.scale_label or str(scale.score),
-						"value": str(scale.score),
-						"score": scale.score,
-					}
-					for scale in criterion.scale_rows
-				],
+				"scale_options": scale_options,
 				"scale_rows": [
 					{
-						"scale_label": scale.scale_label,
-						"score": scale.score,
-						"sort_order": scale.sort_order,
-						"key_phrases": scale.key_phrases,
+						"scale_label": option["label"],
+						"score": option["score"],
+						"sort_order": option.get("sort_order"),
+						"key_phrases": option.get("key_phrases"),
 					}
-					for scale in criterion.scale_rows
+					for option in scale_options
 				],
 			}
 		)
