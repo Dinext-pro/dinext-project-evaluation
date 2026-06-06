@@ -1123,10 +1123,172 @@ dinext_project_evaluation.project_scorecard.render_row_editor = function (frm, c
 	dinext_project_evaluation.project_scorecard.render_active_control(frm, cdt, cdn);
 };
 
+dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT = "Project Scorecard.KPI";
+
+dinext_project_evaluation.project_scorecard.ensure_dashboard_styles = function () {
+	if (dinext_project_evaluation.project_scorecard._dashboard_styles_loaded) {
+		return Promise.resolve();
+	}
+
+	return new Promise((resolve) => {
+		frappe.require(
+			["/assets/dinext_project_evaluation/css/project_scorecard_dashboard.css"],
+			() => {
+				dinext_project_evaluation.project_scorecard._dashboard_styles_loaded = true;
+				resolve();
+			}
+		);
+	});
+};
+
+dinext_project_evaluation.project_scorecard.is_score_computed = function (doc) {
+	if (!doc) {
+		return false;
+	}
+	const score = doc.integral_score;
+	return score !== null && score !== undefined && score !== "";
+};
+
+dinext_project_evaluation.project_scorecard.format_integral_score = function (doc) {
+	if (!dinext_project_evaluation.project_scorecard.is_score_computed(doc)) {
+		return null;
+	}
+	return flt(doc.integral_score, 2);
+};
+
+dinext_project_evaluation.project_scorecard.parse_gate_messages = function (gate_messages) {
+	if (!gate_messages) {
+		return [];
+	}
+	return String(gate_messages)
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(Boolean);
+};
+
+dinext_project_evaluation.project_scorecard.get_gate_kpi_state = function (doc) {
+	if (cint(doc.gate_pass)) {
+		return {
+			modifier: "gate-pass",
+			label: __("Passed", null, dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT),
+		};
+	}
+	return {
+		modifier: "gate-fail",
+		label: __("Failed", null, dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT),
+	};
+};
+
+dinext_project_evaluation.project_scorecard.build_gate_messages_html = function (doc) {
+	if (
+		!dinext_project_evaluation.project_scorecard.is_score_computed(doc) ||
+		cint(doc.gate_pass)
+	) {
+		return "";
+	}
+
+	const messages = dinext_project_evaluation.project_scorecard.parse_gate_messages(
+		doc.gate_messages
+	);
+	if (!messages.length) {
+		return "";
+	}
+
+	const items = messages
+		.map((message) => `<li>${frappe.utils.escape_html(message)}</li>`)
+		.join("");
+
+	return `
+		<div class="dpe-scorecard-gate-messages">
+			<div class="dpe-scorecard-gate-messages-title">${__(
+				"Gate failure reasons",
+				null,
+				dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT
+			)}</div>
+			<ul class="dpe-scorecard-gate-messages-list">${items}</ul>
+		</div>`;
+};
+
+dinext_project_evaluation.project_scorecard.build_dashboard_kpi_html = function (frm) {
+	const doc = frm.doc;
+	const integralScore = dinext_project_evaluation.project_scorecard.format_integral_score(doc);
+	const gateState = dinext_project_evaluation.project_scorecard.get_gate_kpi_state(doc);
+
+	const gateMessagesHtml =
+		dinext_project_evaluation.project_scorecard.build_gate_messages_html(doc);
+
+	return `
+		<div class="dpe-scorecard-dashboard-kpis">
+			<div class="dpe-scorecard-kpi-grid">
+				<div class="dpe-scorecard-kpi-card dpe-scorecard-kpi-card--score">
+					<div class="dpe-scorecard-kpi-label">${__(
+						"Integral Score",
+						null,
+						dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT
+					)}</div>
+					<div class="dpe-scorecard-kpi-value">${frappe.utils.escape_html(String(integralScore))}</div>
+				</div>
+				<div class="dpe-scorecard-kpi-card dpe-scorecard-kpi-card--gate dpe-scorecard-kpi-card--${gateState.modifier}">
+					<div class="dpe-scorecard-kpi-label">${__(
+						"Gate Pass",
+						null,
+						dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT
+					)}</div>
+					<div class="dpe-scorecard-kpi-status">
+						<span class="dpe-scorecard-kpi-indicator" aria-hidden="true"></span>
+						<span class="dpe-scorecard-kpi-status-text">${frappe.utils.escape_html(
+							gateState.label
+						)}</span>
+					</div>
+				</div>
+			</div>
+			${gateMessagesHtml}
+		</div>`;
+};
+
+dinext_project_evaluation.project_scorecard.clear_dashboard_kpis = function (frm) {
+	if (!frm.dashboard?.parent?.length) {
+		return;
+	}
+	frm.dashboard.parent.find(".dpe-scorecard-kpi-dashboard").remove();
+};
+
+dinext_project_evaluation.project_scorecard.render_dashboard_kpis = function (frm) {
+	if (!frm.dashboard) {
+		return;
+	}
+
+	const renderToken = (frm._dpe_dashboard_kpi_render_token =
+		(frm._dpe_dashboard_kpi_render_token || 0) + 1);
+
+	dinext_project_evaluation.project_scorecard.clear_dashboard_kpis(frm);
+
+	if (!dinext_project_evaluation.project_scorecard.is_score_computed(frm.doc)) {
+		return;
+	}
+
+	dinext_project_evaluation.project_scorecard.ensure_dashboard_styles().then(() => {
+		if (renderToken !== frm._dpe_dashboard_kpi_render_token) {
+			return;
+		}
+
+		dinext_project_evaluation.project_scorecard.clear_dashboard_kpis(frm);
+
+		const html = dinext_project_evaluation.project_scorecard.build_dashboard_kpi_html(frm);
+		frm.dashboard.add_section(
+			html,
+			__("Evaluation Summary", null, dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT),
+			"custom dpe-scorecard-kpi-dashboard"
+		);
+		frm.dashboard.show();
+	});
+};
+
 frappe.ui.form.on("Project Scorecard", {
 	refresh(frm) {
 		dinext_project_evaluation.project_scorecard.ensure_value_display_column();
 		dinext_project_evaluation.project_scorecard.ensure_styles();
+		dinext_project_evaluation.project_scorecard.render_dashboard_kpis(frm);
 		$(frm.wrapper).addClass("dpe-project-scorecard-form");
 		dinext_project_evaluation.project_scorecard.setup_items_grid_lock(frm);
 		dinext_project_evaluation.project_scorecard.lock_items_grid(frm);
