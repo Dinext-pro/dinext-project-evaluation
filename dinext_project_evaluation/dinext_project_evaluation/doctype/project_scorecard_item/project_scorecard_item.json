@@ -86,39 +86,45 @@
    "fieldname": "scale_value",
    "fieldtype": "Select",
    "hidden": 1,
-   "label": "Scale Value"
+   "label": "Scale Value",
+   "read_only_depends_on": "eval:parent.status != 'Draft'"
   },
   {
    "default": "0",
    "fieldname": "boolean_value",
    "fieldtype": "Check",
    "hidden": 1,
-   "label": "Boolean Value"
+   "label": "Boolean Value",
+   "read_only_depends_on": "eval:parent.status != 'Draft'"
   },
   {
    "default": "0",
    "fieldname": "boolean_value_set",
    "fieldtype": "Check",
    "hidden": 1,
-   "label": "Boolean Value Set"
+   "label": "Boolean Value Set",
+   "read_only_depends_on": "eval:parent.status != 'Draft'"
   },
   {
    "fieldname": "number_value",
    "fieldtype": "Float",
    "hidden": 1,
-   "label": "Number Value"
+   "label": "Number Value",
+   "read_only_depends_on": "eval:parent.status != 'Draft'"
   },
   {
    "fieldname": "currency_value",
    "fieldtype": "Currency",
    "hidden": 1,
-   "label": "Currency Value"
+   "label": "Currency Value",
+   "read_only_depends_on": "eval:parent.status != 'Draft'"
   },
   {
    "fieldname": "percent_value",
    "fieldtype": "Percent",
    "hidden": 1,
-   "label": "Percent Value"
+   "label": "Percent Value",
+   "read_only_depends_on": "eval:parent.status != 'Draft'"
   },
   {
    "fieldname": "raw_value",
@@ -182,7 +188,8 @@
    "fieldtype": "Small Text",
    "in_list_view": 1,
    "label": "Comment",
-   "mandatory_depends_on": "eval:(doc.requires_comment)"
+   "mandatory_depends_on": "eval:(doc.requires_comment)",
+   "read_only_depends_on": "eval:parent.status != 'Draft'"
   }
  ],
  "grid_page_length": 50,

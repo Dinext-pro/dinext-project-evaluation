@@ -36,8 +36,14 @@ SCORECARD_CALCULATION_STATUSES = frozenset({STATUS_REVIEWED, STATUS_APPROVED})
 # States visible in portfolio/report as finalized scores.
 SCORECARD_REPORT_STATUSES = (STATUS_REVIEWED, STATUS_APPROVED)
 
-# States that block further edits (server-side guard in controller).
-SCORECARD_LOCKED_STATUSES = frozenset({STATUS_APPROVED, STATUS_CANCELED})
+# Only Draft allows manual edits to criterion values, comments, and row content.
+SCORECARD_CONTENT_EDITABLE_STATUSES = frozenset({STATUS_DRAFT})
+
+# Terminal states: workflow must not roll back to an earlier lifecycle state.
+SCORECARD_TERMINAL_STATUSES = frozenset({STATUS_APPROVED, STATUS_CANCELED})
+
+# Backward-compatible alias (Approved/Canceled terminal lock).
+SCORECARD_LOCKED_STATUSES = SCORECARD_TERMINAL_STATUSES
 
 ACTION_SUBMIT_FOR_REVIEW = "Submit for Review"
 ACTION_RETURN_TO_DRAFT = "Return to Draft"

@@ -23,6 +23,38 @@ dinext_project_evaluation.project_scorecard.get_items_grid = function (frm) {
 	return field && field.grid ? field.grid : null;
 };
 
+dinext_project_evaluation.project_scorecard.is_content_editable = function (frm) {
+	return frm?.doc?.status === "Draft";
+};
+
+dinext_project_evaluation.project_scorecard.apply_content_editability = function (frm) {
+	const editable = dinext_project_evaluation.project_scorecard.is_content_editable(frm);
+	frm.set_df_property("items", "read_only", editable ? 0 : 1);
+
+	const grid = dinext_project_evaluation.project_scorecard.get_items_grid(frm);
+	if (!grid) {
+		return;
+	}
+
+	(frm.doc.items || []).forEach((row) => {
+		if (!row?.name) {
+			return;
+		}
+		const gridRow = grid.get_row(row.name);
+		if (!gridRow) {
+			return;
+		}
+		gridRow.toggle_editable("comment", editable);
+		const commentControl = gridRow.on_grid_fields_dict?.comment;
+		if (commentControl?.set_read_only) {
+			commentControl.set_read_only(!editable);
+		}
+		if (commentControl?.$input?.length) {
+			commentControl.$input.prop("disabled", !editable);
+		}
+	});
+};
+
 dinext_project_evaluation.project_scorecard.ensure_styles = function () {
 	if (dinext_project_evaluation.project_scorecard._styles_injected) {
 		return;
@@ -392,6 +424,15 @@ dinext_project_evaluation.project_scorecard.setup_grid_value_control = function 
 		return;
 	}
 
+	if (!dinext_project_evaluation.project_scorecard.is_content_editable(frm)) {
+		const displayValue = dinext_project_evaluation.project_scorecard.get_display_value(row);
+		const text = displayValue == null || displayValue === "" ? "" : String(displayValue);
+		if (column.static_area) {
+			column.static_area.html(frappe.utils.escape_html(text));
+		}
+		return;
+	}
+
 	column.field_area.empty();
 	const df = dinext_project_evaluation.project_scorecard.get_active_control_df(row);
 	if (!df) {
@@ -455,7 +496,10 @@ dinext_project_evaluation.project_scorecard.bind_grid_value_column = function (f
 		};
 	}
 
-	if (!column._dpe_autopen_select_bound) {
+	if (
+		dinext_project_evaluation.project_scorecard.is_content_editable(frm) &&
+		!column._dpe_autopen_select_bound
+	) {
 		column._dpe_autopen_select_bound = true;
 		column.on("click", (event) => {
 			if (column.field_area?.is(":visible") && column.field_area.has(event.target).length) {
@@ -477,6 +521,9 @@ dinext_project_evaluation.project_scorecard.setup_items_grid_lock = function (fr
 		gridRow.row?.find(".row-check, .row-index").hide();
 		dinext_project_evaluation.project_scorecard.bind_grid_value_column(frm, gridRow);
 		dinext_project_evaluation.project_scorecard.apply_item_row_state(frm, gridRow);
+		if (!dinext_project_evaluation.project_scorecard.is_content_editable(frm)) {
+			gridRow.toggle_editable("comment", false);
+		}
 		if (gridRow.doc?.name) {
 			dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(
 				frm,
@@ -729,6 +776,11 @@ dinext_project_evaluation.project_scorecard.persist_row_value_fields = function 
 		return;
 	}
 
+	const parent = locals[row.parenttype] && locals[row.parenttype][row.parent];
+	if (parent && parent.status !== "Draft") {
+		return;
+	}
+
 	const cdt = row.doctype;
 	const cdn = row.name;
 
@@ -740,6 +792,17 @@ dinext_project_evaluation.project_scorecard.persist_row_value_fields = function 
 dinext_project_evaluation.project_scorecard.render_active_control = function (frm, cdt, cdn) {
 	const row = locals[cdt] && locals[cdt][cdn];
 	if (!row) {
+		return;
+	}
+
+	if (!dinext_project_evaluation.project_scorecard.is_content_editable(frm)) {
+		const gridRow = frm.get_field("items").grid.get_row(cdn);
+		if (!gridRow?.grid_form?.fields_dict?.value_editor?.$wrapper?.length) {
+			return;
+		}
+		const displayValue = dinext_project_evaluation.project_scorecard.get_display_value(row);
+		const text = displayValue == null || displayValue === "" ? "" : String(displayValue);
+		gridRow.grid_form.fields_dict.value_editor.$wrapper.html(frappe.utils.escape_html(text));
 		return;
 	}
 
@@ -797,9 +860,11 @@ frappe.ui.form.on("Project Scorecard", {
 		dinext_project_evaluation.project_scorecard.setup_items_grid_lock(frm);
 		dinext_project_evaluation.project_scorecard.lock_items_grid(frm);
 		dinext_project_evaluation.project_scorecard.hydrate_grid_rows(frm);
+		dinext_project_evaluation.project_scorecard.apply_content_editability(frm);
 		dinext_project_evaluation.project_scorecard.load_applicable_criteria(frm).then(() => {
 			dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(frm);
 			dinext_project_evaluation.project_scorecard.apply_all_item_row_states(frm);
+			dinext_project_evaluation.project_scorecard.apply_content_editability(frm);
 		});
 	},
 	validate(frm) {
