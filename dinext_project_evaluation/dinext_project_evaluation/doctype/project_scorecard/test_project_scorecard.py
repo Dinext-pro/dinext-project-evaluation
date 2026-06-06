@@ -12,6 +12,7 @@ from dinext_project_evaluation.dinext_project_evaluation.doctype.project_scoreca
 	_assert_no_immutable_content_changes,
 	_field_value_changed,
 )
+from dinext_project_evaluation.scoring.workflow_constants import SCORECARD_AGREED_DOCSTATUS
 
 
 class TestProjectScorecard(FrappeTestCase):
@@ -325,3 +326,65 @@ class TestProjectScorecard(FrappeTestCase):
 		doc._sync_items_from_profile()
 
 		sync_items.assert_not_called()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.create_replacement_draft_after_cancel",
+		return_value="PSC-NEW",
+	)
+	def test_on_cancel_creates_replacement_draft(self, create_replacement):
+		doc = SimpleNamespace()
+		doc.on_cancel = ProjectScorecard.on_cancel.__get__(doc, ProjectScorecard)
+
+		doc.on_cancel()
+
+		create_replacement.assert_called_once_with(doc)
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.validate_scorecard_cancel_allowed"
+	)
+	def test_before_cancel_validates_permissions_and_stage(self, validate_cancel):
+		doc = SimpleNamespace()
+		doc.before_cancel = ProjectScorecard.before_cancel.__get__(doc, ProjectScorecard)
+
+		doc.before_cancel()
+
+		validate_cancel.assert_called_once_with(doc)
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.validate_scorecard_cancel_allowed"
+	)
+	def test_before_cancel_skips_validation_when_flag_set(self, validate_cancel):
+		doc = SimpleNamespace()
+		doc.before_cancel = ProjectScorecard.before_cancel.__get__(doc, ProjectScorecard)
+
+		frappe.flags.skip_scorecard_cancel_validation = True
+		try:
+			doc.before_cancel()
+		finally:
+			frappe.flags.skip_scorecard_cancel_validation = False
+
+		validate_cancel.assert_not_called()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_meta"
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.db.set_value"
+	)
+	def test_on_submit_updates_project_last_score(self, set_value, get_meta):
+		meta = SimpleNamespace(has_field=lambda fieldname: fieldname == "custom_last_scorecard")
+		get_meta.return_value = meta
+		doc = SimpleNamespace(
+			docstatus=SCORECARD_AGREED_DOCSTATUS,
+			status="Approved",
+			name="PSC-001",
+			project="PRJ-001",
+			integral_score=4.5,
+			evaluation_date="2026-06-06 12:00:00",
+		)
+		doc.on_submit = ProjectScorecard.on_submit.__get__(doc, ProjectScorecard)
+		doc._update_project_last_score = ProjectScorecard._update_project_last_score.__get__(doc, ProjectScorecard)
+
+		doc.on_submit()
+
+		set_value.assert_called()

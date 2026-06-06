@@ -33,8 +33,14 @@ SCORECARD_WORKFLOW_STATES = (
 # States where integral score / gate are calculated on save.
 SCORECARD_CALCULATION_STATUSES = frozenset({STATUS_REVIEWED, STATUS_APPROVED})
 
-# States visible in portfolio/report as finalized scores.
+# States visible in portfolio/report as finalized scores (agreed = submitted docstatus).
+SCORECARD_AGREED_DOCSTATUS = 1
+
+# Legacy status tuple kept for calculation triggers; agreed checks use docstatus.
 SCORECARD_REPORT_STATUSES = (STATUS_REVIEWED, STATUS_APPROVED)
+
+# Roles allowed to cancel a scorecard via workflow/native cancel.
+SCORECARD_CANCEL_ROLES = frozenset({ROLE_APPROVER})
 
 # Only Draft allows manual edits to criterion values, comments, and row content.
 SCORECARD_CONTENT_EDITABLE_STATUSES = frozenset({STATUS_DRAFT})

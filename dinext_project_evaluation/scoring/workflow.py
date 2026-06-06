@@ -16,6 +16,7 @@ from dinext_project_evaluation.scoring.workflow_constants import (
 	STATUS_REVIEWED,
 	STATUS_SUBMITTED,
 )
+from dinext_project_evaluation.scoring.scorecard_cancel import cancel_scorecard_document
 
 
 def apply_scorecard_workflow_action(scorecard: str, action: str) -> frappe.Document:
@@ -59,3 +60,8 @@ def approve_scorecard_via_workflow(scorecard: str) -> frappe.Document:
 	frappe.throw(
 		_("Project Scorecard must be in Reviewed status to approve. Current status: {0}").format(doc.status)
 	)
+
+
+def cancel_scorecard_via_workflow(scorecard: str, *, skip_permission_checks: bool = False) -> frappe.Document:
+	doc = frappe.get_doc("Project Scorecard", scorecard)
+	return cancel_scorecard_document(doc, skip_permission_checks=skip_permission_checks)

@@ -146,6 +146,7 @@
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
  "modified": "2026-06-05 02:25:33.619781",
  "modified_by": "Administrator",
@@ -235,6 +236,8 @@
    "report": 1,
    "role": "Project Scorecard Author",
    "share": 1,
+   "submit": 0,
+   "cancel": 0,
    "write": 1
   },
   {
@@ -245,9 +248,12 @@
    "report": 1,
    "role": "Project Scorecard Reviewer",
    "share": 1,
+   "submit": 0,
+   "cancel": 0,
    "write": 1
   },
   {
+   "cancel": 1,
    "email": 1,
    "export": 1,
    "print": 1,
@@ -255,6 +261,7 @@
    "report": 1,
    "role": "Project Scorecard Approver",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
@@ -267,6 +274,8 @@
    "report": 1,
    "role": "Project Scorecard Admin",
    "share": 1,
+   "submit": 1,
+   "cancel": 0,
    "write": 1
   }
  ],

@@ -6,3 +6,4 @@
 # Patches added in this section will be executed after doctypes are migrated
 dinext_project_evaluation.patches.migrate_profile_criterion_stages
 dinext_project_evaluation.patches.migrate_scorecard_calculated_status
+dinext_project_evaluation.patches.migrate_scorecard_submittable

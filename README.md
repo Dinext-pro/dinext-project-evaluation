@@ -10,10 +10,10 @@
 
 - **Каталог критериев скоринга** — числовые, валютные, процентные, логические и качественные (шкала) значения с направлением влияния и опциональными шкалами Likert.
 - **Профили оценки** — веса, обязательность критериев, пороги gate по обязательным критериям (нормализованный балл и/или сырое число), применимость по стадиям; в UI показываются только релевантные пороговые поля.
-- **Project Scorecard** — типовой Frappe Workflow **Dinext Project Scorecard Approval** (отдельные роли согласования, не stage-gate), снимок профиля, расчёт интегрального балла и gate; проверка mandatory-критериев при уходе из Draft. Подробнее — раздел [Workflow согласования](#workflow-согласования-project-scorecard).
+- **Project Scorecard** — submittable DocType с workflow **Dinext Project Scorecard Approval** (отдельные роли согласования, не stage-gate), снимок профиля, расчёт интегрального балла и gate; проверка mandatory-критериев при уходе из Draft. **Согласованной** считается только submitted-оценка (`docstatus = 1`); поле `status` остаётся бизнес-индикатором для UI. Подробнее — раздел [Workflow согласования](#workflow-согласования-project-scorecard).
 - **UI карточки Project** — Client Script: создание scorecard, история оценок, переход к отчёту портфеля.
 - **UI Project Portfolio** — переход к отчёту скоринга и пузырьковой диаграмме для выбранного портфеля.
-- **Project Scoring Report** — фильтры по портфелю, проекту, профилю и стадии; таблица данных, bubble payload на сервере и SVG-диаграмма на клиенте.
+- **Project Scoring Report** — фильтры по портфелю, проекту, профилю и стадии; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и SVG-диаграмма на клиенте.
 - **Seed-данные по умолчанию** — типовые критерии (стратегическое соответствие, финансовая выгода и др.) и `Default Project Scoring Profile` согласно [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
 - **Чистый scoring engine** — модуль расчёта без зависимости от Frappe ORM и unit-тесты нормализации, взвешивания и gate-логики.
 
@@ -43,14 +43,27 @@ bench --site <site> export-fixtures
 bench --site <site> export-fixtures
 ```
 
-При `migrate` подтягиваются fixtures, в том числе workflow **Dinext Project Scorecard Approval**, роли scorecard-согласования и `Default Project Scoring Profile`. Патч `migrate_scorecard_calculated_status` переводит устаревший статус `Calculated` в `Reviewed`.
+При `migrate` подтягиваются fixtures, в том числе workflow **Dinext Project Scorecard Approval**, роли scorecard-согласования и `Default Project Scoring Profile`. Патчи:
+
+- `migrate_scorecard_calculated_status` — устаревший статус `Calculated` → `Reviewed`;
+- `migrate_scorecard_submittable` — backfill `docstatus` для существующих scorecard (`Approved` → submitted, `Canceled` → cancelled).
 
 ## Workflow согласования Project Scorecard
 
-Жизненный цикл scorecard управляется workflow Frappe с полем состояния **`status`** (не submittable DocType). Статус на форме только для чтения; переходы — кнопками workflow на форме **Project Scorecard**.
+Жизненный цикл scorecard управляется **Frappe Workflow** с полем состояния **`status`** и стандартным **`docstatus`** submittable-документа. Статус на форме только для чтения; переходы — кнопками workflow на форме **Project Scorecard**.
 
 **Workflow:** `Dinext Project Scorecard Approval`  
 **Источник в репозитории:** `dinext_project_evaluation/fixtures/workflow.json`, `workflow_state.json`, `workflow_action_master.json`, `role.json`
+
+### Submittable lifecycle и «согласованная» оценка
+
+| Понятие | Источник истины | Примечание |
+|---------|-----------------|------------|
+| Бизнес-статус (Draft, Reviewed, Approved…) | поле `status` | UI, роли редактирования, расчёт integral/gate |
+| Согласованная / финальная оценка | **`docstatus = 1`** | Отчёт портфеля, `custom_last_*` на Project, gate downstream |
+| Отменённая оценка | `status = Canceled` и **`docstatus = 2`** | Не блокирует новую карточку для стадии |
+
+Переход **Reviewed → Approved** через workflow вызывает `doc.submit()` (состояние Approved в workflow имеет `doc_status = 1`). Отмена submitted scorecard — через workflow **Cancel** (Approved → Canceled) или программный cancel для черновиков в промежуточных статусах.
 
 ### Роли (отдельно от stage-gate)
 
@@ -58,8 +71,8 @@ bench --site <site> export-fixtures
 |------|------------|
 | **Project Scorecard Author** | Создаёт scorecard, заполняет критерии в Draft, отправляет на проверку |
 | **Project Scorecard Reviewer** | Проверяет полноту, переводит в Reviewed или возвращает на доработку |
-| **Project Scorecard Approver** | Утверждает итоговую оценку (Reviewed → Approved) |
-| **Project Scorecard Admin** | Отмена процесса (Cancel), полный доступ к DocType |
+| **Project Scorecard Approver** | Утверждает оценку (Reviewed → Approved), **отменяет** scorecard (Cancel) |
+| **Project Scorecard Admin** | Полный доступ к DocType; submit без права cancel |
 
 Рекомендуемое соответствие существующим ролям Dinext (см. `scoring/workflow_constants.py`):
 
@@ -70,34 +83,40 @@ bench --site <site> export-fixtures
 
 Пользователям нужно выдать соответствующие роли scorecard в **User** (помимо прав на Project / портфель). Stage-gate роли (`Stage Gate Owner`, `Reviewer`, `Approver`) в workflow scorecard **не** используются.
 
-### Статусы и расчёт
+### Статусы, docstatus и расчёт
 
-| Статус | Смысл | Расчёт integral / gate | В отчёте портфеля |
-|--------|--------|------------------------|-------------------|
-| Draft | Черновик, ввод значений | Нет | Нет |
-| Submitted for Review | На проверке | Нет | Нет |
-| Reviewed | Проверка пройдена | Да (при save) | Да |
-| Approved | Утверждено | Да (при save) | Да |
-| Rejected | Возврат на доработку | Нет | Нет |
-| Canceled | Процесс прекращён | Нет | Нет |
+| Статус (`status`) | `docstatus` | Смысл | Расчёт integral / gate | В отчёте портфеля |
+|-------------------|-------------|--------|------------------------|-------------------|
+| Draft | 0 | Черновик, ввод значений | Нет | Нет |
+| Submitted for Review | 0 | На проверке | Нет | Нет |
+| Reviewed | 0 | Проверка пройдена | Да (при save) | Нет |
+| Approved | **1** | Утверждено (submitted) | Да (при save) | **Да** |
+| Rejected | 0 | Возврат на доработку | Нет | Нет |
+| Canceled | **2** | Процесс прекращён | Нет | Нет |
 
-Ручное редактирование значений критериев и комментариев допускается только в **Draft**; во всех остальных статусах разрешены workflow-переходы и системный пересчёт, но не правка содержимого. Утверждённые и отменённые scorecard нельзя переводить обратно в более ранние статусы (нужен новый scorecard). Уникальность: один неотменённый scorecard на `stage_instance_at_evaluation`.
+Ручное редактирование значений критериев и комментариев допускается только в **Draft**; во всех остальных статусах разрешены workflow-переходы и системный пересчёт, но не правка содержимого. Утверждённые и отменённые scorecard нельзя переводить обратно в более ранние статусы.
+
+### Уникальность и replacement после Cancel
+
+- На одну **`stage_instance_at_evaluation`** допускается **не более одного** scorecard со статусом, отличным от **Canceled** (включая Draft и Rejected — повторное создание не дублирует карточку, а переиспользует существующую).
+- После **Cancel** для стадии **немедленно** создаётся новый **Draft** с тем же проектом, профилем и `stage_instance_at_evaluation` (если стадия ещё **Active** и карточки для неё нет).
+- **Cancel** разрешён только пользователю с ролью **Project Scorecard Approver** и только пока связанная **Project Stage Instance** в статусе **Active**. Кнопка Cancel в UI скрывается workflow-условием на переходе Approved → Canceled; серверная проверка дублируется в `before_cancel()`.
 
 ### Переходы workflow
 
-| Из | Действие | В | Кто |
-|----|----------|---|-----|
-| Draft | Submit for Review | Submitted for Review | Author |
-| Draft | Cancel | Canceled | Admin |
-| Submitted for Review | Return to Draft | Draft | Reviewer |
-| Submitted for Review | Mark Reviewed | Reviewed | Reviewer |
-| Submitted for Review | Reject | Rejected | Reviewer |
-| Submitted for Review | Cancel | Canceled | Admin |
-| Reviewed | Request Rework | Draft | Reviewer / Approver |
-| Reviewed | Approve | Approved | Approver |
-| Reviewed | Reject | Rejected | Approver |
-| Reviewed | Cancel | Canceled | Admin |
-| Rejected | Return to Draft | Draft | Author |
+| Из | Действие | В | Кто | Примечание |
+|----|----------|---|-----|------------|
+| Draft | Submit for Review | Submitted for Review | Author | |
+| Submitted for Review | Return to Draft | Draft | Reviewer | |
+| Submitted for Review | Mark Reviewed | Reviewed | Reviewer | |
+| Submitted for Review | Reject | Rejected | Reviewer | |
+| Reviewed | Request Rework | Draft | Reviewer / Approver | |
+| Reviewed | Approve | Approved | Approver | `doc.submit()` |
+| Reviewed | Reject | Rejected | Approver | |
+| Rejected | Return to Draft | Draft | Author | |
+| Approved | Cancel | Canceled | Approver | Только если stage instance **Active**; `doc.cancel()` |
+
+Отмена из **Draft / Submitted / Reviewed / Rejected** не оформлена workflow-переходом (ограничение Frappe: нельзя `docstatus 0 → 2` через workflow). Такие случаи обрабатывает `scoring/scorecard_cancel.py` (программный cancel + replacement draft).
 
 ```mermaid
 flowchart LR
@@ -106,11 +125,11 @@ flowchart LR
   submitted -->|Mark Reviewed| reviewed[Reviewed]
   submitted -->|Reject| rejected[Rejected]
   reviewed -->|Request Rework| draft
-  reviewed -->|Approve| approved[Approved]
+  reviewed -->|Approve submit| approved["Approved docstatus=1"]
+  reviewed -->|Reject| rejected
   rejected -->|Return to Draft| draft
-  draft -->|Cancel| canceled[Canceled]
-  submitted -->|Cancel| canceled
-  reviewed -->|Cancel| canceled
+  approved -->|"Cancel if stage Active"| canceled["Canceled docstatus=2"]
+  canceled -->|immediate| draft2[New Draft same stage]
 ```
 
 ### Разработка метаданных workflow
@@ -122,7 +141,7 @@ bench --site <site> migrate
 bench --site <site> export-fixtures
 ```
 
-Не правьте `fixtures/workflow*.json` и `role.json` вручную — только через экспорт после изменений на сайте.
+Не правьте `fixtures/workflow*.json` и `role.json` вручную — только через экспорт после изменений на сайте. Исключение: условие на переход **Cancel** (Approved → Canceled) задаёт проверку активной stage instance и должно совпадать с логикой `scoring/scorecard_cancel.py`.
 
 ## 🛠️ Использование
 
@@ -136,9 +155,10 @@ bench --site <site> export-fixtures
    - Неактуальные пороги автоматически очищаются при изменении строки и при сохранении профиля; при открытии формы выполняется только скрытие/показ полей.
 3. На форме **Project** — действия оценки (Client Script): создать scorecard для текущей стадии и профиля.
 4. Заполните строки scorecard в статусе **Draft**. При переходе в любой другой статус (кроме **Canceled**) сервер и форма проверяют, что все **Mandatory**-критерии заполнены; незаполненные ячейки подсвечиваются в колонке **Value**.
-5. Переведите scorecard по workflow: **Submit for Review** → **Mark Reviewed** (расчёт интегрального балла и gate) → **Approve**. Утверждённые scorecard обновляют денормализованные поля Project.
-6. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
-7. В отчёте используйте фильтры: портфель, проект, профиль, стадия.
+5. Переведите scorecard по workflow: **Submit for Review** → **Mark Reviewed** (расчёт интегрального балла и gate) → **Approve** (submit, `docstatus = 1`). Утверждённые submitted scorecard обновляют денормализованные поля Project.
+6. При необходимости **Cancel** (только **Approver**, только пока stage instance **Active**) — создаётся новый Draft для той же стадии.
+7. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
+8. В отчёте используйте фильтры: портфель, проект, профиль, стадия.
 
 ### Валидация обязательных критериев (Mandatory)
 
@@ -174,9 +194,13 @@ python3 -m unittest \
   dinext_project_evaluation.tests.test_gate_fields \
   dinext_project_evaluation.tests.test_scoring_engine \
   dinext_project_evaluation.tests.test_scorecard_service \
+  dinext_project_evaluation.tests.test_scorecard_cancel \
+  dinext_project_evaluation.tests.test_scorecard_factory \
   dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.test_project_scorecard
 
 bench --site <site> run-tests --app dinext_project_evaluation \
+  --module dinext_project_evaluation.tests.test_scorecard_cancel \
+  --module dinext_project_evaluation.tests.test_scorecard_factory \
   --module dinext_project_evaluation.tests.test_scorecard_service \
   --module dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.test_project_scorecard
 ```
@@ -199,8 +223,9 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 | `dinext_project_evaluation/seed.py` | Коды критериев по умолчанию, шкалы, веса профиля, пороги gate для обязательных критериев |
 | `dinext_project_evaluation/scoring/criterion_config.py` | Валидация конфигурации критериев и введённых значений scorecard |
 | `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_criterion/project_scoring_criterion.js` | Условная видимость полей критерия по `input_type` |
-| `dinext_project_evaluation/scoring/workflow_constants.py` | Статусы, роли и действия workflow Project Scorecard |
-| `dinext_project_evaluation/scoring/workflow.py` | Whitelisted workflow-переходы (calculate / approve) |
+| `dinext_project_evaluation/scoring/workflow_constants.py` | Статусы, роли, действия workflow; `SCORECARD_AGREED_DOCSTATUS`, `SCORECARD_CANCEL_ROLES` |
+| `dinext_project_evaluation/scoring/workflow.py` | Whitelisted workflow-переходы (calculate / approve / cancel) |
+| `dinext_project_evaluation/scoring/scorecard_cancel.py` | Проверки Cancel (роль Approver, Active stage), replacement draft, bulk cancel |
 | `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_profile/project_scoring_profile.js` | Условная видимость порогов gate в форме профиля |
 | `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js` | Grid ввода значений критериев, валидация mandatory при уходе из Draft, подсветка ячеек |
 | `dinext_project_evaluation/translations/ru.csv` | Русские переводы |
@@ -267,7 +292,8 @@ pre-commit install
 
 | Commit | Кратко |
 |--------|--------|
-| *(текущая ветка)* | Валидация mandatory-критериев при уходе из Draft; workflow Project Scorecard; подсветка ячеек в grid |
+| *(текущая ветка)* | Submittable Project Scorecard (`docstatus` lifecycle); Cancel только Approver + Active stage; replacement draft после Cancel; отчёт по `docstatus = 1` |
+| *(предыдущая)* | Валидация mandatory-критериев при уходе из Draft; workflow Project Scorecard; подсветка ячеек в grid |
 | `089e159` | Выравнивание с Dinext: зависимость erpnext, AGENTS.md |
 | `c448318` | Инициализация каркаса приложения |
 
@@ -291,14 +317,19 @@ dinext_project_evaluation/
     │   ├── gate_fields.py             # релевантность и sanitize порогов gate
     │   ├── scorecard_service.py       # адаптер Frappe document ↔ engine
     │   ├── scorecard_factory.py       # создание/sync строк scorecard из профиля
+    │   ├── scorecard_cancel.py        # cancel, replacement draft, bulk cancel
     │   ├── scorecard_provision.py     # автосоздание Draft по stage instance
-    │   ├── workflow_constants.py      # статусы, роли, действия workflow
-    │   └── workflow.py                # workflow-переходы calculate / approve
+    │   ├── workflow_constants.py      # статусы, роли, docstatus/cancel constants
+    │   └── workflow.py                # workflow-переходы calculate / approve / cancel
+    ├── patches/
+    │   ├── migrate_scorecard_calculated_status.py
+    │   └── migrate_scorecard_submittable.py
     ├── tests/
     │   ├── test_gate_fields.py
     │   ├── test_scoring_engine.py
     │   ├── test_scorecard_service.py
-    │   └── test_scorecard_factory.py
+    │   ├── test_scorecard_factory.py
+    │   └── test_scorecard_cancel.py
     ├── fixtures/                      # вывод bench export-fixtures (+ workflow)
     ├── translations/ru.csv
     └── dinext_project_evaluation/
@@ -312,8 +343,10 @@ dinext_project_evaluation/
 | `scoring/engine.py` | Нормализация вводов, веса, правила gate |
 | `scoring/gate_fields.py` | Какие пороги gate допустимы для строки профиля; очистка неактуальных значений |
 | `scoring/scorecard_service.py` | Преобразование строк Scorecard в входные данные engine; `missing_mandatory_criterion_codes()` |
-| `scoring/workflow.py` | Workflow-переходы scorecard (Submit for Review, Mark Reviewed, Approve) |
-| `doctype/project_scorecard/` | Workflow, расчёт при save, проверка mandatory при уходе из Draft, обновление Project |
+| `scoring/scorecard_factory.py` | Создание/sync строк scorecard; поиск agreed/non-canceled scorecard для стадии |
+| `scoring/scorecard_cancel.py` | Валидация Cancel, replacement draft, `cancel_project_scorecards()` |
+| `scoring/workflow.py` | Workflow-переходы scorecard (Submit for Review, Mark Reviewed, Approve, Cancel) |
+| `doctype/project_scorecard/` | Submittable lifecycle, `before_cancel` / `on_cancel`, расчёт при save, mandatory |
 | `doctype/project_scorecard/project_scorecard.js` | Grid ввода значений, client-side валидация и подсветка mandatory-ячеек |
 | `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля с опциональной стадией и порогами gate |
 | `doctype/project_scoring_profile/project_scoring_profile.js` | Условное отображение порогов gate по обязательности и типу критерия |
@@ -361,7 +394,7 @@ flowchart TB
   R -->|latest scorecard| SC
 ```
 
-**Поток данных (scorecard):** создаётся **Draft** (вручную, API или при Active **Project Stage Instance**) → заполнение критериев → workflow **Submit for Review** → **Mark Reviewed** (расчёт) → **Approve** → обновление `custom_last_*` на **Project**. **Project Scoring Report** берёт последний scorecard со статусом **Reviewed** или **Approved**.
+**Поток данных (scorecard):** создаётся **Draft** (вручную, API или при Active **Project Stage Instance**) → заполнение критериев → workflow **Submit for Review** → **Mark Reviewed** (расчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии.
 
 **Поток валидации:** при любом уходе из **Draft**, кроме **Canceled**, сервер и форма требуют заполнения mandatory-критериев (см. раздел «Валидация обязательных критериев»).
 

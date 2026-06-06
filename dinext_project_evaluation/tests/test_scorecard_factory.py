@@ -172,6 +172,20 @@ class TestScorecardFactory(unittest.TestCase):
 	def test_project_has_non_canceled_scorecards(self, _exists):
 		self.assertTrue(scorecard_factory.project_has_non_canceled_scorecards("PRJ-001"))
 
+	@patch("dinext_project_evaluation.scoring.scorecard_factory.frappe.db.exists", return_value=True)
+	def test_project_has_agreed_scorecards(self, _exists):
+		self.assertTrue(scorecard_factory.project_has_agreed_scorecards("PRJ-001"))
+
+	@patch(
+		"dinext_project_evaluation.scoring.scorecard_factory.frappe.db.get_value",
+		return_value="PSC-AGREED",
+	)
+	def test_find_agreed_scorecard_for_stage_instance(self, _get_value):
+		self.assertEqual(
+			scorecard_factory.find_agreed_scorecard_for_stage_instance("PRJ-001-STAGE-001"),
+			"PSC-AGREED",
+		)
+
 	@patch(
 		"dinext_project_evaluation.scoring.scorecard_factory.frappe.db.get_value",
 		return_value="PSC-001",
@@ -220,20 +234,26 @@ class TestScorecardFactory(unittest.TestCase):
 		self.assertEqual(result, "PSC-001")
 
 	@patch("dinext_project_evaluation.scoring.scorecard_factory._clear_project_last_score_fields")
-	@patch("dinext_project_evaluation.scoring.scorecard_factory.frappe.get_doc")
 	@patch(
-		"dinext_project_evaluation.scoring.scorecard_factory.frappe.get_all",
+		"dinext_project_evaluation.scoring.scorecard_cancel.cancel_scorecard_document",
+	)
+	@patch(
+		"dinext_project_evaluation.scoring.scorecard_cancel.frappe.get_doc",
+		return_value=MagicMock(),
+	)
+	@patch(
+		"dinext_project_evaluation.scoring.scorecard_cancel.frappe.get_all",
 		return_value=["PSC-001", "PSC-002"],
 	)
-	def test_cancel_project_scorecards(self, _get_all, get_doc, _clear):
-		doc = MagicMock()
-		get_doc.return_value = doc
+	def test_cancel_project_scorecards(self, _get_all, _get_doc, cancel_document, _clear):
+		cancel_document.return_value = MagicMock()
 
 		canceled = scorecard_factory.cancel_project_scorecards("PRJ-001")
 
 		self.assertEqual(canceled, ["PSC-001", "PSC-002"])
-		self.assertEqual(doc.status, "Canceled")
-		self.assertEqual(doc.save.call_count, 2)
+		self.assertEqual(cancel_document.call_count, 2)
+		for call in cancel_document.call_args_list:
+			self.assertTrue(call.kwargs.get("skip_permission_checks"))
 		_clear.assert_called_once_with("PRJ-001")
 
 
