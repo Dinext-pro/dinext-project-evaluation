@@ -13,6 +13,7 @@ from dinext_project_evaluation.scoring.scorecard_cancel import (
 	validate_scorecard_cancel_allowed,
 )
 from dinext_project_evaluation.scoring.scorecard_service import (
+	MANDATORY_MISSING_PREFIX,
 	calculate_scorecard_document,
 	scorecard_validation_error_message,
 )
@@ -89,7 +90,9 @@ class ProjectScorecard(Document):
 
 		self.integral_score = result.integral_score
 		self.gate_pass = 1 if result.gate_pass else 0
-		self.gate_messages = "\n".join(result.messages)
+		self.gate_messages = "\n".join(
+			_format_gate_messages_for_display(result.messages, self.items, criteria_by_name)
+		)
 		self.evaluation_date = now_datetime()
 		self.profile_snapshot = json.dumps(_profile_snapshot(profile), ensure_ascii=False)
 
@@ -208,6 +211,55 @@ class ProjectScorecard(Document):
 def _load_criteria(profile):
 	criteria_names = [row.criterion for row in profile.criteria]
 	return {name: frappe.get_doc("Project Scoring Criterion", name) for name in criteria_names}
+
+
+def _format_gate_messages_for_display(messages, items, criteria_by_name):
+	criterion_names = _build_criterion_display_names(items, criteria_by_name)
+	display_messages = []
+	for message in messages:
+		code = _criterion_code_from_gate_message(message)
+		if not code:
+			display_messages.append(message)
+			continue
+
+		display_name = criterion_names.get(code)
+		if not display_name:
+			display_messages.append(message)
+			continue
+
+		if message.startswith(MANDATORY_MISSING_PREFIX):
+			display_messages.append(f"{MANDATORY_MISSING_PREFIX}{display_name}")
+			continue
+
+		parts = message.split(" ", 1)
+		suffix = parts[1] if len(parts) > 1 else ""
+		display_messages.append(f"{display_name} {suffix}".rstrip())
+
+	return display_messages
+
+
+def _build_criterion_display_names(items, criteria_by_name):
+	names = {}
+	for item in items or []:
+		criterion = _doc_value(item, "criterion")
+		if not criterion:
+			continue
+		display_name = _doc_value(item, "criterion_name")
+		if display_name:
+			names[criterion] = display_name
+
+	for code, criterion_doc in criteria_by_name.items():
+		names.setdefault(code, _doc_value(criterion_doc, "criterion_name") or code)
+
+	return names
+
+
+def _criterion_code_from_gate_message(message):
+	if message.startswith(MANDATORY_MISSING_PREFIX):
+		return message[len(MANDATORY_MISSING_PREFIX) :].strip() or None
+
+	parts = message.split(" ", 1)
+	return parts[0] if parts else None
 
 
 def _profile_snapshot(profile):

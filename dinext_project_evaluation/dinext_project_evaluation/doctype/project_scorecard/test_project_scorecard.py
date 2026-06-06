@@ -11,11 +11,99 @@ from dinext_project_evaluation.dinext_project_evaluation.doctype.project_scoreca
 	ProjectScorecard,
 	_assert_no_immutable_content_changes,
 	_field_value_changed,
+	_format_gate_messages_for_display,
 )
 from dinext_project_evaluation.scoring.workflow_constants import SCORECARD_AGREED_DOCSTATUS
 
 
 class TestProjectScorecard(FrappeTestCase):
+	def test_format_gate_messages_for_display_replaces_codes_with_names(self):
+		messages = [
+			"Missing mandatory value for STR_ALIGN",
+			"RISK_PROB normalized score 0.6000 is below required 0.7000",
+			"npv raw value 50.0000 is below required 100.0000",
+		]
+		items = [
+			frappe._dict(criterion="STR_ALIGN", criterion_name="Strategic Alignment"),
+			frappe._dict(criterion="RISK_PROB", criterion_name="Risk Probability"),
+		]
+		criteria_by_name = {
+			"STR_ALIGN": frappe._dict(criterion_name="Strategic Alignment"),
+			"RISK_PROB": frappe._dict(criterion_name="Risk Probability"),
+			"npv": frappe._dict(criterion_name="Net Present Value"),
+		}
+
+		display_messages = _format_gate_messages_for_display(messages, items, criteria_by_name)
+
+		self.assertEqual(
+			display_messages,
+			[
+				"Missing mandatory value for Strategic Alignment",
+				"Risk Probability normalized score 0.6000 is below required 0.7000",
+				"Net Present Value raw value 50.0000 is below required 100.0000",
+			],
+		)
+
+	def test_format_gate_messages_for_display_keeps_unknown_codes(self):
+		messages = ["UNKNOWN normalized score 0.5000 is below required 0.7000"]
+		display_messages = _format_gate_messages_for_display(messages, [], {})
+
+		self.assertEqual(display_messages, messages)
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.now_datetime",
+		return_value="2026-06-06 12:00:00",
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard._load_criteria",
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_doc",
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.calculate_scorecard_document",
+	)
+	def test_calculate_stores_gate_messages_with_criterion_names(
+		self, calculate_scorecard_document, get_doc, load_criteria, _now_datetime
+	):
+		from dinext_project_evaluation.scoring.scorecard_service import CalculatedItem, ScorecardCalculation
+
+		profile = SimpleNamespace(name="PROFILE-001", criteria=[])
+		get_doc.return_value = profile
+		load_criteria.return_value = {
+			"STR_ALIGN": frappe._dict(criterion_name="Strategic Alignment"),
+		}
+		calculate_scorecard_document.return_value = ScorecardCalculation(
+			integral_score=0.6,
+			gate_pass=False,
+			messages=["Missing mandatory value for STR_ALIGN"],
+			items={
+				"STR_ALIGN": CalculatedItem(
+					criterion="STR_ALIGN",
+					criterion_code="STR_ALIGN",
+					raw_value=None,
+					raw_numeric_value=None,
+					normalized_score=0,
+					weighted_score=0,
+					weight=1,
+					gate_pass=False,
+				)
+			},
+			applicable_criteria=[],
+		)
+		doc = SimpleNamespace(
+			profile="PROFILE-001",
+			items=[frappe._dict(criterion="STR_ALIGN", criterion_name="Strategic Alignment")],
+		)
+		doc.calculate = ProjectScorecard.calculate.__get__(doc, ProjectScorecard)
+
+		doc.calculate()
+
+		self.assertEqual(doc.gate_messages, "Missing mandatory value for Strategic Alignment")
+		self.assertNotIn("STR_ALIGN", doc.gate_messages)
+		self.assertEqual(doc.integral_score, 0.6)
+		self.assertEqual(doc.gate_pass, 0)
+
 	@patch(
 		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.sync_scorecard_items"
 	)
