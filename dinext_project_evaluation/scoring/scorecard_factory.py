@@ -77,6 +77,7 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 				"criterion": criterion.name,
 				"criterion_code": criterion.criterion_code,
 				"criterion_name": criterion.criterion_name,
+				"description": criterion.description,
 				"criterion_group": criterion.criterion_group,
 				"input_type": criterion.input_type,
 				"min_value": criterion.min_value,

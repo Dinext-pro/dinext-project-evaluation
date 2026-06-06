@@ -43,6 +43,45 @@ class TestBuildScaleOptions(unittest.TestCase):
 
 
 class TestScorecardFactory(unittest.TestCase):
+	@patch("dinext_project_evaluation.scoring.scorecard_factory.get_applicable_stages", return_value=[])
+	@patch("dinext_project_evaluation.scoring.scorecard_factory.frappe.get_doc")
+	def test_get_applicable_criteria_for_stage_includes_description(self, get_doc, _stages):
+		criterion = SimpleNamespace(
+			name="STR_ALIGN",
+			criterion_code="STR_ALIGN",
+			criterion_name="Strategic Alignment",
+			description="Explain how well the project aligns with strategy.",
+			criterion_group="Strategy",
+			input_type="Scale",
+			min_value=None,
+			max_value=None,
+			influence_direction="higher_is_better",
+			requires_comment=0,
+			scale_rows=[],
+		)
+		profile_row = SimpleNamespace(
+			criterion="STR_ALIGN",
+			weight=2,
+			requirement_level="Mandatory",
+		)
+		profile_doc = SimpleNamespace(criteria=[profile_row])
+		get_doc.side_effect = lambda doctype, name: {
+			("Project Scoring Profile", "PROFILE-001"): profile_doc,
+			("Project Scoring Criterion", "STR_ALIGN"): criterion,
+		}[doctype, name]
+
+		rows = scorecard_factory.get_applicable_criteria_for_stage(
+			"PRJ-001",
+			"PROFILE-001",
+			"S1",
+		)
+
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(
+			rows[0]["description"],
+			"Explain how well the project aligns with strategy.",
+		)
+
 	@patch.object(
 		scorecard_factory,
 		"get_applicable_criteria_for_stage",

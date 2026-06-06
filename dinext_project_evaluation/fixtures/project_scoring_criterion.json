@@ -71,7 +71,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -145,7 +145,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -219,7 +219,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -293,7 +293,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -312,7 +312,7 @@
   "modified": "2026-04-30 01:19:48.588115",
   "name": "COST",
   "requires_comment": 0,
-  "scale_rows": [],
+  "scale_rows": []
  },
  {
   "boolean_false_score": 0.0,
@@ -386,7 +386,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -460,7 +460,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -534,7 +534,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -608,7 +608,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -682,7 +682,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -756,7 +756,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -775,7 +775,7 @@
   "modified": "2026-04-30 01:19:48.630958",
   "name": "NPV",
   "requires_comment": 0,
-  "scale_rows": [],
+  "scale_rows": []
  },
  {
   "boolean_false_score": 0.0,
@@ -794,7 +794,7 @@
   "modified": "2026-04-30 01:19:48.633828",
   "name": "IRR",
   "requires_comment": 0,
-  "scale_rows": [],
+  "scale_rows": []
  },
  {
   "boolean_false_score": 0.0,
@@ -813,7 +813,7 @@
   "modified": "2026-04-30 01:19:48.636635",
   "name": "PP",
   "requires_comment": 0,
-  "scale_rows": [],
+  "scale_rows": []
  },
  {
   "boolean_false_score": 0.0,
@@ -832,7 +832,7 @@
   "modified": "2026-04-30 01:19:48.639322",
   "name": "PI",
   "requires_comment": 0,
-  "scale_rows": [],
+  "scale_rows": []
  },
  {
   "boolean_false_score": 0.0,
@@ -851,7 +851,7 @@
   "modified": "2026-04-30 01:19:48.641943",
   "name": "ECV",
   "requires_comment": 0,
-  "scale_rows": [],
+  "scale_rows": []
  },
  {
   "boolean_false_score": 0.0,
@@ -925,7 +925,7 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  },
  {
   "boolean_false_score": 0.0,
@@ -944,7 +944,7 @@
   "modified": "2026-04-30 01:19:48.650641",
   "name": "RD_COST",
   "requires_comment": 0,
-  "scale_rows": [],
+  "scale_rows": []
  },
  {
   "boolean_false_score": 0.0,
@@ -963,7 +963,7 @@
   "modified": "2026-04-30 01:19:48.653319",
   "name": "MFG_COST",
   "requires_comment": 0,
-  "scale_rows": [],
+  "scale_rows": []
  },
  {
   "boolean_false_score": 0.0,
@@ -982,7 +982,7 @@
   "modified": "2026-04-30 01:19:48.655990",
   "name": "TECH_SUCCESS",
   "requires_comment": 0,
-  "scale_rows": [],
+  "scale_rows": []
  },
  {
   "boolean_false_score": 0.0,
@@ -995,10 +995,10 @@
   "doctype": "Project Scoring Criterion",
   "enabled": 1,
   "influence_direction": "higher_is_better",
-  "input_type": "Scale",
+  "input_type": "Boolean",
   "max_value": 5.0,
   "min_value": 0.0,
-  "modified": "2026-04-30 01:19:48.658768",
+  "modified": "2026-06-06 13:33:08.295353",
   "name": "SALES_POT",
   "requires_comment": 0,
   "scale_rows": [
@@ -1056,6 +1056,6 @@
     "score": 5.0,
     "sort_order": 5
    }
-  ],
+  ]
  }
 ]
