@@ -375,6 +375,105 @@ class TestProjectScorecard(FrappeTestCase):
 
 		_assert_no_immutable_content_changes(previous, current)
 
+	def test_assert_no_immutable_content_allows_derived_field_recomputation(self):
+		previous = SimpleNamespace(
+			project="PRJ-001",
+			profile="PROFILE-001",
+			portfolio=None,
+			stage_at_evaluation=None,
+			stage_instance_at_evaluation="STAGE-1",
+			status="Submitted for Review",
+			items=[
+				frappe._dict(
+					criterion="CRIT-1",
+					criterion_input_type="Boolean",
+					scale_value=None,
+					boolean_value=1,
+					boolean_value_set=1,
+					number_value=None,
+					currency_value=None,
+					percent_value=None,
+					comment="note",
+					raw_value=None,
+					raw_numeric_value=None,
+					value_display=None,
+				)
+			],
+		)
+		current = SimpleNamespace(
+			project="PRJ-001",
+			profile="PROFILE-001",
+			portfolio=None,
+			stage_at_evaluation=None,
+			stage_instance_at_evaluation="STAGE-1",
+			status="Reviewed",
+			items=[
+				frappe._dict(
+					criterion="CRIT-1",
+					criterion_input_type="Boolean",
+					scale_value=None,
+					boolean_value=1,
+					boolean_value_set=1,
+					number_value=None,
+					currency_value=None,
+					percent_value=None,
+					comment="note",
+					raw_value="1",
+					raw_numeric_value=None,
+					value_display="Yes",
+				)
+			],
+		)
+
+		_assert_no_immutable_content_changes(previous, current)
+
+	def test_prevent_content_edits_allows_mark_reviewed_after_prepare_item_inputs(self):
+		previous_item = frappe._dict(
+			criterion="CRIT-1",
+			criterion_input_type="Boolean",
+			scale_value=None,
+			boolean_value=1,
+			boolean_value_set=1,
+			number_value=None,
+			currency_value=None,
+			percent_value=None,
+			comment="note",
+			raw_value=None,
+			raw_numeric_value=None,
+			value_display=None,
+		)
+		current_item = frappe._dict(**previous_item)
+		prepare_doc = SimpleNamespace(items=[current_item])
+		prepare_doc._prepare_item_inputs = ProjectScorecard._prepare_item_inputs.__get__(
+			prepare_doc, ProjectScorecard
+		)
+		prepare_doc._prepare_item_inputs()
+
+		doc = SimpleNamespace(
+			is_new=lambda: False,
+			status="Reviewed",
+			project="PRJ-001",
+			profile="PROFILE-001",
+			portfolio=None,
+			stage_at_evaluation=None,
+			stage_instance_at_evaluation="STAGE-1",
+			items=[current_item],
+			get_doc_before_save=lambda: SimpleNamespace(
+				status="Submitted for Review",
+				project="PRJ-001",
+				profile="PROFILE-001",
+				portfolio=None,
+				stage_at_evaluation=None,
+				stage_instance_at_evaluation="STAGE-1",
+				items=[previous_item],
+			),
+		)
+		doc._prevent_content_edits_outside_draft = (
+			ProjectScorecard._prevent_content_edits_outside_draft.__get__(doc, ProjectScorecard)
+		)
+
+		doc._prevent_content_edits_outside_draft()
+
 	def test_assert_no_immutable_content_blocks_comment_change(self):
 		previous = SimpleNamespace(
 			project="PRJ-001",
