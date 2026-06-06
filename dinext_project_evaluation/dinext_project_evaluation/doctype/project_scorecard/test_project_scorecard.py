@@ -50,6 +50,26 @@ class TestProjectScorecard(FrappeTestCase):
 		self.assertEqual(doc.items[2].raw_numeric_value, 25)
 		self.assertEqual(doc.items[2].value_display, "25")
 
+	def test_prepare_item_inputs_supports_extended_scale_options_json(self):
+		doc = SimpleNamespace(
+			items=[
+				frappe._dict(
+					criterion_input_type="Scale",
+					scale_value="5",
+					scale_options_json=(
+						'[{"label":"High","value":"5","score":5,'
+						'"sort_order":2,"key_phrases":"Full alignment"}]'
+					),
+				),
+			]
+		)
+		doc._prepare_item_inputs = ProjectScorecard._prepare_item_inputs.__get__(doc, SimpleNamespace)
+
+		doc._prepare_item_inputs()
+
+		self.assertEqual(doc.items[0].raw_value, "5")
+		self.assertEqual(doc.items[0].value_display, "High")
+
 	@patch(
 		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.sync_scorecard_items"
 	)

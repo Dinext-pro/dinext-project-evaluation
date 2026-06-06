@@ -8,6 +8,13 @@ dinext_project_evaluation.project_scorecard.form_styles = `
 	border-radius: var(--border-radius-md, 8px);
 	box-shadow: inset 0 0 0 1px var(--red-500, #dc2626);
 }
+.dpe-project-scorecard-form .grid-form .dpe-scale-key-phrases-hint {
+	font-size: var(--text-xs, 11px);
+	color: var(--text-muted, #6b7280);
+	margin-top: 4px;
+	line-height: 1.35;
+	white-space: normal;
+}
 `;
 
 dinext_project_evaluation.project_scorecard.typed_field_by_type = {
@@ -465,11 +472,13 @@ dinext_project_evaluation.project_scorecard.setup_grid_value_control = function 
 		const text = displayValue == null || displayValue === "" ? "" : String(displayValue);
 		if (column.static_area) {
 			column.static_area.html(frappe.utils.escape_html(text));
+			dinext_project_evaluation.project_scorecard.apply_scale_static_tooltip(row, column.static_area);
 		}
 		return;
 	}
 
 	column.field_area.empty();
+	column.field_area.find(".dpe-scale-key-phrases-hint").remove();
 	const df = dinext_project_evaluation.project_scorecard.get_active_control_df(row);
 	if (!df) {
 		return;
@@ -497,7 +506,14 @@ dinext_project_evaluation.project_scorecard.setup_grid_value_control = function 
 		const text = displayValue == null || displayValue === "" ? "" : String(displayValue);
 		if (column.static_area) {
 			column.static_area.html(frappe.utils.escape_html(text));
+			dinext_project_evaluation.project_scorecard.apply_scale_static_tooltip(row, column.static_area);
 		}
+		dinext_project_evaluation.project_scorecard.decorate_scale_select_control(
+			row,
+			control,
+			column.field_area,
+			{ showInlineHint: false }
+		);
 		if (control.$input?.length && control.$input.get(0).tagName === "SELECT") {
 			control.$input.get(0).blur();
 		}
@@ -505,6 +521,9 @@ dinext_project_evaluation.project_scorecard.setup_grid_value_control = function 
 	column.field = control;
 	gridRow.on_grid_fields_dict.value_display = control;
 	control.refresh();
+	dinext_project_evaluation.project_scorecard.decorate_scale_select_control(row, control, column.field_area, {
+		showInlineHint: false,
+	});
 };
 
 dinext_project_evaluation.project_scorecard.bind_grid_value_column = function (frm, gridRow) {
@@ -518,7 +537,9 @@ dinext_project_evaluation.project_scorecard.bind_grid_value_column = function (f
 	const text = displayValue == null || displayValue === "" ? "" : String(displayValue);
 	if (column.static_area) {
 		column.static_area.html(frappe.utils.escape_html(text));
+		dinext_project_evaluation.project_scorecard.apply_scale_static_tooltip(row, column.static_area);
 	}
+	column.field_area?.find(".dpe-scale-key-phrases-hint").remove();
 
 	if (!gridRow._dpe_value_make_control_bound) {
 		gridRow._dpe_value_make_control_bound = true;
@@ -673,10 +694,117 @@ dinext_project_evaluation.project_scorecard.get_display_value = function (row) {
 
 dinext_project_evaluation.project_scorecard.parse_scale_options = function (row) {
 	try {
-		return JSON.parse(row.scale_options_json || "[]");
+		const raw = JSON.parse(row.scale_options_json || "[]");
+		return dinext_project_evaluation.project_scorecard.normalize_scale_options(raw);
 	} catch (error) {
 		return [];
 	}
+};
+
+dinext_project_evaluation.project_scorecard.normalize_scale_options = function (options) {
+	return (options || []).map((option) => ({
+		label: option.label || String(option.score ?? option.value ?? ""),
+		value: String(option.value ?? option.score ?? ""),
+		score: option.score ?? option.value,
+		sort_order: option.sort_order ?? null,
+		key_phrases: option.key_phrases || "",
+	}));
+};
+
+dinext_project_evaluation.project_scorecard.find_scale_option = function (row, scaleValue) {
+	if (scaleValue == null || scaleValue === "") {
+		return null;
+	}
+	const options = dinext_project_evaluation.project_scorecard.parse_scale_options(row);
+	const resolved = dinext_project_evaluation.project_scorecard.resolve_scale_value(row, scaleValue);
+	return options.find(
+		(option) => String(option.value ?? option.score) === String(resolved)
+	);
+};
+
+dinext_project_evaluation.project_scorecard.get_selected_scale_key_phrases = function (row) {
+	const activeValue = dinext_project_evaluation.project_scorecard.get_active_control_value(row);
+	if (!activeValue) {
+		return "";
+	}
+	const option = dinext_project_evaluation.project_scorecard.find_scale_option(row, activeValue);
+	return option?.key_phrases ? String(option.key_phrases).trim() : "";
+};
+
+dinext_project_evaluation.project_scorecard.apply_scale_select_tooltips = function (row, control) {
+	if (!control?.$input?.length || row?.criterion_input_type !== "Scale") {
+		return;
+	}
+
+	const select = control.$input.get(0);
+	if (!select || select.tagName !== "SELECT") {
+		return;
+	}
+
+	const options = dinext_project_evaluation.project_scorecard.parse_scale_options(row);
+	const optionByValue = Object.fromEntries(
+		options.map((option) => [String(option.value ?? option.score), option])
+	);
+	const currentValue = dinext_project_evaluation.project_scorecard.get_active_control_value(row);
+	const currentOption = optionByValue[currentValue];
+	select.title = currentOption?.key_phrases ? String(currentOption.key_phrases).trim() : "";
+
+	Array.from(select.options).forEach((optionElement) => {
+		const meta = optionByValue[optionElement.value];
+		optionElement.title = meta?.key_phrases ? String(meta.key_phrases).trim() : "";
+	});
+};
+
+dinext_project_evaluation.project_scorecard.apply_scale_static_tooltip = function (row, staticArea) {
+	if (!staticArea?.length || row?.criterion_input_type !== "Scale") {
+		return;
+	}
+
+	const phrases = dinext_project_evaluation.project_scorecard.get_selected_scale_key_phrases(row);
+	staticArea.attr("title", phrases || null);
+};
+
+dinext_project_evaluation.project_scorecard.remove_scale_key_phrases_hint = function (parentEl) {
+	if (!parentEl?.length) {
+		return;
+	}
+	parentEl.find(".dpe-scale-key-phrases-hint").remove();
+};
+
+dinext_project_evaluation.project_scorecard.ensure_scale_key_phrases_hint = function (row, parentEl) {
+	if (!parentEl?.length || row?.criterion_input_type !== "Scale") {
+		return;
+	}
+
+	const hintClass = "dpe-scale-key-phrases-hint";
+	let hint = parentEl.find(`.${hintClass}`);
+	if (!hint.length) {
+		hint = $(`<div class="${hintClass}"></div>`);
+		parentEl.append(hint);
+	}
+
+	const phrases = dinext_project_evaluation.project_scorecard.get_selected_scale_key_phrases(row);
+	if (!phrases) {
+		hint.hide().empty();
+		return;
+	}
+
+	hint.text(phrases).show();
+};
+
+dinext_project_evaluation.project_scorecard.decorate_scale_select_control = function (
+	row,
+	control,
+	parentEl,
+	options = {}
+) {
+	const showInlineHint = !!options.showInlineHint;
+	dinext_project_evaluation.project_scorecard.apply_scale_select_tooltips(row, control);
+	if (showInlineHint) {
+		dinext_project_evaluation.project_scorecard.ensure_scale_key_phrases_hint(row, parentEl);
+		return;
+	}
+	dinext_project_evaluation.project_scorecard.remove_scale_key_phrases_hint(parentEl);
 };
 
 dinext_project_evaluation.project_scorecard.resolve_scale_value = function (row, scaleValue) {
@@ -871,11 +999,17 @@ dinext_project_evaluation.project_scorecard.render_active_control = function (fr
 			control.get_value()
 		);
 		dinext_project_evaluation.project_scorecard.persist_row_value_fields(row, nextValues);
+		dinext_project_evaluation.project_scorecard.decorate_scale_select_control(row, control, wrapper, {
+			showInlineHint: true,
+		});
 		if (control.$input?.length && control.$input.get(0).tagName === "SELECT") {
 			control.$input.get(0).blur();
 		}
 		dinext_project_evaluation.project_scorecard.refresh_items_field(frm);
 	};
+	dinext_project_evaluation.project_scorecard.decorate_scale_select_control(row, control, wrapper, {
+		showInlineHint: true,
+	});
 };
 
 dinext_project_evaluation.project_scorecard.render_row_editor = function (frm, cdt, cdn) {

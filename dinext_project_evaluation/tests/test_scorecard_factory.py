@@ -1,9 +1,45 @@
 from types import SimpleNamespace
+import json
 import unittest
 from unittest.mock import MagicMock, patch
 
 from dinext_project_evaluation.scoring import scorecard_factory, scorecard_provision
 from dinext_project_evaluation.scoring import project_hooks
+
+
+class TestBuildScaleOptions(unittest.TestCase):
+	def test_build_scale_options_sorts_by_sort_order_and_includes_metadata(self):
+		scale_rows = [
+			SimpleNamespace(
+				scale_label="High",
+				score=5,
+				sort_order=2,
+				key_phrases="Full alignment",
+			),
+			SimpleNamespace(
+				scale_label="Low",
+				score=0,
+				sort_order=1,
+				key_phrases="No alignment",
+			),
+		]
+
+		options = scorecard_factory.build_scale_options(scale_rows)
+
+		self.assertEqual([option["label"] for option in options], ["Low", "High"])
+		self.assertEqual(options[0]["key_phrases"], "No alignment")
+		self.assertEqual(options[1]["sort_order"], 2)
+		self.assertEqual(options[1]["value"], "5")
+
+	def test_build_scale_options_falls_back_to_index_when_sort_order_missing(self):
+		scale_rows = [
+			SimpleNamespace(scale_label="A", score=1, sort_order=None, key_phrases=""),
+			SimpleNamespace(scale_label="B", score=2, sort_order=None, key_phrases=""),
+		]
+
+		options = scorecard_factory.build_scale_options(scale_rows)
+
+		self.assertEqual([option["label"] for option in options], ["A", "B"])
 
 
 class TestScorecardFactory(unittest.TestCase):
@@ -19,6 +55,22 @@ class TestScorecardFactory(unittest.TestCase):
 				"weight": 2,
 				"requirement_level": "Mandatory",
 				"requires_comment": 1,
+				"scale_options": [
+					{
+						"label": "Low",
+						"value": "0",
+						"score": 0,
+						"sort_order": 1,
+						"key_phrases": "No alignment",
+					},
+					{
+						"label": "High",
+						"value": "5",
+						"score": 5,
+						"sort_order": 2,
+						"key_phrases": "Full alignment",
+					},
+				],
 				"scale_rows": [SimpleNamespace(score=0), SimpleNamespace(score=5)],
 			},
 			{
@@ -72,6 +124,10 @@ class TestScorecardFactory(unittest.TestCase):
 		self.assertEqual(scorecard.items[0]["requires_comment"], 1)
 		self.assertEqual(scorecard.items[1]["requirement_level"], "Desired")
 		self.assertEqual(scorecard.items[1]["requires_comment"], 0)
+
+		scale_options = json.loads(scorecard.items[0]["scale_options_json"])
+		self.assertEqual(scale_options[0]["key_phrases"], "No alignment")
+		self.assertEqual(scale_options[1]["sort_order"], 2)
 
 	@patch("dinext_project_evaluation.scoring.scorecard_factory.frappe.db.exists", return_value=True)
 	def test_project_has_non_canceled_scorecards(self, _exists):
