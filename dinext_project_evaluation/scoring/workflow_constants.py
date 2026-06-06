@@ -31,7 +31,9 @@ SCORECARD_WORKFLOW_STATES = (
 )
 
 # States where integral score / gate are calculated on save.
-SCORECARD_CALCULATION_STATUSES = frozenset({STATUS_REVIEWED, STATUS_APPROVED})
+SCORECARD_CALCULATION_STATUSES = frozenset(
+	{STATUS_SUBMITTED, STATUS_REVIEWED, STATUS_APPROVED}
+)
 
 # States visible in portfolio/report as finalized scores (agreed = submitted docstatus).
 SCORECARD_AGREED_DOCSTATUS = 1

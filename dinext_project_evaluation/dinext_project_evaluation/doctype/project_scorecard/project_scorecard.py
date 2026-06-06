@@ -21,6 +21,7 @@ from dinext_project_evaluation.scoring.workflow_constants import (
 	SCORECARD_CALCULATION_STATUSES,
 	SCORECARD_CONTENT_EDITABLE_STATUSES,
 	SCORECARD_TERMINAL_STATUSES,
+	STATUS_APPROVED,
 	STATUS_CANCELED,
 	STATUS_DRAFT,
 )
@@ -68,7 +69,7 @@ class ProjectScorecard(Document):
 		create_replacement_draft_after_cancel(self)
 
 	def on_submit(self):
-		if self.status in SCORECARD_CALCULATION_STATUSES:
+		if self.status == STATUS_APPROVED:
 			self._update_project_last_score()
 
 	def calculate(self):

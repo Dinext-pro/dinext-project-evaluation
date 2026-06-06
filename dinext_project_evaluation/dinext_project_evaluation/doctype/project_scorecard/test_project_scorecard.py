@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Dinext and Contributors
 # See license.txt
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from types import SimpleNamespace
 
 import frappe
@@ -364,6 +364,94 @@ class TestProjectScorecard(FrappeTestCase):
 			frappe.flags.skip_scorecard_cancel_validation = False
 
 		validate_cancel.assert_not_called()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.sync_scorecard_items"
+	)
+	def test_validate_calls_calculate_on_submitted_for_review(self, _sync_items):
+		calculate = MagicMock()
+		doc = SimpleNamespace(
+			status="Submitted for Review",
+			project="PRJ-001",
+			profile="PROFILE-001",
+			name="PSC-001",
+			stage_instance_at_evaluation=None,
+			items=[],
+			is_new=lambda: False,
+			get_doc_before_save=lambda: SimpleNamespace(status="Draft", items=[]),
+			calculate=calculate,
+		)
+		for method_name in (
+			"_hydrate_project_context",
+			"_sync_items_from_profile",
+			"_prepare_item_inputs",
+			"_validate_unique_stage_instance",
+			"_validate_required_items",
+			"_prevent_content_edits_outside_draft",
+		):
+			setattr(doc, method_name, lambda: None)
+
+		doc.validate = ProjectScorecard.validate.__get__(doc, ProjectScorecard)
+		doc.validate()
+
+		calculate.assert_called_once()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.sync_scorecard_items"
+	)
+	def test_validate_calls_calculate_on_reviewed(self, _sync_items):
+		calculate = MagicMock()
+		doc = SimpleNamespace(
+			status="Reviewed",
+			project="PRJ-001",
+			profile="PROFILE-001",
+			name="PSC-001",
+			stage_instance_at_evaluation=None,
+			items=[],
+			is_new=lambda: False,
+			get_doc_before_save=lambda: SimpleNamespace(status="Submitted for Review", items=[]),
+			calculate=calculate,
+		)
+		for method_name in (
+			"_hydrate_project_context",
+			"_sync_items_from_profile",
+			"_prepare_item_inputs",
+			"_validate_unique_stage_instance",
+			"_validate_required_items",
+			"_prevent_content_edits_outside_draft",
+		):
+			setattr(doc, method_name, lambda: None)
+
+		doc.validate = ProjectScorecard.validate.__get__(doc, ProjectScorecard)
+		doc.validate()
+
+		calculate.assert_called_once()
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_meta"
+	)
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.db.set_value"
+	)
+	def test_on_submit_does_not_update_project_for_submitted_for_review(self, set_value, get_meta):
+		meta = SimpleNamespace(has_field=lambda fieldname: True)
+		get_meta.return_value = meta
+		doc = SimpleNamespace(
+			docstatus=0,
+			status="Submitted for Review",
+			name="PSC-001",
+			project="PRJ-001",
+			integral_score=4.5,
+			evaluation_date="2026-06-06 12:00:00",
+		)
+		doc.on_submit = ProjectScorecard.on_submit.__get__(doc, ProjectScorecard)
+		doc._update_project_last_score = ProjectScorecard._update_project_last_score.__get__(
+			doc, ProjectScorecard
+		)
+
+		doc.on_submit()
+
+		set_value.assert_not_called()
 
 	@patch(
 		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.frappe.get_meta"
