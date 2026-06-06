@@ -111,8 +111,19 @@ def before_save_project_scoring_profile_reset(doc, method=None):
 	doc.set(CONFIRM_SCORING_PROFILE_RESET_FIELD, 0)
 
 
-def after_save_project_scoring_profile(doc, method=None):
+def _get_current_stage_instance(doc) -> str | None:
+	stage_instance = doc.get("current_stage_instance")
+	if stage_instance:
+		return stage_instance
 	if doc.is_new() or not doc.name:
+		return None
+	if not _project_has_field("current_stage_instance"):
+		return None
+	return _get_db_value(doc.name, "current_stage_instance")
+
+
+def after_save_project_scoring_profile(doc, method=None):
+	if not doc.name:
 		return
 
 	fieldname = get_project_scoring_profile_fieldname()
@@ -122,12 +133,13 @@ def after_save_project_scoring_profile(doc, method=None):
 	if not doc.get(fieldname):
 		return
 
-	if not doc.get("current_stage_instance"):
+	stage_instance_name = _get_current_stage_instance(doc)
+	if not stage_instance_name:
 		return
 
 	if not frappe.db.exists("DocType", "Project Stage Instance"):
 		return
 
-	stage_instance = frappe.get_cached_doc("Project Stage Instance", doc.current_stage_instance)
+	stage_instance = frappe.get_cached_doc("Project Stage Instance", stage_instance_name)
 	if stage_instance.status == "Active":
 		ensure_scorecard_for_stage_instance(stage_instance)
