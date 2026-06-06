@@ -2,6 +2,7 @@ import json
 
 import frappe
 from frappe import _
+from frappe.desk.search import get_link_title
 from frappe.model.document import Document
 from frappe.utils import cint
 from frappe.utils import now_datetime
@@ -60,11 +61,13 @@ class ProjectScorecard(Document):
 
 	def onload(self):
 		self._hydrate_project_context()
+		self._sync_scorecard_title()
 		self._sync_items_from_profile()
 		self._prepare_item_inputs()
 
 	def validate(self):
 		self._hydrate_project_context()
+		self._sync_scorecard_title()
 		self._sync_items_from_profile()
 		self._prepare_item_inputs()
 		self._validate_unique_stage_instance()
@@ -88,6 +91,9 @@ class ProjectScorecard(Document):
 	def on_submit(self):
 		if self.status == STATUS_APPROVED:
 			self._update_project_last_score()
+
+	def get_title(self):
+		return self.scorecard_title or build_scorecard_title(self.project, self.stage_at_evaluation) or self.name
 
 	def calculate(self):
 		profile = frappe.get_doc("Project Scoring Profile", self.profile)
@@ -144,6 +150,9 @@ class ProjectScorecard(Document):
 			self.stage_at_evaluation = project.get("current_stage")
 		if not self.stage_instance_at_evaluation:
 			self.stage_instance_at_evaluation = project.get("current_stage_instance")
+
+	def _sync_scorecard_title(self):
+		self.scorecard_title = build_scorecard_title(self.project, self.stage_at_evaluation)
 
 	def _prevent_locked_edits(self):
 		if self.is_new():
@@ -244,6 +253,16 @@ class ProjectScorecard(Document):
 		}.items():
 			if frappe.get_meta("Project").has_field(fieldname):
 				frappe.db.set_value("Project", self.project, fieldname, value, update_modified=False)
+
+
+def build_scorecard_title(project, stage_at_evaluation) -> str:
+	if not project:
+		return ""
+	title = get_link_title("Project", project) or project
+	if stage_at_evaluation:
+		stage_title = get_link_title("Project Stage", stage_at_evaluation) or stage_at_evaluation
+		return f"{title}: {stage_title}"
+	return title
 
 
 def _load_criteria(profile):

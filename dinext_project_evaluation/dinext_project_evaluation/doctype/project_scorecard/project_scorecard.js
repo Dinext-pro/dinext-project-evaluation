@@ -1319,6 +1319,38 @@ dinext_project_evaluation.project_scorecard.clear_dashboard_kpis = function (frm
 	frm.dashboard.parent.find(".dpe-scorecard-kpi-dashboard").remove();
 };
 
+dinext_project_evaluation.project_scorecard.build_scorecard_title = function (projectName, stageAtEvaluation) {
+	if (!projectName) {
+		return "";
+	}
+	if (stageAtEvaluation) {
+		return `${projectName}: ${stageAtEvaluation}`;
+	}
+	return projectName;
+};
+
+dinext_project_evaluation.project_scorecard.sync_scorecard_title = function (frm) {
+	if (frm.doc.scorecard_title) {
+		return Promise.resolve();
+	}
+	if (!frm.doc.project) {
+		return Promise.resolve();
+	}
+
+	return frappe.db.get_value("Project", frm.doc.project, "project_name").then(({ message }) => {
+		const projectName = message?.project_name || frm.doc.project;
+		const title = dinext_project_evaluation.project_scorecard.build_scorecard_title(
+			projectName,
+			frm.doc.stage_at_evaluation
+		);
+		if (!title) {
+			return;
+		}
+		frm.doc.scorecard_title = title;
+		frm.toolbar?.set_title();
+	});
+};
+
 dinext_project_evaluation.project_scorecard.render_dashboard_kpis = function (frm) {
 	if (!frm.dashboard) {
 		return;
@@ -1358,6 +1390,7 @@ frappe.ui.form.on("Project Scorecard", {
 	refresh(frm) {
 		dinext_project_evaluation.project_scorecard.ensure_value_display_column();
 		dinext_project_evaluation.project_scorecard.ensure_styles();
+		dinext_project_evaluation.project_scorecard.sync_scorecard_title(frm);
 		dinext_project_evaluation.project_scorecard.render_dashboard_kpis(frm);
 		dinext_project_evaluation.project_scorecard.setup_recalculate_menu_item(frm);
 		$(frm.wrapper).addClass("dpe-project-scorecard-form");

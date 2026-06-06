@@ -12,11 +12,79 @@ from dinext_project_evaluation.dinext_project_evaluation.doctype.project_scoreca
 	_assert_no_immutable_content_changes,
 	_field_value_changed,
 	_format_gate_messages_for_display,
+	build_scorecard_title,
 )
 from dinext_project_evaluation.scoring.workflow_constants import SCORECARD_AGREED_DOCSTATUS
 
 
 class TestProjectScorecard(FrappeTestCase):
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.get_link_title"
+	)
+	def test_build_scorecard_title_with_stage(self, get_link_title):
+		get_link_title.side_effect = lambda doctype, docname: {
+			("Project", "PRJ-001"): "Test Project",
+			("Project Stage", "Implementation"): "Implementation",
+		}[(doctype, docname)]
+
+		self.assertEqual(
+			build_scorecard_title("PRJ-001", "Implementation"),
+			"Test Project: Implementation",
+		)
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.get_link_title"
+	)
+	def test_build_scorecard_title_without_stage(self, get_link_title):
+		get_link_title.return_value = "Test Project"
+
+		self.assertEqual(build_scorecard_title("PRJ-001", None), "Test Project")
+
+	def test_build_scorecard_title_without_project(self):
+		self.assertEqual(build_scorecard_title(None, "Implementation"), "")
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.build_scorecard_title"
+	)
+	def test_sync_scorecard_title_sets_field(self, build_title):
+		build_title.return_value = "Test Project: Implementation"
+		doc = SimpleNamespace(
+			project="PRJ-001",
+			stage_at_evaluation="Implementation",
+			scorecard_title=None,
+		)
+		doc._sync_scorecard_title = ProjectScorecard._sync_scorecard_title.__get__(doc, ProjectScorecard)
+		doc._sync_scorecard_title()
+
+		self.assertEqual(doc.scorecard_title, "Test Project: Implementation")
+		build_title.assert_called_once_with("PRJ-001", "Implementation")
+
+	@patch(
+		"dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.project_scorecard.build_scorecard_title"
+	)
+	def test_get_title_falls_back_to_build_scorecard_title(self, build_title):
+		build_title.return_value = "Test Project: Implementation"
+		doc = SimpleNamespace(
+			name="PSC-001",
+			project="PRJ-001",
+			stage_at_evaluation="Implementation",
+			scorecard_title=None,
+		)
+		doc.get_title = ProjectScorecard.get_title.__get__(doc, ProjectScorecard)
+
+		self.assertEqual(doc.get_title(), "Test Project: Implementation")
+
+	def test_get_title_uses_scorecard_title_when_set(self):
+		doc = SimpleNamespace(
+			name="PSC-001",
+			project="PRJ-001",
+			stage_at_evaluation="Implementation",
+			scorecard_title="Stored Title",
+		)
+		doc.get_title = ProjectScorecard.get_title.__get__(doc, ProjectScorecard)
+
+		self.assertEqual(doc.get_title(), "Stored Title")
+
 	def test_format_gate_messages_for_display_replaces_codes_with_names(self):
 		messages = [
 			"Missing mandatory value for STR_ALIGN",
@@ -168,6 +236,7 @@ class TestProjectScorecard(FrappeTestCase):
 			profile="PROFILE-001",
 			status="Draft",
 			_hydrate_project_context=lambda: None,
+			_sync_scorecard_title=lambda: None,
 			_prepare_item_inputs=lambda: None,
 		)
 		doc._sync_items_from_profile = ProjectScorecard._sync_items_from_profile.__get__(doc, SimpleNamespace)
@@ -471,6 +540,7 @@ class TestProjectScorecard(FrappeTestCase):
 		)
 		for method_name in (
 			"_hydrate_project_context",
+			"_sync_scorecard_title",
 			"_sync_items_from_profile",
 			"_prepare_item_inputs",
 			"_validate_unique_stage_instance",
@@ -502,6 +572,7 @@ class TestProjectScorecard(FrappeTestCase):
 		)
 		for method_name in (
 			"_hydrate_project_context",
+			"_sync_scorecard_title",
 			"_sync_items_from_profile",
 			"_prepare_item_inputs",
 			"_validate_unique_stage_instance",
