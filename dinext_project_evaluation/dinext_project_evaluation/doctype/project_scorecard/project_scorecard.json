@@ -15,6 +15,7 @@
   "status",
   "stage_instance_at_evaluation",
   "stage_at_evaluation",
+  "scorecard_title",
   "gate_messages",
   "section_break_fovg",
   "items",
@@ -74,6 +75,14 @@
    "options": "Project Stage Instance",
    "read_only": 1,
    "set_only_once": 1
+  },
+  {
+   "fieldname": "scorecard_title",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Scorecard Title",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "default": "Draft",
@@ -289,10 +298,10 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
- "search_fields": "project,portfolio,profile,status",
+ "search_fields": "scorecard_title,project,portfolio,profile,status",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "project",
+ "title_field": "scorecard_title",
  "track_changes": 1
 }
