@@ -282,6 +282,16 @@ class TestScorecardProvision(unittest.TestCase):
 
 
 class TestProjectScoringHooks(unittest.TestCase):
+	def test_project_provision_hook_registered_on_update(self):
+		import dinext_project_evaluation.hooks as app_hooks
+
+		project_hooks = app_hooks.doc_events.get("Project", {})
+		self.assertIn(
+			"dinext_project_evaluation.scoring.project_hooks.after_save_project_scoring_profile",
+			project_hooks.get("on_update", ""),
+		)
+		self.assertNotIn("after_save", project_hooks)
+
 	def _make_project_doc(self, **overrides):
 		defaults = {
 			"is_new": lambda: False,
@@ -437,6 +447,121 @@ class TestProjectScoringHooks(unittest.TestCase):
 
 		cancel.assert_not_called()
 		self.assertIsNone(doc.custom_project_scoring_profile)
+
+	def _after_save_db_get_value(self, *, stage_instance=None):
+		def get_value(_doctype, _name, fieldname, *_args, **_kwargs):
+			if fieldname == "current_stage_instance":
+				return stage_instance
+			return None
+
+		return get_value
+
+	@patch.object(project_hooks, "ensure_scorecard_for_stage_instance")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_cached_doc")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.exists", return_value=True)
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
+	def test_after_save_provisions_from_db_stage_instance_when_doc_lacks_it(
+		self, get_value, get_meta, _exists, get_cached_doc, ensure
+	):
+		meta = MagicMock()
+		meta.has_field.return_value = True
+		get_meta.return_value = meta
+		get_value.side_effect = self._after_save_db_get_value(
+			stage_instance="PRJ-001-STAGE-001"
+		)
+		stage_instance = SimpleNamespace(
+			name="PRJ-001-STAGE-001",
+			project="PRJ-001",
+			status="Active",
+		)
+		get_cached_doc.return_value = stage_instance
+
+		doc = self._make_project_doc(custom_project_scoring_profile="PROFILE-NEW")
+
+		project_hooks.after_save_project_scoring_profile(doc)
+
+		get_cached_doc.assert_called_once_with(
+			"Project Stage Instance", "PRJ-001-STAGE-001"
+		)
+		ensure.assert_called_once_with(stage_instance)
+
+	@patch.object(project_hooks, "ensure_scorecard_for_stage_instance")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_cached_doc")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.exists", return_value=True)
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
+	def test_after_save_skips_when_no_stage_instance(
+		self, get_value, get_meta, _exists, get_cached_doc, ensure
+	):
+		meta = MagicMock()
+		meta.has_field.return_value = True
+		get_meta.return_value = meta
+		get_value.side_effect = self._after_save_db_get_value(stage_instance=None)
+
+		doc = self._make_project_doc(custom_project_scoring_profile="PROFILE-NEW")
+
+		project_hooks.after_save_project_scoring_profile(doc)
+
+		get_cached_doc.assert_not_called()
+		ensure.assert_not_called()
+
+	@patch.object(project_hooks, "ensure_scorecard_for_stage_instance")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_cached_doc")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.exists", return_value=True)
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
+	def test_after_save_skips_when_stage_instance_not_active(
+		self, get_value, get_meta, _exists, get_cached_doc, ensure
+	):
+		meta = MagicMock()
+		meta.has_field.return_value = True
+		get_meta.return_value = meta
+		get_value.side_effect = self._after_save_db_get_value(
+			stage_instance="PRJ-001-STAGE-001"
+		)
+		get_cached_doc.return_value = SimpleNamespace(
+			name="PRJ-001-STAGE-001",
+			project="PRJ-001",
+			status="Planned",
+		)
+
+		doc = self._make_project_doc(
+			custom_project_scoring_profile="PROFILE-NEW",
+			current_stage_instance="PRJ-001-STAGE-001",
+		)
+
+		project_hooks.after_save_project_scoring_profile(doc)
+
+		ensure.assert_not_called()
+
+	@patch.object(project_hooks, "ensure_scorecard_for_stage_instance")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_cached_doc")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.exists", return_value=True)
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.get_meta")
+	@patch("dinext_project_evaluation.scoring.project_hooks.frappe.db.get_value")
+	def test_after_save_uses_doc_stage_instance_without_db_lookup(
+		self, get_value, get_meta, _exists, get_cached_doc, ensure
+	):
+		meta = MagicMock()
+		meta.has_field.return_value = True
+		get_meta.return_value = meta
+		stage_instance = SimpleNamespace(
+			name="PRJ-001-STAGE-001",
+			project="PRJ-001",
+			status="Active",
+		)
+		get_cached_doc.return_value = stage_instance
+
+		doc = self._make_project_doc(
+			custom_project_scoring_profile="PROFILE-NEW",
+			current_stage_instance="PRJ-001-STAGE-001",
+		)
+
+		project_hooks.after_save_project_scoring_profile(doc)
+
+		get_value.assert_not_called()
+		ensure.assert_called_once_with(stage_instance)
 
 
 if __name__ == "__main__":

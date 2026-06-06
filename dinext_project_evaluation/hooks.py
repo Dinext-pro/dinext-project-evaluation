@@ -199,7 +199,7 @@ doc_events = {
 	"Project": {
 		"validate": "dinext_project_evaluation.scoring.project_hooks.validate_project_scoring_profile_change",
 		"before_save": "dinext_project_evaluation.scoring.project_hooks.before_save_project_scoring_profile_reset",
-		"after_save": "dinext_project_evaluation.scoring.project_hooks.after_save_project_scoring_profile",
+		"on_update": "dinext_project_evaluation.scoring.project_hooks.after_save_project_scoring_profile",
 	},
 	"Project Stage Instance": {
 		"on_update": "dinext_project_evaluation.scoring.scorecard_provision.on_stage_instance_update",
