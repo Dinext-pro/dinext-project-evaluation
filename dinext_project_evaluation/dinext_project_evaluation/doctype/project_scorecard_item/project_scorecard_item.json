@@ -12,7 +12,6 @@
   "value_display",
   "value_editor",
   "criterion_input_type",
-  "criterion_scale_type",
   "criterion_min_value",
   "criterion_max_value",
   "scale_options_json",
@@ -76,13 +75,6 @@
    "fieldtype": "Data",
    "hidden": 1,
    "label": "Criterion Input Type",
-   "read_only": 1
-  },
-  {
-   "fieldname": "criterion_scale_type",
-   "fieldtype": "Data",
-   "hidden": 1,
-   "label": "Criterion Scale Type",
    "read_only": 1
   },
   {

@@ -146,7 +146,7 @@ bench --site <site> export-fixtures
 
 - **Сервер** (`project_scorecard.py` + `scoring/criterion_config.py`): проверяются mandatory-критерии, обязательные комментарии и допустимость введённых значений по типу критерия (шкала, диапазон, boolean). Сообщение указывает коды критериев и причину отказа.
 - **Клиент** (`project_scorecard.js`): подсветка незаполненных mandatory-строк и значений вне допустимого диапазона; правила синхронизированы с сервером.
-- **Project Scoring Criterion**: серверная `validate()` проверяет согласованность конфигурации по `input_type` и `scale_type`; форма скрывает неактуальные поля через metadata + form script.
+- **Project Scoring Criterion**: серверная `validate()` проверяет согласованность конфигурации по `input_type` (`Scale` — только дискретная шкала через `scale_rows`; `Number`/`Currency`/`Percent` — диапазон `min_value`/`max_value`); форма скрывает неактуальные поля через metadata + form script.
 - Переход **Draft → Canceled** не требует заполнения mandatory-критериев.
 - Обязательность определяется полем **Requirement Level** в строках **Project Scoring Profile**, а не статическим `reqd` в DocType child table.
 
@@ -198,7 +198,7 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 | `dinext_project_evaluation/fixtures/` | Экспорт Client Scripts, Custom Fields, критериев, профилей, Report |
 | `dinext_project_evaluation/seed.py` | Коды критериев по умолчанию, шкалы, веса профиля, пороги gate для обязательных критериев |
 | `dinext_project_evaluation/scoring/criterion_config.py` | Валидация конфигурации критериев и введённых значений scorecard |
-| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_criterion/project_scoring_criterion.js` | Условная видимость полей критерия по `input_type` / `scale_type` |
+| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_criterion/project_scoring_criterion.js` | Условная видимость полей критерия по `input_type` |
 | `dinext_project_evaluation/scoring/workflow_constants.py` | Статусы, роли и действия workflow Project Scorecard |
 | `dinext_project_evaluation/scoring/workflow.py` | Whitelisted workflow-переходы (calculate / approve) |
 | `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_profile/project_scoring_profile.js` | Условная видимость порогов gate в форме профиля |
@@ -213,6 +213,14 @@ Fixtures из `hooks.py` экспортируют:
 - `workflow.json`, `workflow_state.json`, `workflow_action_master.json` — **Dinext Project Scorecard Approval**.
 
 Отдельные переменные окружения не требуются — достаточно стандартного bench-сайта с ERPNext.
+
+### Типы ввода критериев
+
+| `input_type` | Конфигурация | Ввод в scorecard |
+|--------------|--------------|------------------|
+| **Scale** | Дискретная шкала: таблица `scale_rows` (обязательна) | Select по вариантам шкалы |
+| **Number** / **Currency** / **Percent** | Диапазон `min_value`..`max_value` (обязателен) | Числовое поле соответствующего типа |
+| **Boolean** | `boolean_true_score` / `boolean_false_score` | Check |
 
 ## ✅ Требования
 

@@ -6,7 +6,6 @@ from typing import Any
 from frappe.utils import cint
 
 from dinext_project_evaluation.scoring.criterion_config import (
-	effective_scale_type,
 	item_has_input_value,
 	item_missing_mandatory_value,
 	item_missing_required_comment,
@@ -114,18 +113,6 @@ def calculate_scorecard_document(
 def normalize_item(criterion: Any, item_row: Any) -> float:
 	input_type = _value(criterion, "input_type")
 	if input_type == "Scale":
-		if effective_scale_type(criterion) == "Interval":
-			value = _value(item_row, "raw_numeric_value")
-			if value in (None, ""):
-				value = _value(item_row, "raw_value")
-			return normalize_numeric(
-				NumericCriterion(
-					min_value=float(_value(criterion, "min_value") or 0),
-					max_value=float(_value(criterion, "max_value") or 0),
-					influence_direction=_value(criterion, "influence_direction") or "higher_is_better",
-				),
-				float(value),
-			)
 		return normalize_scale(
 			ScaleCriterion(
 				scores=[float(row.score) for row in _children(criterion, "scale_rows")],
@@ -163,18 +150,6 @@ def _build_item_input(criterion: Any, item_row: Any) -> CriterionInput | None:
 	raw_numeric_value = _value(item_row, "raw_numeric_value")
 
 	if input_type == "Scale":
-		if effective_scale_type(criterion) == "Interval":
-			value = raw_numeric_value if raw_numeric_value not in (None, "") else raw_value
-			if value in (None, ""):
-				return None
-			numeric_value = float(value)
-			item_row.raw_numeric_value = numeric_value
-			return CriterionInput(
-				normalized_score=normalize_item(criterion, item_row),
-				raw_value=str(raw_value) if raw_value not in (None, "") else str(numeric_value),
-				raw_numeric_value=numeric_value,
-			)
-
 		if raw_value in (None, ""):
 			return None
 		return CriterionInput(

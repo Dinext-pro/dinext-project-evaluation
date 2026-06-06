@@ -192,10 +192,9 @@ class TestScorecardService(unittest.TestCase):
 		]
 		self.assertTrue(scorecard_has_missing_required_items(items))
 
-	def test_normalize_interval_scale_uses_numeric_range(self):
+	def test_normalize_number_uses_numeric_range(self):
 		crit = row(
-			input_type="Scale",
-			scale_type="Interval",
+			input_type="Number",
 			influence_direction="higher_is_better",
 			min_value=0,
 			max_value=100,

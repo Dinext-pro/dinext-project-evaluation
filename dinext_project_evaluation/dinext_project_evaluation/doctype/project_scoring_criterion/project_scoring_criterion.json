@@ -13,7 +13,6 @@
   "description",
   "input_type",
   "influence_direction",
-  "scale_type",
   "min_value",
   "max_value",
   "boolean_true_score",
@@ -71,21 +70,13 @@
    "reqd": 1
   },
   {
-   "default": "Discrete",
-   "depends_on": "eval:doc.input_type=='Scale'",
-   "fieldname": "scale_type",
-   "fieldtype": "Select",
-   "label": "Scale Type",
-   "options": "Discrete\nInterval"
-  },
-  {
-   "depends_on": "eval:['Number','Currency','Percent'].includes(doc.input_type) || (doc.input_type=='Scale' && doc.scale_type=='Interval')",
+   "depends_on": "eval:['Number','Currency','Percent'].includes(doc.input_type)",
    "fieldname": "min_value",
    "fieldtype": "Float",
    "label": "Minimum Value"
   },
   {
-   "depends_on": "eval:['Number','Currency','Percent'].includes(doc.input_type) || (doc.input_type=='Scale' && doc.scale_type=='Interval')",
+   "depends_on": "eval:['Number','Currency','Percent'].includes(doc.input_type)",
    "fieldname": "max_value",
    "fieldtype": "Float",
    "label": "Maximum Value"
@@ -119,6 +110,7 @@
    "label": "Enabled"
   },
   {
+   "depends_on": "eval:doc.input_type=='Scale'",
    "fieldname": "scale_rows",
    "fieldtype": "Table",
    "label": "Scale Rows",

@@ -103,7 +103,6 @@ dinext_project_evaluation.project_scorecard.merge_item_mandatory_metadata = func
 		}
 		row.requirement_level = meta.requirement_level || "Desired";
 		row.requires_comment = meta.requires_comment ? 1 : 0;
-		row.criterion_scale_type = meta.scale_type || row.criterion_scale_type || "";
 		row.criterion_min_value = meta.min_value ?? row.criterion_min_value;
 		row.criterion_max_value = meta.max_value ?? row.criterion_max_value;
 	});
@@ -132,10 +131,6 @@ dinext_project_evaluation.project_scorecard.ensure_mandatory_metadata = function
 	dinext_project_evaluation.project_scorecard.merge_item_mandatory_metadata(frm);
 };
 
-dinext_project_evaluation.project_scorecard.is_interval_scale_row = function (row) {
-	return row?.criterion_input_type === "Scale" && row?.criterion_scale_type === "Interval";
-};
-
 dinext_project_evaluation.project_scorecard.item_has_input_value = function (row) {
 	if (!row) {
 		return false;
@@ -143,9 +138,6 @@ dinext_project_evaluation.project_scorecard.item_has_input_value = function (row
 
 	const inputType = row.criterion_input_type;
 	if (inputType === "Scale") {
-		if (dinext_project_evaluation.project_scorecard.is_interval_scale_row(row)) {
-			return row.number_value !== undefined && row.number_value !== null && row.number_value !== "";
-		}
 		return !!(row.scale_value || row.raw_value);
 	}
 	if (inputType === "Boolean") {
@@ -178,9 +170,7 @@ dinext_project_evaluation.project_scorecard.item_value_out_of_range = function (
 	}
 
 	let value = null;
-	if (dinext_project_evaluation.project_scorecard.is_interval_scale_row(row)) {
-		value = row.number_value;
-	} else if (row.criterion_input_type === "Number") {
+	if (row.criterion_input_type === "Number") {
 		value = row.number_value;
 	} else if (row.criterion_input_type === "Currency") {
 		value = row.currency_value;
@@ -642,12 +632,6 @@ dinext_project_evaluation.project_scorecard.get_display_value = function (row) {
 	}
 
 	if (row.criterion_input_type === "Scale") {
-		if (dinext_project_evaluation.project_scorecard.is_interval_scale_row(row)) {
-			if (row.number_value === undefined || row.number_value === null || row.number_value === "") {
-				return null;
-			}
-			return String(row.number_value);
-		}
 		if (!row.scale_value) {
 			return null;
 		}
@@ -743,12 +727,6 @@ dinext_project_evaluation.project_scorecard.get_active_control_df = function (ro
 	}
 
 	if (row.criterion_input_type === "Scale") {
-		if (dinext_project_evaluation.project_scorecard.is_interval_scale_row(row)) {
-			return {
-				fieldtype: "Float",
-				fieldname,
-			};
-		}
 		const options = dinext_project_evaluation.project_scorecard.parse_scale_options(row);
 		return {
 			fieldtype: "Select",
@@ -782,9 +760,6 @@ dinext_project_evaluation.project_scorecard.get_active_control_value = function 
 	}
 
 	if (row.criterion_input_type === "Scale") {
-		if (dinext_project_evaluation.project_scorecard.is_interval_scale_row(row)) {
-			return row.number_value;
-		}
 		return (
 			dinext_project_evaluation.project_scorecard.resolve_scale_value(row, row.scale_value) || ""
 		);
@@ -812,12 +787,8 @@ dinext_project_evaluation.project_scorecard.compute_active_control_values = func
 	const inputType = row.criterion_input_type;
 
 	if (inputType === "Scale") {
-		if (dinext_project_evaluation.project_scorecard.is_interval_scale_row(row)) {
-			nextValues.number_value = value;
-		} else {
-			nextValues.scale_value =
-				dinext_project_evaluation.project_scorecard.resolve_scale_value(row, value) || null;
-		}
+		nextValues.scale_value =
+			dinext_project_evaluation.project_scorecard.resolve_scale_value(row, value) || null;
 	} else if (inputType === "Boolean") {
 		nextValues.boolean_value = value ? 1 : 0;
 		nextValues.boolean_value_set = 1;
