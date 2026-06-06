@@ -37,6 +37,22 @@ PARENT_IMMUTABLE_OUTSIDE_DRAFT = (
 
 ITEM_STRUCTURE_FIELDS = ("criterion",)
 
+PARENT_CALCULATION_FIELDS = (
+	"integral_score",
+	"gate_pass",
+	"gate_messages",
+	"evaluation_date",
+	"profile_snapshot",
+)
+
+ITEM_CALCULATION_FIELDS = (
+	"criterion_code",
+	"normalized_score",
+	"weighted_score",
+	"weight",
+	"gate_pass",
+)
+
 
 class ProjectScorecard(Document):
 	def before_save(self):
@@ -95,6 +111,28 @@ class ProjectScorecard(Document):
 		)
 		self.evaluation_date = now_datetime()
 		self.profile_snapshot = json.dumps(_profile_snapshot(profile), ensure_ascii=False)
+
+	def recalculate_in_place(self):
+		if self.status == STATUS_CANCELED:
+			frappe.throw(_("Canceled Project Scorecard cannot be recalculated."))
+
+		self.check_permission("write")
+		self._prepare_item_inputs()
+		self.calculate()
+		self._persist_calculation_results()
+
+		if cint(self.docstatus) == SCORECARD_AGREED_DOCSTATUS:
+			self._update_project_last_score()
+
+	def _persist_calculation_results(self):
+		parent_values = {fieldname: self.get(fieldname) for fieldname in PARENT_CALCULATION_FIELDS}
+		frappe.db.set_value(self.doctype, self.name, parent_values, update_modified=True)
+
+		for item in self.items or []:
+			if not item.name:
+				continue
+			item_values = {fieldname: item.get(fieldname) for fieldname in ITEM_CALCULATION_FIELDS}
+			frappe.db.set_value(item.doctype, item.name, item_values, update_modified=False)
 
 	def _hydrate_project_context(self):
 		if not self.project:

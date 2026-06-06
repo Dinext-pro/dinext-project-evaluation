@@ -18,4 +18,8 @@
 "Failed","Не пройдено","Project Scorecard.KPI"
 "Not calculated","Не рассчитано","Project Scorecard.KPI"
 "Gate failure reasons","Причины непрохождения ворот","Project Scorecard.KPI"
+"Last Recalculated","Последний пересчёт","Project Scorecard.KPI"
+"Recalculate Score","Пересчитать балл","Project Scorecard.KPI"
+"Score recalculated successfully","Балл успешно пересчитан","Project Scorecard.KPI"
+"Canceled Project Scorecard cannot be recalculated.","Отменённую карточку оценки нельзя пересчитать.",""
 "Canceled","Отменено",""

@@ -1156,6 +1156,61 @@ dinext_project_evaluation.project_scorecard.format_integral_score = function (do
 	return flt(doc.integral_score, 2);
 };
 
+dinext_project_evaluation.project_scorecard.format_last_recalculated = function (doc) {
+	if (!doc?.evaluation_date) {
+		return null;
+	}
+	return frappe.datetime.str_to_user(doc.evaluation_date);
+};
+
+dinext_project_evaluation.project_scorecard.can_recalculate = function (frm) {
+	return !frm.is_new() && frm.doc.status !== "Canceled";
+};
+
+dinext_project_evaluation.project_scorecard.trigger_manual_recalculate = function (frm) {
+	if (frm._dpe_recalculate_in_flight) {
+		return;
+	}
+
+	frm._dpe_recalculate_in_flight = true;
+	frappe.dom.freeze();
+
+	frappe.call({
+		method: "dinext_project_evaluation.api.recalculate_scorecard",
+		args: {
+			scorecard: frm.doc.name,
+		},
+		callback() {
+			frm._dpe_recalculate_in_flight = false;
+			frappe.dom.unfreeze();
+			frappe.show_alert({
+				message: __(
+					"Score recalculated successfully",
+					null,
+					dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT
+				),
+				indicator: "green",
+			});
+			frm.reload_doc();
+		},
+		error() {
+			frm._dpe_recalculate_in_flight = false;
+			frappe.dom.unfreeze();
+		},
+	});
+};
+
+dinext_project_evaluation.project_scorecard.setup_recalculate_menu_item = function (frm) {
+	if (!dinext_project_evaluation.project_scorecard.can_recalculate(frm)) {
+		return;
+	}
+
+	frm.page.add_menu_item(
+		__("Recalculate Score", null, dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT),
+		() => dinext_project_evaluation.project_scorecard.trigger_manual_recalculate(frm)
+	);
+};
+
 dinext_project_evaluation.project_scorecard.parse_gate_messages = function (gate_messages) {
 	if (!gate_messages) {
 		return [];
@@ -1213,6 +1268,7 @@ dinext_project_evaluation.project_scorecard.build_dashboard_kpi_html = function 
 	const doc = frm.doc;
 	const integralScore = dinext_project_evaluation.project_scorecard.format_integral_score(doc);
 	const gateState = dinext_project_evaluation.project_scorecard.get_gate_kpi_state(doc);
+	const lastRecalculated = dinext_project_evaluation.project_scorecard.format_last_recalculated(doc);
 
 	const gateMessagesHtml =
 		dinext_project_evaluation.project_scorecard.build_gate_messages_html(doc);
@@ -1240,6 +1296,16 @@ dinext_project_evaluation.project_scorecard.build_dashboard_kpi_html = function 
 							gateState.label
 						)}</span>
 					</div>
+				</div>
+				<div class="dpe-scorecard-kpi-card dpe-scorecard-kpi-card--recalculated">
+					<div class="dpe-scorecard-kpi-label">${__(
+						"Last Recalculated",
+						null,
+						dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT
+					)}</div>
+					<div class="dpe-scorecard-kpi-value dpe-scorecard-kpi-value--datetime">${frappe.utils.escape_html(
+						String(lastRecalculated)
+					)}</div>
 				</div>
 			</div>
 			${gateMessagesHtml}
@@ -1293,6 +1359,7 @@ frappe.ui.form.on("Project Scorecard", {
 		dinext_project_evaluation.project_scorecard.ensure_value_display_column();
 		dinext_project_evaluation.project_scorecard.ensure_styles();
 		dinext_project_evaluation.project_scorecard.render_dashboard_kpis(frm);
+		dinext_project_evaluation.project_scorecard.setup_recalculate_menu_item(frm);
 		$(frm.wrapper).addClass("dpe-project-scorecard-form");
 		dinext_project_evaluation.project_scorecard.setup_items_grid_lock(frm);
 		dinext_project_evaluation.project_scorecard.lock_items_grid(frm);
