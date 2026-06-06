@@ -204,6 +204,79 @@ class TestScorecardService(unittest.TestCase):
 
 		self.assertAlmostEqual(normalize_item(crit, item), 0.5)
 
+	def test_blank_maximum_raw_threshold_persisted_as_zero_does_not_fail_gate(self):
+		profile = row(
+			name="Default",
+			criteria=[
+				row(
+					criterion="RISK_PROB",
+					stage="S1",
+					weight=1,
+					requirement_level="Mandatory",
+					minimum_normalized_score=None,
+					minimum_raw_value=None,
+					maximum_raw_value=0,
+				)
+			],
+		)
+		criteria_by_name = {
+			"RISK_PROB": row(
+				criterion_code="RISK_PROB",
+				input_type="Number",
+				influence_direction="lower_is_better",
+				min_value=0,
+				max_value=100,
+			),
+		}
+		scorecard = row(
+			stage_at_evaluation="S1",
+			items=[row(criterion="RISK_PROB", raw_value=None, raw_numeric_value=25)],
+		)
+
+		result = calculate_scorecard_document(scorecard, profile, criteria_by_name)
+
+		self.assertTrue(result.gate_pass)
+		self.assertEqual(result.messages, [])
+		self.assertTrue(result.items["RISK_PROB"].gate_pass)
+
+	def test_explicit_minimum_raw_zero_threshold_still_fails_gate(self):
+		profile = row(
+			name="Default",
+			criteria=[
+				row(
+					criterion="RISK_PROB",
+					stage="S1",
+					weight=1,
+					requirement_level="Mandatory",
+					minimum_normalized_score=None,
+					minimum_raw_value=0,
+					maximum_raw_value=None,
+				)
+			],
+		)
+		criteria_by_name = {
+			"RISK_PROB": row(
+				criterion_code="RISK_PROB",
+				input_type="Number",
+				influence_direction="higher_is_better",
+				min_value=-100,
+				max_value=100,
+			),
+		}
+		scorecard = row(
+			stage_at_evaluation="S1",
+			items=[row(criterion="RISK_PROB", raw_value=None, raw_numeric_value=-5)],
+		)
+
+		result = calculate_scorecard_document(scorecard, profile, criteria_by_name)
+
+		self.assertFalse(result.gate_pass)
+		self.assertEqual(
+			result.messages,
+			["RISK_PROB raw value -5.0000 is below required 0.0000"],
+		)
+		self.assertFalse(result.items["RISK_PROB"].gate_pass)
+
 
 if __name__ == "__main__":
 	unittest.main()

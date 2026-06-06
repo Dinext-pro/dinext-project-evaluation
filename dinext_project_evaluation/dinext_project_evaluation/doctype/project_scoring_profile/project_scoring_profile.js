@@ -56,6 +56,51 @@ dinext_project_evaluation.project_scoring_profile.parse_criterion_input_type = f
 	return value;
 };
 
+dinext_project_evaluation.project_scoring_profile.is_blank_gate_value = function (value) {
+	return value === undefined || value === null || value === "";
+};
+
+dinext_project_evaluation.project_scoring_profile.normalize_gate_field_value = function (
+	fieldname,
+	value
+) {
+	if (dinext_project_evaluation.project_scoring_profile.is_blank_gate_value(value)) {
+		return null;
+	}
+
+	if (fieldname === "maximum_raw_value" && flt(value) === 0) {
+		return null;
+	}
+
+	return value;
+};
+
+dinext_project_evaluation.project_scoring_profile.normalize_row_gate_values = function (
+	row,
+	input_type
+) {
+	if (!row) {
+		return;
+	}
+
+	const mode = dinext_project_evaluation.project_scoring_profile.get_gate_field_mode(
+		row.requirement_level,
+		input_type
+	);
+
+	dinext_project_evaluation.project_scoring_profile.gate_fields.forEach((fieldname) => {
+		if (!mode[fieldname]) {
+			row[fieldname] = null;
+			return;
+		}
+
+		row[fieldname] = dinext_project_evaluation.project_scoring_profile.normalize_gate_field_value(
+			fieldname,
+			row[fieldname]
+		);
+	});
+};
+
 dinext_project_evaluation.project_scoring_profile.apply_gate_fields = function (
 	frm,
 	cdt,
@@ -87,8 +132,7 @@ dinext_project_evaluation.project_scoring_profile.apply_gate_fields = function (
 		if (
 			clear_values &&
 			!visible &&
-			row[fieldname] != null &&
-			row[fieldname] !== ""
+			!dinext_project_evaluation.project_scoring_profile.is_blank_gate_value(row[fieldname])
 		) {
 			frappe.model.set_value(cdt, cdn, fieldname, null);
 		}
@@ -182,9 +226,51 @@ dinext_project_evaluation.project_scoring_profile.refresh_all_criteria_rows = fu
 		});
 };
 
+dinext_project_evaluation.project_scoring_profile.normalize_all_criteria_gate_values = function (frm) {
+	const criteria = frm.doc.criteria || [];
+	if (!criteria.length) {
+		return Promise.resolve();
+	}
+
+	const criterion_codes = [
+		...new Set(criteria.map((row) => row.criterion).filter(Boolean)),
+	];
+
+	if (!criterion_codes.length) {
+		criteria.forEach((row) => {
+			dinext_project_evaluation.project_scoring_profile.normalize_row_gate_values(row, null);
+		});
+		return Promise.resolve();
+	}
+
+	return frappe.db
+		.get_list("Project Scoring Criterion", {
+			fields: ["name", "input_type"],
+			filters: { name: ["in", criterion_codes] },
+			limit: criterion_codes.length,
+		})
+		.then((records) => {
+			const input_type_by_criterion = Object.fromEntries(
+				records.map((record) => [record.name, record.input_type])
+			);
+
+			criteria.forEach((row) => {
+				dinext_project_evaluation.project_scoring_profile.normalize_row_gate_values(
+					row,
+					input_type_by_criterion[row.criterion] || null
+				);
+			});
+		});
+};
+
 frappe.ui.form.on("Project Scoring Profile", {
 	refresh(frm) {
 		dinext_project_evaluation.project_scoring_profile.refresh_all_criteria_rows(frm, false);
+	},
+	validate(frm) {
+		return dinext_project_evaluation.project_scoring_profile.normalize_all_criteria_gate_values(
+			frm
+		);
 	},
 	criteria_add(frm, cdt, cdn) {
 		dinext_project_evaluation.project_scoring_profile.apply_gate_fields(
@@ -197,6 +283,21 @@ frappe.ui.form.on("Project Scoring Profile", {
 	},
 });
 
+function dpe_normalize_profile_gate_field(frm, cdt, cdn, fieldname) {
+	const row = locals[cdt] && locals[cdt][cdn];
+	if (!row) {
+		return;
+	}
+
+	const normalized = dinext_project_evaluation.project_scoring_profile.normalize_gate_field_value(
+		fieldname,
+		row[fieldname]
+	);
+	if (normalized !== row[fieldname]) {
+		frappe.model.set_value(cdt, cdn, fieldname, normalized);
+	}
+}
+
 frappe.ui.form.on("Project Scoring Profile Criterion", {
 	form_render(frm, cdt, cdn) {
 		dinext_project_evaluation.project_scoring_profile.apply_gate_fields_for_row(
@@ -205,6 +306,15 @@ frappe.ui.form.on("Project Scoring Profile Criterion", {
 			cdn,
 			false
 		);
+	},
+	minimum_normalized_score(frm, cdt, cdn) {
+		dpe_normalize_profile_gate_field(frm, cdt, cdn, "minimum_normalized_score");
+	},
+	minimum_raw_value(frm, cdt, cdn) {
+		dpe_normalize_profile_gate_field(frm, cdt, cdn, "minimum_raw_value");
+	},
+	maximum_raw_value(frm, cdt, cdn) {
+		dpe_normalize_profile_gate_field(frm, cdt, cdn, "maximum_raw_value");
 	},
 	criterion(frm, cdt, cdn) {
 		dinext_project_evaluation.project_scoring_profile.apply_gate_fields_for_row(
