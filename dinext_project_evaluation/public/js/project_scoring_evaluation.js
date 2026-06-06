@@ -166,34 +166,4 @@ dinext_project_evaluation.project_scoring.refresh = function (frm) {
 		},
 		__("Evaluation")
 	);
-
-	dinext_project_evaluation.project_scoring.render_history(frm);
-};
-
-dinext_project_evaluation.project_scoring.render_history = function (frm) {
-	frappe.call({
-		method: "dinext_project_evaluation.api.get_scorecard_history",
-		args: { project: frm.doc.name, limit: 5 },
-		callback(r) {
-			const rows = r.message || [];
-			if (!rows.length) {
-				return;
-			}
-
-			const html = rows
-				.map((row) => {
-					const score =
-						row.integral_score === null || row.integral_score === undefined
-							? "-"
-							: flt(row.integral_score, 4);
-					const gate = row.gate_pass ? __("Gate passed") : __("Gate failed");
-					return `<li><a href="/app/project-scorecard/${encodeURIComponent(row.name)}">${frappe.utils.escape_html(row.name)}</a>: ${score} (${gate})</li>`;
-				})
-				.join("");
-
-			frm.dashboard.add_section(
-				`<div class="project-scoring-history"><h5>${__("Project Evaluation")}</h5><ul>${html}</ul></div>`
-			);
-		},
-	});
 };
