@@ -8,7 +8,7 @@ from frappe.utils import cint
 from frappe.utils import now_datetime
 
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
-from dinext_project_evaluation.scoring.scorecard_factory import ITEM_VALUE_FIELDS, sync_scorecard_items
+from dinext_project_evaluation.scoring.scorecard_factory import sync_scorecard_items
 from dinext_project_evaluation.scoring.scorecard_cancel import (
 	create_replacement_draft_after_cancel,
 	validate_scorecard_cancel_allowed,
@@ -40,6 +40,17 @@ PARENT_IMMUTABLE_OUTSIDE_DRAFT = (
 )
 
 ITEM_STRUCTURE_FIELDS = ("criterion",)
+
+# User-entered criterion values; excludes derived fields recomputed in _prepare_item_inputs().
+ITEM_USER_EDITABLE_VALUE_FIELDS = (
+	"scale_value",
+	"boolean_value",
+	"boolean_value_set",
+	"number_value",
+	"currency_value",
+	"percent_value",
+	"comment",
+)
 
 PARENT_CALCULATION_FIELDS = (
 	"integral_score",
@@ -394,7 +405,7 @@ def _assert_no_immutable_content_changes(previous, current):
 			if _field_value_changed(_doc_value(previous_row, fieldname), _doc_value(current_row, fieldname)):
 				_raise_content_locked()
 
-		for fieldname in ITEM_VALUE_FIELDS:
+		for fieldname in ITEM_USER_EDITABLE_VALUE_FIELDS:
 			if _field_value_changed(_doc_value(previous_row, fieldname), _doc_value(current_row, fieldname)):
 				_raise_content_locked()
 
