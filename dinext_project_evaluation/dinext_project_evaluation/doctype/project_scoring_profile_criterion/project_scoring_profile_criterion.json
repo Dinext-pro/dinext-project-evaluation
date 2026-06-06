@@ -50,18 +50,17 @@
   },
   {
    "fieldname": "minimum_normalized_score",
-   "fieldtype": "Float",
-   "label": "Minimum Normalized Score",
-   "non_negative": 1
+   "fieldtype": "Data",
+   "label": "Minimum Normalized Score"
   },
   {
    "fieldname": "minimum_raw_value",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "label": "Minimum Raw Value"
   },
   {
    "fieldname": "maximum_raw_value",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "label": "Maximum Raw Value"
   }
  ],

@@ -18,21 +18,25 @@ def row(**kwargs):
 	return SimpleNamespace(**kwargs)
 
 
+def profile_criterion_row(**kwargs):
+	return row(**kwargs)
+
+
 class TestScorecardService(unittest.TestCase):
 	def test_calculates_items_and_gate_summary_from_documents(self):
 		profile = row(
 			name="Default",
 			criteria=[
-				row(
+				profile_criterion_row(
 					criterion="STR_ALIGN",
 					stage="S1",
 					weight=2,
 					requirement_level="Mandatory",
-					minimum_normalized_score=0.5,
+					minimum_normalized_score="0.5",
 					minimum_raw_value=None,
 					maximum_raw_value=None,
 				),
-				row(
+				profile_criterion_row(
 					criterion="RISK_PROB",
 					stage=None,
 					weight=1,
@@ -68,7 +72,7 @@ class TestScorecardService(unittest.TestCase):
 		profile = row(
 			name="Default",
 			criteria=[
-				row(
+				profile_criterion_row(
 					criterion="STR_ALIGN",
 					stage="S2",
 					weight=1,
@@ -92,12 +96,12 @@ class TestScorecardService(unittest.TestCase):
 		profile = row(
 			name="Default",
 			criteria=[
-				row(
+				profile_criterion_row(
 					criterion="STR_ALIGN",
 					stage="S1",
 					weight=1,
 					requirement_level="Mandatory",
-					minimum_normalized_score=0.8,
+					minimum_normalized_score="0.8",
 					minimum_raw_value=None,
 					maximum_raw_value=None,
 				)
@@ -125,12 +129,12 @@ class TestScorecardService(unittest.TestCase):
 		profile = row(
 			name="Default",
 			criteria=[
-				row(
+				profile_criterion_row(
 					criterion="STR_ALIGN",
 					stage="S1",
 					weight=1,
 					requirement_level="Mandatory",
-					minimum_normalized_score=0.5,
+					minimum_normalized_score="0.5",
 					minimum_raw_value=None,
 					maximum_raw_value=None,
 				)
@@ -204,18 +208,18 @@ class TestScorecardService(unittest.TestCase):
 
 		self.assertAlmostEqual(normalize_item(crit, item), 0.5)
 
-	def test_blank_maximum_raw_threshold_persisted_as_zero_does_not_fail_gate(self):
+	def test_blank_maximum_raw_threshold_does_not_fail_gate(self):
 		profile = row(
 			name="Default",
 			criteria=[
-				row(
+				profile_criterion_row(
 					criterion="RISK_PROB",
 					stage="S1",
 					weight=1,
 					requirement_level="Mandatory",
 					minimum_normalized_score=None,
 					minimum_raw_value=None,
-					maximum_raw_value=0,
+					maximum_raw_value=None,
 				)
 			],
 		)
@@ -239,17 +243,55 @@ class TestScorecardService(unittest.TestCase):
 		self.assertEqual(result.messages, [])
 		self.assertTrue(result.items["RISK_PROB"].gate_pass)
 
-	def test_explicit_minimum_raw_zero_threshold_still_fails_gate(self):
+	def test_explicit_maximum_raw_zero_threshold_fails_gate(self):
 		profile = row(
 			name="Default",
 			criteria=[
-				row(
+				profile_criterion_row(
 					criterion="RISK_PROB",
 					stage="S1",
 					weight=1,
 					requirement_level="Mandatory",
 					minimum_normalized_score=None,
-					minimum_raw_value=0,
+					minimum_raw_value=None,
+					maximum_raw_value="0",
+				)
+			],
+		)
+		criteria_by_name = {
+			"RISK_PROB": row(
+				criterion_code="RISK_PROB",
+				input_type="Number",
+				influence_direction="lower_is_better",
+				min_value=0,
+				max_value=100,
+			),
+		}
+		scorecard = row(
+			stage_at_evaluation="S1",
+			items=[row(criterion="RISK_PROB", raw_value=None, raw_numeric_value=25)],
+		)
+
+		result = calculate_scorecard_document(scorecard, profile, criteria_by_name)
+
+		self.assertFalse(result.gate_pass)
+		self.assertEqual(
+			result.messages,
+			["RISK_PROB raw value 25.0000 is above allowed 0.0000"],
+		)
+		self.assertFalse(result.items["RISK_PROB"].gate_pass)
+
+	def test_explicit_minimum_raw_zero_threshold_still_fails_gate(self):
+		profile = row(
+			name="Default",
+			criteria=[
+				profile_criterion_row(
+					criterion="RISK_PROB",
+					stage="S1",
+					weight=1,
+					requirement_level="Mandatory",
+					minimum_normalized_score=None,
+					minimum_raw_value="0",
 					maximum_raw_value=None,
 				)
 			],
@@ -276,6 +318,39 @@ class TestScorecardService(unittest.TestCase):
 			["RISK_PROB raw value -5.0000 is below required 0.0000"],
 		)
 		self.assertFalse(result.items["RISK_PROB"].gate_pass)
+
+	def test_explicit_minimum_normalized_zero_threshold_is_active(self):
+		profile = row(
+			name="Default",
+			criteria=[
+				profile_criterion_row(
+					criterion="STR_ALIGN",
+					stage="S1",
+					weight=1,
+					requirement_level="Mandatory",
+					minimum_normalized_score="0",
+					minimum_raw_value=None,
+					maximum_raw_value=None,
+				)
+			],
+		)
+		criteria_by_name = {
+			"STR_ALIGN": row(
+				criterion_code="STR_ALIGN",
+				input_type="Scale",
+				influence_direction="higher_is_better",
+				scale_rows=[row(score=0), row(score=5)],
+			),
+		}
+		scorecard = row(
+			stage_at_evaluation="S1",
+			items=[row(criterion="STR_ALIGN", raw_value="0", raw_numeric_value=None)],
+		)
+
+		result = calculate_scorecard_document(scorecard, profile, criteria_by_name)
+
+		self.assertTrue(result.gate_pass)
+		self.assertTrue(result.items["STR_ALIGN"].gate_pass)
 
 
 if __name__ == "__main__":
