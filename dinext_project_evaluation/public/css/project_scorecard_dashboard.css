@@ -117,6 +117,21 @@
 	color: var(--text-muted, #6b7280);
 }
 
+.dpe-scorecard-kpi-status-pill {
+	display: flex;
+	align-items: flex-start;
+	flex-wrap: wrap;
+}
+
+.dpe-scorecard-kpi-status-pill .indicator-pill {
+	max-width: 100%;
+	height: auto;
+	min-height: 20px;
+	white-space: normal;
+	word-break: break-word;
+	line-height: 1.35;
+}
+
 .dpe-scorecard-gate-messages {
 	margin-top: 12px;
 	padding: 10px 12px;

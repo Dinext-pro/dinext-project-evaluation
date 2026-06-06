@@ -12,6 +12,7 @@ const SCORECARD_SUMMARY_FIELDS = [
 const CHECKPOINT_SCORECARD_WIDGET_MOUNT_CLASS = "dpe-checkpoint-scorecard-widget-mount";
 const CHECKPOINT_SCORECARD_SECTION_CLASS = "dpe-checkpoint-scorecard-section";
 const CHECKPOINT_SCORECARD_KPI_CONTEXT = "Project Gate Checkpoint.StageScorecard";
+const SCORECARD_DOCTYPE = "Project Scorecard";
 
 dinext_project_evaluation.stage_gate_checkpoint.get_widget_mount = function (frm) {
 	const field = frm.get_field("stage_scorecard_widget_mount");
@@ -32,6 +33,10 @@ dinext_project_evaluation.stage_gate_checkpoint.ensure_dashboard_styles = functi
 			}
 		);
 	});
+};
+
+dinext_project_evaluation.stage_gate_checkpoint.ensure_scorecard_doctype_metadata = function () {
+	return frappe.model.with_doctype(SCORECARD_DOCTYPE);
 };
 
 dinext_project_evaluation.stage_gate_checkpoint.apply_checkpoint_fields = function (frm, fields) {
@@ -105,6 +110,33 @@ dinext_project_evaluation.stage_gate_checkpoint.get_gate_kpi_state = function (f
 	};
 };
 
+dinext_project_evaluation.stage_gate_checkpoint.get_scorecard_status_kpi_state = function (frm) {
+	const status = (frm.doc.scorecard_status || "").trim();
+	if (!status) {
+		return {
+			color: "gray",
+			label: __("Not available", null, CHECKPOINT_SCORECARD_KPI_CONTEXT),
+		};
+	}
+
+	const indicator = frappe.get_indicator(
+		{ doctype: SCORECARD_DOCTYPE, status },
+		SCORECARD_DOCTYPE,
+		true
+	);
+	if (indicator) {
+		return {
+			color: indicator[1] || "gray",
+			label: indicator[0] || status,
+		};
+	}
+
+	return {
+		color: "gray",
+		label: status,
+	};
+};
+
 dinext_project_evaluation.stage_gate_checkpoint.parse_gate_messages = function (gate_warning) {
 	if (!gate_warning) {
 		return [];
@@ -159,9 +191,8 @@ dinext_project_evaluation.stage_gate_checkpoint.build_gate_messages_html = funct
 dinext_project_evaluation.stage_gate_checkpoint.build_scorecard_widget_html = function (frm) {
 	const integralScore = dinext_project_evaluation.stage_gate_checkpoint.format_integral_score(frm);
 	const gateState = dinext_project_evaluation.stage_gate_checkpoint.get_gate_kpi_state(frm);
-	const statusLabel =
-		(frm.doc.scorecard_status || "").trim() ||
-		__("Not available", null, CHECKPOINT_SCORECARD_KPI_CONTEXT);
+	const statusState =
+		dinext_project_evaluation.stage_gate_checkpoint.get_scorecard_status_kpi_state(frm);
 	const title =
 		(frm.doc.scorecard_display_title || "").trim() || frm.doc.linked_stage_scorecard;
 	const scorecardName = frm.doc.linked_stage_scorecard;
@@ -208,15 +239,17 @@ dinext_project_evaluation.stage_gate_checkpoint.build_scorecard_widget_html = fu
 						)}</span>
 					</div>
 				</div>
-				<div class="dpe-scorecard-kpi-card dpe-scorecard-kpi-card--recalculated">
+				<div class="dpe-scorecard-kpi-card dpe-scorecard-kpi-card--status">
 					<div class="dpe-scorecard-kpi-label">${__(
 						"Scorecard Status",
 						null,
 						CHECKPOINT_SCORECARD_KPI_CONTEXT
 					)}</div>
-					<div class="dpe-scorecard-kpi-value dpe-scorecard-kpi-value--datetime">${frappe.utils.escape_html(
-						statusLabel
-					)}</div>
+					<div class="dpe-scorecard-kpi-status-pill">
+						<span class="indicator-pill no-indicator-dot ${frappe.utils.escape_html(
+							statusState.color
+						)}">${frappe.utils.escape_html(statusState.label)}</span>
+					</div>
 				</div>
 			</div>
 			${gateMessagesHtml}
@@ -293,7 +326,10 @@ dinext_project_evaluation.stage_gate_checkpoint.render_scorecard_widget = functi
 		return;
 	}
 
-	dinext_project_evaluation.stage_gate_checkpoint.ensure_dashboard_styles().then(() => {
+	Promise.all([
+		dinext_project_evaluation.stage_gate_checkpoint.ensure_dashboard_styles(),
+		dinext_project_evaluation.stage_gate_checkpoint.ensure_scorecard_doctype_metadata(),
+	]).then(() => {
 		if (renderToken !== frm._dpe_checkpoint_scorecard_widget_token) {
 			return;
 		}
