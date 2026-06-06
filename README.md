@@ -236,7 +236,7 @@ Draft scorecard создаётся сервером через `ensure_scorecard
 
 **Rejected** с сохранённым `evaluation_date` и рассчитанным баллом показывает последний результат расчёта.
 
-**Ручной пересчёт:** пункт меню формы **Recalculate Score** вызывает `dinext_project_evaluation.api.recalculate_scorecard` — пересчитывает integral/gate **на месте** для любой неотменённой карточки, **без смены статуса** workflow. Для **Approved** (`docstatus = 1`) также обновляет денормализованные поля Project.
+**Ручной пересчёт:** пункт меню формы **Recalculate Score** вызывает `dinext_project_evaluation.api.recalculate_scorecard` — пересчитывает integral/gate **на месте** **без смены статуса** workflow для карточек с **`docstatus = 0`**. При **`docstatus = 1`** (submitted) и **`docstatus = 2`** (cancelled) пункт меню скрыт, API возвращает ошибку.
 
 **Технические детали:**
 
@@ -253,7 +253,7 @@ Draft scorecard создаётся сервером через `ensure_scorecard
 | `dinext_project_evaluation.api.get_applicable_criteria` | Критерии для проекта и профиля с учётом стадии (`stage` опционален; по умолчанию — текущая стадия Project) |
 | `dinext_project_evaluation.api.create_scorecard` | Создание черновика scorecard с применимыми строками |
 | `dinext_project_evaluation.api.calculate_scorecard` | Workflow-переход к **Reviewed** (Submit for Review + Mark Reviewed) с пересчётом баллов |
-| `dinext_project_evaluation.api.recalculate_scorecard` | Ручной пересчёт integral/gate **на месте** без смены статуса (любая неотменённая карточка) |
+| `dinext_project_evaluation.api.recalculate_scorecard` | Ручной пересчёт integral/gate **на месте** без смены статуса (только **`docstatus = 0`**) |
 | `dinext_project_evaluation.api.approve_scorecard` | Workflow-утверждение scorecard и обновление денормализованных полей Project |
 | `dinext_project_evaluation.api.get_scorecard_history` | Список scorecard по проекту |
 

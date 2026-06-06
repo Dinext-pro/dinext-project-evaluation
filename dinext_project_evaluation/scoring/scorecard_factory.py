@@ -9,7 +9,7 @@ from frappe.utils import cint
 from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
 from dinext_project_evaluation.scoring.workflow_constants import (
 	SCORECARD_AGREED_DOCSTATUS,
-	STATUS_CANCELED,
+	SCORECARD_CANCELED_DOCSTATUS,
 )
 
 PROJECT_SCORING_PROFILE_FIELD = "custom_project_scoring_profile"
@@ -109,7 +109,7 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 def find_scorecard_for_stage_instance(stage_instance: str, *, include_canceled: bool = False) -> str | None:
 	filters = {"stage_instance_at_evaluation": stage_instance}
 	if not include_canceled:
-		filters["status"] = ["!=", STATUS_CANCELED]
+		filters["docstatus"] = ["!=", SCORECARD_CANCELED_DOCSTATUS]
 	return frappe.db.get_value("Project Scorecard", filters, "name")
 
 
@@ -126,10 +126,6 @@ def find_agreed_scorecard_for_stage_instance(stage_instance: str) -> str | None:
 
 def has_agreed_scorecard_for_stage_instance(stage_instance: str) -> bool:
 	return bool(find_agreed_scorecard_for_stage_instance(stage_instance))
-
-
-def is_agreed_scorecard(docstatus) -> bool:
-	return cint(docstatus) == SCORECARD_AGREED_DOCSTATUS
 
 
 def create_draft_scorecard(
@@ -201,7 +197,7 @@ def project_has_non_canceled_scorecards(project: str) -> bool:
 	return bool(
 		frappe.db.exists(
 			"Project Scorecard",
-			{"project": project, "status": ["!=", STATUS_CANCELED]},
+			{"project": project, "docstatus": ["!=", SCORECARD_CANCELED_DOCSTATUS]},
 		)
 	)
 

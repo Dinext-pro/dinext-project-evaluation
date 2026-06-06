@@ -1,5 +1,10 @@
 """Project Scorecard workflow roles, states, and legacy role mapping."""
 
+from __future__ import annotations
+
+import frappe
+from frappe.utils import cint
+
 WORKFLOW_NAME = "Dinext Project Scorecard Approval"
 
 ROLE_AUTHOR = "Project Scorecard Author"
@@ -37,8 +42,14 @@ SCORECARD_CALCULATION_STATUSES = frozenset(
 
 # States visible in portfolio/report as finalized scores (agreed = submitted docstatus).
 SCORECARD_AGREED_DOCSTATUS = 1
+SCORECARD_CANCELED_DOCSTATUS = 2
 
-# Legacy status tuple kept for calculation triggers; agreed checks use docstatus.
+# docstatus values where manual in-place recalculation is blocked.
+SCORECARD_NON_RECALCULABLE_DOCSTATUSES = frozenset(
+	{SCORECARD_AGREED_DOCSTATUS, SCORECARD_CANCELED_DOCSTATUS}
+)
+
+# Deprecated: portfolio/report filters use docstatus; kept for backward compatibility only.
 SCORECARD_REPORT_STATUSES = (STATUS_REVIEWED, STATUS_APPROVED)
 
 # Roles allowed to cancel a scorecard via workflow/native cancel.
@@ -47,11 +58,66 @@ SCORECARD_CANCEL_ROLES = frozenset({ROLE_APPROVER})
 # Only Draft allows manual edits to criterion values, comments, and row content.
 SCORECARD_CONTENT_EDITABLE_STATUSES = frozenset({STATUS_DRAFT})
 
-# Terminal states: workflow must not roll back to an earlier lifecycle state.
+# Legacy fixture/migration names only; business checks use docstatus helpers below.
 SCORECARD_TERMINAL_STATUSES = frozenset({STATUS_APPROVED, STATUS_CANCELED})
 
 # Backward-compatible alias (Approved/Canceled terminal lock).
 SCORECARD_LOCKED_STATUSES = SCORECARD_TERMINAL_STATUSES
+
+
+def scorecard_docstatus(doc_or_value) -> int:
+	if isinstance(doc_or_value, (int, float, str)):
+		return cint(doc_or_value)
+	return cint(getattr(doc_or_value, "docstatus", 0))
+
+
+def is_agreed_scorecard(doc_or_docstatus) -> bool:
+	return scorecard_docstatus(doc_or_docstatus) == SCORECARD_AGREED_DOCSTATUS
+
+
+def is_canceled_scorecard(doc_or_docstatus) -> bool:
+	return scorecard_docstatus(doc_or_docstatus) == SCORECARD_CANCELED_DOCSTATUS
+
+
+def is_terminal_scorecard(doc_or_docstatus) -> bool:
+	return scorecard_docstatus(doc_or_docstatus) in SCORECARD_NON_RECALCULABLE_DOCSTATUSES
+
+
+def workflow_state_targets_docstatus(state: str | None, target_docstatus: int) -> bool:
+	if not state:
+		return False
+	doc_status = frappe.db.get_value(
+		"Workflow Document State",
+		{
+			"parent": WORKFLOW_NAME,
+			"parenttype": "Workflow",
+			"state": state,
+		},
+		"doc_status",
+	)
+	return cint(doc_status) == cint(target_docstatus)
+
+
+def get_workflow_state_for_docstatus(target_docstatus: int) -> str | None:
+	return frappe.db.get_value(
+		"Workflow Document State",
+		{
+			"parent": WORKFLOW_NAME,
+			"parenttype": "Workflow",
+			"doc_status": str(cint(target_docstatus)),
+		},
+		"state",
+	)
+
+
+def should_calculate_scorecard_on_validate(doc) -> bool:
+	if is_canceled_scorecard(doc):
+		return False
+	if doc.status in {STATUS_SUBMITTED, STATUS_REVIEWED}:
+		return True
+	if is_agreed_scorecard(doc):
+		return False
+	return workflow_state_targets_docstatus(doc.status, SCORECARD_AGREED_DOCSTATUS)
 
 ACTION_SUBMIT_FOR_REVIEW = "Submit for Review"
 ACTION_RETURN_TO_DRAFT = "Return to Draft"

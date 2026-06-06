@@ -10,8 +10,8 @@ from dinext_project_evaluation.scoring.workflow_constants import (
 	ACTION_APPROVE,
 	ACTION_MARK_REVIEWED,
 	ACTION_SUBMIT_FOR_REVIEW,
-	STATUS_APPROVED,
-	STATUS_CANCELED,
+	is_agreed_scorecard,
+	is_canceled_scorecard,
 	STATUS_DRAFT,
 	STATUS_REVIEWED,
 	STATUS_SUBMITTED,
@@ -22,7 +22,7 @@ from dinext_project_evaluation.scoring.scorecard_cancel import cancel_scorecard_
 def apply_scorecard_workflow_action(scorecard: str, action: str) -> frappe.Document:
 	"""Run a workflow action on a Project Scorecard and return the updated document."""
 	doc = frappe.get_doc("Project Scorecard", scorecard)
-	if doc.status == STATUS_CANCELED:
+	if is_canceled_scorecard(doc):
 		frappe.throw(_("Canceled Project Scorecard cannot be updated."))
 
 	apply_workflow(doc, action)
@@ -33,7 +33,7 @@ def apply_scorecard_workflow_action(scorecard: str, action: str) -> frappe.Docum
 def mark_scorecard_reviewed(scorecard: str) -> frappe.Document:
 	"""Move scorecard to Reviewed; from Draft runs submit + review actions."""
 	doc = frappe.get_doc("Project Scorecard", scorecard)
-	if doc.status == STATUS_CANCELED:
+	if is_canceled_scorecard(doc):
 		frappe.throw(_("Canceled Project Scorecard cannot be calculated."))
 	if doc.status == STATUS_DRAFT:
 		apply_workflow(doc, ACTION_SUBMIT_FOR_REVIEW)
@@ -55,7 +55,7 @@ def approve_scorecard_via_workflow(scorecard: str) -> frappe.Document:
 	doc = frappe.get_doc("Project Scorecard", scorecard)
 	if doc.status == STATUS_REVIEWED:
 		return apply_scorecard_workflow_action(scorecard, ACTION_APPROVE)
-	if doc.status == STATUS_APPROVED:
+	if is_agreed_scorecard(doc):
 		return doc
 	frappe.throw(
 		_("Project Scorecard must be in Reviewed status to approve. Current status: {0}").format(doc.status)

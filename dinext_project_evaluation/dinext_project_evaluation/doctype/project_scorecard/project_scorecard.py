@@ -20,11 +20,14 @@ from dinext_project_evaluation.scoring.scorecard_service import (
 )
 from dinext_project_evaluation.scoring.workflow_constants import (
 	SCORECARD_AGREED_DOCSTATUS,
-	SCORECARD_CALCULATION_STATUSES,
+	SCORECARD_CANCELED_DOCSTATUS,
 	SCORECARD_CONTENT_EDITABLE_STATUSES,
-	SCORECARD_TERMINAL_STATUSES,
-	STATUS_APPROVED,
-	STATUS_CANCELED,
+	SCORECARD_NON_RECALCULABLE_DOCSTATUSES,
+	is_agreed_scorecard,
+	is_canceled_scorecard,
+	is_terminal_scorecard,
+	scorecard_docstatus,
+	should_calculate_scorecard_on_validate,
 	STATUS_DRAFT,
 )
 
@@ -72,7 +75,7 @@ class ProjectScorecard(Document):
 		self._prepare_item_inputs()
 		self._validate_unique_stage_instance()
 		self._validate_required_items()
-		if self.status in SCORECARD_CALCULATION_STATUSES:
+		if should_calculate_scorecard_on_validate(self):
 			self.calculate()
 		self._prevent_content_edits_outside_draft()
 
@@ -89,7 +92,7 @@ class ProjectScorecard(Document):
 		create_replacement_draft_after_cancel(self)
 
 	def on_submit(self):
-		if self.status == STATUS_APPROVED:
+		if is_agreed_scorecard(self):
 			self._update_project_last_score()
 
 	def get_title(self):
@@ -119,16 +122,13 @@ class ProjectScorecard(Document):
 		self.profile_snapshot = json.dumps(_profile_snapshot(profile), ensure_ascii=False)
 
 	def recalculate_in_place(self):
-		if self.status == STATUS_CANCELED:
-			frappe.throw(_("Canceled Project Scorecard cannot be recalculated."))
+		if cint(self.docstatus) in SCORECARD_NON_RECALCULABLE_DOCSTATUSES:
+			frappe.throw(_("Submitted or canceled Project Scorecard cannot be recalculated."))
 
 		self.check_permission("write")
 		self._prepare_item_inputs()
 		self.calculate()
 		self._persist_calculation_results()
-
-		if cint(self.docstatus) == SCORECARD_AGREED_DOCSTATUS:
-			self._update_project_last_score()
 
 	def _persist_calculation_results(self):
 		parent_values = {fieldname: self.get(fieldname) for fieldname in PARENT_CALCULATION_FIELDS}
@@ -159,8 +159,13 @@ class ProjectScorecard(Document):
 			return
 
 		previous = self.get_doc_before_save()
-		previous_status = previous.status if previous else frappe.db.get_value(self.doctype, self.name, "status")
-		if previous_status in SCORECARD_TERMINAL_STATUSES and self.status not in SCORECARD_TERMINAL_STATUSES:
+		if previous:
+			previous_docstatus = scorecard_docstatus(previous)
+		else:
+			previous_docstatus = cint(
+				frappe.db.get_value(self.doctype, self.name, "docstatus")
+			)
+		if is_terminal_scorecard(previous_docstatus) and not is_terminal_scorecard(self):
 			frappe.throw(
 				_("Approved or canceled Project Scorecard cannot be edited. Create a new scorecard instead.")
 			)
@@ -213,7 +218,7 @@ class ProjectScorecard(Document):
 				item.value_display = item.get("value_display")
 
 	def _validate_required_items(self):
-		if self.status == STATUS_CANCELED or self.status == STATUS_DRAFT:
+		if is_canceled_scorecard(self) or self.status == STATUS_DRAFT:
 			return
 
 		if not self.profile:
@@ -226,7 +231,7 @@ class ProjectScorecard(Document):
 			frappe.throw(message)
 
 	def _validate_unique_stage_instance(self):
-		if not self.stage_instance_at_evaluation or self.status == STATUS_CANCELED:
+		if not self.stage_instance_at_evaluation or is_canceled_scorecard(self):
 			return
 
 		existing = frappe.db.get_value(
@@ -234,7 +239,7 @@ class ProjectScorecard(Document):
 			{
 				"stage_instance_at_evaluation": self.stage_instance_at_evaluation,
 				"name": ["!=", self.name or ""],
-				"status": ["!=", STATUS_CANCELED],
+				"docstatus": ["!=", SCORECARD_CANCELED_DOCSTATUS],
 			},
 			"name",
 		)
