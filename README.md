@@ -89,8 +89,8 @@ bench --site <site> export-fixtures
 | Статус (`status`) | `docstatus` | Смысл | Расчёт integral / gate | В отчёте портфеля |
 |-------------------|-------------|--------|------------------------|-------------------|
 | Draft | 0 | Черновик, ввод значений | Нет | Нет |
-| Submitted for Review | 0 | На проверке | Нет | Нет |
-| Reviewed | 0 | Проверка пройдена | Да (при save) | Нет |
+| Submitted for Review | 0 | На проверке | Да (при save) | Нет |
+| Reviewed | 0 | Проверка пройдена | Да (при save, пересчёт) | Нет |
 | Approved | **1** | Утверждено (submitted) | Да (при save) | **Да** |
 | Rejected | 0 | Возврат на доработку | Нет | Нет |
 | Canceled | **2** | Процесс прекращён | Нет | Нет |
@@ -107,7 +107,7 @@ bench --site <site> export-fixtures
 
 | Из | Действие | В | Кто | Примечание |
 |----|----------|---|-----|------------|
-| Draft | Submit for Review | Submitted for Review | Author | |
+| Draft | Submit for Review | Submitted for Review | Author | Расчёт integral / gate |
 | Submitted for Review | Return to Draft | Draft | Reviewer | |
 | Submitted for Review | Mark Reviewed | Reviewed | Reviewer | |
 | Submitted for Review | Reject | Rejected | Reviewer | |
@@ -157,7 +157,7 @@ bench --site <site> export-fixtures
 3. На форме **Project** задайте **Governance Model** (из приложения stage-gate) — поле **Project Scoring Profile** (`custom_project_scoring_profile`) доступно только при заполненной модели управления. Фильтр link query учитывает портфель, компанию и тип проекта.
 4. Заполните **Project Scoring Profile** и сохраните проект. При **первом** назначении профиля на проект с уже активной стадией автоматически создаётся **Draft** scorecard для текущей **Project Stage Instance** (см. [Автоматическое создание Project Scorecard](#автоматическое-создание-project-scorecard)). При смене профиля или модели управления активные scorecard отменяются (см. [Сброс профиля и scorecard на Project](#сброс-профиля-и-scorecard-на-project)).
 5. Заполните строки scorecard в статусе **Draft** (или откройте автоматически созданный черновик через **Open Scorecards**). При переходе в любой другой статус (кроме **Canceled**) сервер и форма проверяют, что все **Mandatory**-критерии заполнены; незаполненные ячейки подсвечиваются в колонке **Value**.
-6. Переведите scorecard по workflow: **Submit for Review** → **Mark Reviewed** (расчёт интегрального балла и gate) → **Approve** (submit, `docstatus = 1`). После расчёта на форме scorecard в dashboard появляется секция **Evaluation Summary** с KPI **Integral Score** и **Gate Pass** (см. [Dashboard KPI](#dashboard-kpi-на-форме-project-scorecard)). Утверждённые submitted scorecard обновляют денормализованные поля Project.
+6. Переведите scorecard по workflow: **Submit for Review** (расчёт интегрального балла и gate) → **Mark Reviewed** (пересчёт при необходимости) → **Approve** (submit, `docstatus = 1`). После **Submit for Review** на форме scorecard в dashboard появляется секция **Evaluation Summary** с KPI **Integral Score** и **Gate Pass** (см. [Dashboard KPI](#dashboard-kpi-на-форме-project-scorecard)). Утверждённые submitted scorecard обновляют денормализованные поля Project.
 7. При необходимости **Cancel** (только **Approver**, только пока stage instance **Active**) — создаётся новый Draft для той же стадии.
 8. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
 9. В отчёте используйте фильтры: портфель, проект, профиль, стадия.
@@ -231,7 +231,7 @@ Draft scorecard создаётся сервером через `ensure_scorecard
 
 При неуспешном gate под карточками выводится список причин из поля `gate_messages`.
 
-**Когда виджет показывается:** только после серверного расчёта — когда заполнены **`evaluation_date`** и **`integral_score`** (оба выставляются в `calculate()` при save в статусах **Reviewed** / **Approved**). На **Draft** и **Submitted for Review** dashboard KPI **скрыт**, даже если Float-поле `integral_score` на клиенте отображается как `0`.
+**Когда виджет показывается:** после серверного расчёта — когда заполнены **`evaluation_date`** и **`integral_score`** (оба выставляются в `calculate()` при save в статусах **Submitted for Review**, **Reviewed** и **Approved**). На **Draft** dashboard KPI **скрыт**, даже если Float-поле `integral_score` на клиенте отображается как `0`.
 
 **Rejected** с сохранённым `evaluation_date` и рассчитанным баллом показывает последний результат расчёта.
 
@@ -482,7 +482,7 @@ flowchart TB
   R -->|latest scorecard| SC
 ```
 
-**Поток данных (scorecard):** создаётся **Draft** (вручную, API, `Project.on_update` при назначении профиля, или `Project Stage Instance.on_update` при активации стадии) → заполнение критериев → workflow **Submit for Review** → **Mark Reviewed** (расчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии.
+**Поток данных (scorecard):** создаётся **Draft** (вручную, API, `Project.on_update` при назначении профиля, или `Project Stage Instance.on_update` при активации стадии) → заполнение критериев → workflow **Submit for Review** (расчёт) → **Mark Reviewed** (пересчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии.
 
 **Поток автопровижининга на Project:** сохранение **Project** с заданным профилем → `on_update` (после stage-gate) → `ensure_scorecard_for_stage_instance` → **Draft** scorecard с критериями текущей стадии, если stage instance **Active** и карточки для неё ещё нет.
 
