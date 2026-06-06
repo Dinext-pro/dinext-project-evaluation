@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-required_apps = ["erpnext"]
+required_apps = ["erpnext", "dinext_project_stage_gate"]
 
 from dinext_project_evaluation.seed import DEFAULT_CRITERIA, DEFAULT_GROUPS
 from dinext_project_evaluation.scoring.workflow_constants import (
@@ -101,6 +101,7 @@ fixtures = [
 doctype_js = {
 	"Project": "public/js/project_scoring_evaluation.js",
 	"Project Scorecard": "dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js",
+	"Project Gate Checkpoint": "public/js/project_gate_checkpoint_scorecard.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -203,6 +204,17 @@ doc_events = {
 	},
 	"Project Stage Instance": {
 		"on_update": "dinext_project_evaluation.scoring.scorecard_provision.on_stage_instance_update",
+	},
+	"Project Gate Checkpoint": {
+		"before_insert": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.before_insert_project_gate_checkpoint",
+		"after_insert": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.after_insert_project_gate_checkpoint",
+		"validate": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.validate_project_gate_checkpoint",
+	},
+	"Project Scorecard": {
+		"after_insert": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.on_scorecard_checkpoint_sync",
+		"on_submit": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.on_scorecard_checkpoint_sync",
+		"on_cancel": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.on_scorecard_checkpoint_sync",
+		"on_update": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.on_scorecard_checkpoint_sync",
 	},
 }
 

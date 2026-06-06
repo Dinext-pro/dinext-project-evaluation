@@ -5,12 +5,14 @@ from dinext_project_evaluation.scoring.workflow import (
 	approve_scorecard_via_workflow,
 	mark_scorecard_reviewed,
 )
-from dinext_project_evaluation.scoring.workflow_constants import SCORECARD_CANCELED_DOCSTATUS
 from dinext_project_evaluation.scoring.scorecard_factory import (
 	create_draft_scorecard,
 	ensure_scorecard_for_stage_instance,
 	get_applicable_criteria_for_stage,
 	get_project_scoring_profile,
+)
+from dinext_project_evaluation.scoring.stage_gate_integration import (
+	get_checkpoint_scorecard_summary_for_api,
 )
 
 
@@ -61,11 +63,6 @@ def approve_scorecard(scorecard: str):
 
 
 @frappe.whitelist()
-def get_scorecard_history(project: str, limit: int = 10):
-	return frappe.get_all(
-		"Project Scorecard",
-		filters={"project": project, "docstatus": ["!=", SCORECARD_CANCELED_DOCSTATUS]},
-		fields=["name", "profile", "status", "evaluation_date", "integral_score", "gate_pass", "modified"],
-		order_by="modified desc",
-		limit_page_length=int(limit),
-	)
+def get_checkpoint_scorecard_summary(checkpoint: str):
+	"""Return normalized scorecard summary for a Project Gate Checkpoint form refresh."""
+	return get_checkpoint_scorecard_summary_for_api(checkpoint)

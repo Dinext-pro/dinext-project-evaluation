@@ -145,3 +145,74 @@
 .dpe-scorecard-gate-messages-list li + li {
 	margin-top: 4px;
 }
+
+.dpe-checkpoint-scorecard-widget .section-body {
+	padding: 0;
+}
+
+.dpe-checkpoint-scorecard-dashboard-kpis {
+	cursor: pointer;
+	border: 1px solid var(--border-color, #d1d5db);
+	border-radius: var(--border-radius-md, 8px);
+	background: var(--card-bg, var(--bg-color, #fff));
+	padding: 14px 16px;
+	transition:
+		border-color 0.15s ease,
+		box-shadow 0.15s ease,
+		background-color 0.15s ease;
+}
+
+.dpe-checkpoint-scorecard-dashboard-kpis:hover,
+.dpe-checkpoint-scorecard-dashboard-kpis:focus {
+	outline: none;
+	border-color: color-mix(in srgb, var(--primary, #2490ef) 45%, var(--border-color, #d1d5db));
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2490ef) 12%, transparent);
+}
+
+.dpe-checkpoint-scorecard-widget-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.dpe-checkpoint-scorecard-widget-title {
+	font-size: var(--text-base, 1rem);
+	font-weight: 600;
+	line-height: 1.35;
+	color: var(--text-color, #111827);
+}
+
+.dpe-checkpoint-scorecard-widget-action {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+.dpe-checkpoint-scorecard-widget-name {
+	font-size: var(--text-xs, 11px);
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	color: var(--text-muted, #6b7280);
+}
+
+.dpe-checkpoint-scorecard-widget-open {
+	font-size: var(--text-sm, 13px);
+	font-weight: 600;
+	color: var(--primary, #2490ef);
+}
+
+@media (max-width: 767px) {
+	.dpe-checkpoint-scorecard-widget-header {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.dpe-checkpoint-scorecard-widget-action {
+		align-items: flex-start;
+	}
+}

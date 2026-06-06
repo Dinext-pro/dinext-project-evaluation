@@ -140,6 +140,17 @@ class ProjectScorecard(Document):
 			item_values = {fieldname: item.get(fieldname) for fieldname in ITEM_CALCULATION_FIELDS}
 			frappe.db.set_value(item.doctype, item.name, item_values, update_modified=False)
 
+		self._refresh_related_gate_checkpoints()
+
+	def _refresh_related_gate_checkpoints(self):
+		if not self.stage_instance_at_evaluation:
+			return
+		from dinext_project_evaluation.scoring.stage_gate_integration import (
+			refresh_checkpoints_for_stage_instance,
+		)
+
+		refresh_checkpoints_for_stage_instance(self.stage_instance_at_evaluation)
+
 	def _hydrate_project_context(self):
 		if not self.project:
 			return
