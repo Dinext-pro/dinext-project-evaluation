@@ -15,6 +15,12 @@ dinext_project_evaluation.project_scorecard.form_styles = `
 	line-height: 1.35;
 	white-space: normal;
 }
+.dpe-project-scorecard-form .dpe-criterion-description-hint {
+	margin-left: 4px;
+	color: var(--text-muted, #6b7280);
+	cursor: help;
+	vertical-align: middle;
+}
 `;
 
 dinext_project_evaluation.project_scorecard.typed_field_by_type = {
@@ -23,6 +29,19 @@ dinext_project_evaluation.project_scorecard.typed_field_by_type = {
 	Number: "number_value",
 	Currency: "currency_value",
 	Percent: "percent_value",
+};
+
+dinext_project_evaluation.project_scorecard.normalize_criterion_description = function (value) {
+	if (value == null) {
+		return "";
+	}
+	return String(value).trim();
+};
+
+dinext_project_evaluation.project_scorecard.get_criterion_description = function (row) {
+	return dinext_project_evaluation.project_scorecard.normalize_criterion_description(
+		row?.criterion_description
+	);
 };
 
 dinext_project_evaluation.project_scorecard.get_items_grid = function (frm) {
@@ -112,6 +131,9 @@ dinext_project_evaluation.project_scorecard.merge_item_mandatory_metadata = func
 		row.requires_comment = meta.requires_comment ? 1 : 0;
 		row.criterion_min_value = meta.min_value ?? row.criterion_min_value;
 		row.criterion_max_value = meta.max_value ?? row.criterion_max_value;
+		row.criterion_description = dinext_project_evaluation.project_scorecard.normalize_criterion_description(
+			meta.description
+		);
 	});
 };
 
@@ -208,6 +230,74 @@ dinext_project_evaluation.project_scorecard.item_has_validation_issue = function
 dinext_project_evaluation.project_scorecard.item_missing_mandatory_value = function (row) {
 	return (row.requirement_level || "Desired") === "Mandatory" &&
 		!dinext_project_evaluation.project_scorecard.item_has_input_value(row);
+};
+
+dinext_project_evaluation.project_scorecard.decorate_criterion_description_hint = function (
+	parentEl,
+	description
+) {
+	if (!parentEl?.length) {
+		return;
+	}
+
+	const hintClass = "dpe-criterion-description-hint";
+	parentEl.find(`.${hintClass}`).remove();
+	if (!description) {
+		parentEl.removeAttr("title");
+		return;
+	}
+
+	parentEl.attr("title", description);
+	const hint = $(
+		`<span class="${hintClass}" title="${frappe.utils.escape_html(description)}">` +
+			`<svg class="icon icon-xs" aria-hidden="true"><use href="#icon-help"></use></svg>` +
+			`</span>`
+	);
+	parentEl.append(hint);
+};
+
+dinext_project_evaluation.project_scorecard.apply_criterion_row_tooltip = function (gridRow) {
+	if (!gridRow?.doc) {
+		return;
+	}
+
+	const description = dinext_project_evaluation.project_scorecard.get_criterion_description(
+		gridRow.doc
+	);
+	const column = gridRow.columns?.criterion_name;
+	if (column?.static_area?.length) {
+		dinext_project_evaluation.project_scorecard.decorate_criterion_description_hint(
+			column.static_area,
+			description
+		);
+	}
+
+	const criterionField = gridRow.grid_form?.fields_dict?.criterion_name;
+	if (criterionField?.$wrapper?.length) {
+		const labelArea = criterionField.$wrapper.find(".control-label, .grid-label");
+		const target = labelArea.length ? labelArea.first() : criterionField.$wrapper;
+		dinext_project_evaluation.project_scorecard.decorate_criterion_description_hint(
+			target,
+			description
+		);
+	}
+};
+
+dinext_project_evaluation.project_scorecard.apply_all_criterion_row_tooltips = function (frm) {
+	const grid = dinext_project_evaluation.project_scorecard.get_items_grid(frm);
+	if (!grid) {
+		return;
+	}
+
+	(frm.doc.items || []).forEach((row) => {
+		if (!row?.name) {
+			return;
+		}
+		const gridRow = grid.get_row(row.name);
+		if (gridRow) {
+			dinext_project_evaluation.project_scorecard.apply_criterion_row_tooltip(gridRow);
+		}
+	});
 };
 
 dinext_project_evaluation.project_scorecard.get_grid_row_element = function (gridRow) {
@@ -414,6 +504,7 @@ dinext_project_evaluation.project_scorecard.refresh_items_field = function (frm)
 	setTimeout(() => {
 		dinext_project_evaluation.project_scorecard.lock_items_grid(frm);
 		dinext_project_evaluation.project_scorecard.apply_all_item_row_states(frm);
+		dinext_project_evaluation.project_scorecard.apply_all_criterion_row_tooltips(frm);
 	}, 0);
 };
 
@@ -577,6 +668,7 @@ dinext_project_evaluation.project_scorecard.setup_items_grid_lock = function (fr
 	$(frm.wrapper).on("grid-row-render", (e, gridRow) => {
 		gridRow.row?.find(".row-check, .row-index").hide();
 		dinext_project_evaluation.project_scorecard.bind_grid_value_column(frm, gridRow);
+		dinext_project_evaluation.project_scorecard.apply_criterion_row_tooltip(gridRow);
 		dinext_project_evaluation.project_scorecard.apply_item_row_state(frm, gridRow);
 		if (!dinext_project_evaluation.project_scorecard.is_content_editable(frm)) {
 			gridRow.toggle_editable("comment", false);
@@ -608,7 +700,9 @@ dinext_project_evaluation.project_scorecard.hydrate_grid_rows = function (frm) {
 				.filter(
 					(row) =>
 						row.criterion &&
-						(!row.criterion_name || !row.criterion_input_type)
+						(!row.criterion_name ||
+							!row.criterion_input_type ||
+							!dinext_project_evaluation.project_scorecard.get_criterion_description(row))
 				)
 				.map((row) => row.criterion)
 		),
@@ -620,7 +714,7 @@ dinext_project_evaluation.project_scorecard.hydrate_grid_rows = function (frm) {
 
 	return frappe.db
 		.get_list("Project Scoring Criterion", {
-			fields: ["name", "criterion_name", "input_type"],
+			fields: ["name", "criterion_name", "input_type", "description"],
 			filters: { name: ["in", missingCriterionMeta] },
 			limit: missingCriterionMeta.length,
 		})
@@ -638,6 +732,12 @@ dinext_project_evaluation.project_scorecard.hydrate_grid_rows = function (frm) {
 				}
 				if (!row.criterion_input_type) {
 					row.criterion_input_type = meta.input_type;
+				}
+				if (!dinext_project_evaluation.project_scorecard.get_criterion_description(row)) {
+					row.criterion_description =
+						dinext_project_evaluation.project_scorecard.normalize_criterion_description(
+							meta.description
+						);
 				}
 				if (!row.value_display) {
 					row.value_display = dinext_project_evaluation.project_scorecard.get_display_value(row);
@@ -1019,6 +1119,7 @@ dinext_project_evaluation.project_scorecard.render_row_editor = function (frm, c
 	}
 
 	dinext_project_evaluation.project_scorecard.hide_row_form_field(gridRow, "value_display");
+	dinext_project_evaluation.project_scorecard.apply_criterion_row_tooltip(gridRow);
 	dinext_project_evaluation.project_scorecard.render_active_control(frm, cdt, cdn);
 };
 
@@ -1034,6 +1135,7 @@ frappe.ui.form.on("Project Scorecard", {
 		dinext_project_evaluation.project_scorecard.load_applicable_criteria(frm).then(() => {
 			dinext_project_evaluation.project_scorecard.apply_item_mandatory_flags(frm);
 			dinext_project_evaluation.project_scorecard.apply_all_item_row_states(frm);
+			dinext_project_evaluation.project_scorecard.apply_all_criterion_row_tooltips(frm);
 			dinext_project_evaluation.project_scorecard.apply_content_editability(frm);
 		});
 	},
