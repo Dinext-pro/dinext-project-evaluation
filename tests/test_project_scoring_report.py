@@ -398,6 +398,176 @@ class TestProjectScoringBubblePayload(unittest.TestCase):
 
 		self.assertEqual(payload["points"], [])
 
+	def test_build_bubble_chart_payload_includes_not_set_for_missing_category_x(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"scorecard:integral_score": metric_value(0.81, display="0.81", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+			{
+				"project": "PRJ-002",
+				"project_name": "Beta",
+				"dynamic_metric_values": {
+					"project:priority": metric_value(None, display="N/A", label="Priority"),
+					"scorecard:integral_score": metric_value(0.62, display="0.62", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						50000,
+						display="50000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("2", display="Medium", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:priority",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["axes"]["x"]["categories"], ["High", "Not Set"])
+		self.assertEqual(len(payload["points"]), 2)
+		not_set_point = next(point for point in payload["points"] if point["project"] == "PRJ-002")
+		self.assertEqual(not_set_point["x"]["display"], "Not Set")
+		self.assertEqual(not_set_point["x"]["value"], project_scoring_report.CATEGORY_MISSING_VALUE)
+
+	def test_build_bubble_chart_payload_includes_not_set_for_missing_category_y(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:expected_start_date": metric_value(
+						"2026-06-01",
+						display="2026-06-01",
+						sort_value=1717200000000,
+						label="Expected Start Date",
+					),
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+			{
+				"project": "PRJ-002",
+				"project_name": "Beta",
+				"dynamic_metric_values": {
+					"project:expected_start_date": metric_value(
+						"2026-06-11",
+						display="2026-06-11",
+						sort_value=1718064000000,
+						label="Expected Start Date",
+					),
+					"project:priority": metric_value(None, display="N/A", label="Priority"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						50000,
+						display="50000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("2", display="Medium", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:expected_start_date",
+				"y_axis": "project:priority",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["axes"]["y"]["categories"], ["High", "Not Set"])
+		not_set_point = next(point for point in payload["points"] if point["project"] == "PRJ-002")
+		self.assertEqual(not_set_point["y"]["display"], "Not Set")
+		self.assertEqual(not_set_point["y"]["value"], project_scoring_report.CATEGORY_MISSING_VALUE)
+
+	def test_build_bubble_chart_payload_omits_not_set_when_category_axis_has_no_missing_values(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"scorecard:integral_score": metric_value(0.81, display="0.81", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:priority",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["axes"]["x"]["categories"], ["High"])
+		self.assertNotIn("Not Set", payload["axes"]["x"]["categories"])
+
+	def test_build_bubble_chart_payload_skips_rows_with_missing_numeric_y_axis(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"scorecard:integral_score": metric_value(None, display="N/A", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:priority",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["points"], [])
+
 
 class TestProjectScoringFilterAssembly(unittest.TestCase):
 	def test_scorecard_filters_keep_both_date_bounds(self):
