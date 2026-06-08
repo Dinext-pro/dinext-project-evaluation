@@ -606,9 +606,10 @@ class TestNormalizeBubbleSizes(unittest.TestCase):
 	def test_normalize_bubble_sizes_uses_minimum_for_missing_in_mixed_range(self):
 		result = project_scoring_report._normalize_bubble_sizes([100, 200, None])
 
-		self.assertEqual(result[0], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
-		self.assertEqual(result[2], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[0], project_scoring_report.MIN_SCORED_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[2], project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE)
 		self.assertGreater(result[1], result[0])
+		self.assertGreater(result[0], result[2])
 
 	def test_normalize_bubble_sizes_uses_minimum_when_all_missing(self):
 		result = project_scoring_report._normalize_bubble_sizes([None, None])
@@ -616,26 +617,40 @@ class TestNormalizeBubbleSizes(unittest.TestCase):
 		self.assertEqual(
 			result,
 			[
-				project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE,
-				project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE,
+				project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE,
+				project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE,
 			],
 		)
 
 	def test_normalize_bubble_sizes_uses_minimum_for_missing_with_uniform_present_values(self):
 		result = project_scoring_report._normalize_bubble_sizes([50, 50, None])
 
-		self.assertEqual(result[0], project_scoring_report.DEFAULT_BUBBLE_SYMBOL_SIZE)
-		self.assertEqual(result[1], project_scoring_report.DEFAULT_BUBBLE_SYMBOL_SIZE)
-		self.assertEqual(result[2], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[0], project_scoring_report.DEFAULT_SCORED_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[1], project_scoring_report.DEFAULT_SCORED_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[2], project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE)
 
 	def test_normalize_bubble_sizes_scales_present_values_without_change(self):
 		result = project_scoring_report._normalize_bubble_sizes([100, 200])
 
-		self.assertEqual(result[0], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
-		self.assertEqual(
-			result[1],
-			project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE + project_scoring_report.BUBBLE_SYMBOL_SIZE_RANGE,
-		)
+		self.assertEqual(result[0], project_scoring_report.MIN_SCORED_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[1], project_scoring_report.MAX_SCORED_BUBBLE_SYMBOL_SIZE)
+
+	def test_normalize_bubble_sizes_never_maps_scored_values_to_missing_size(self):
+		cases = [
+			[100, 200, None],
+			[50, 50, None],
+			[100, 200],
+			[0.615, 0.742, None],
+		]
+		for values in cases:
+			result = project_scoring_report._normalize_bubble_sizes(values)
+			for value, normalized in zip(values, result):
+				if value is not None:
+					self.assertNotEqual(
+						normalized,
+						project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE,
+						msg=f"scored value {value!r} must not normalize to missing size",
+					)
 
 	def test_build_bubble_chart_payload_keeps_missing_size_rows_as_minimum_points(self):
 		metric_catalog = {
@@ -719,7 +734,14 @@ class TestNormalizeBubbleSizes(unittest.TestCase):
 		sized_point = next(point for point in payload["points"] if point["project"] == "PRJ-001")
 
 		self.assertEqual(missing_size_point["size"]["display"], "N/A")
-		self.assertEqual(missing_size_point["size"]["normalized"], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(
+			missing_size_point["size"]["normalized"],
+			project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE,
+		)
+		self.assertGreaterEqual(
+			sized_point["size"]["normalized"],
+			project_scoring_report.MIN_SCORED_BUBBLE_SYMBOL_SIZE,
+		)
 		self.assertGreater(sized_point["size"]["normalized"], missing_size_point["size"]["normalized"])
 
 
