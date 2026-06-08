@@ -465,17 +465,28 @@ def _get_metric_descriptor(row, metric_id, definition=None):
 	}
 
 
+def _build_color_key(metric_id, descriptor):
+	raw_value = descriptor.get("value")
+	if raw_value not in (None, ""):
+		return f"{metric_id}:{raw_value}"
+	display_value = descriptor.get("display")
+	if display_value not in (None, ""):
+		return f"{metric_id}:{_slugify(display_value)}"
+	return f"{metric_id}:unknown"
+
+
 def _build_color_descriptor(row, metric_id, definition):
 	descriptor = _get_metric_descriptor(row, metric_id, definition)
 	display_value = descriptor.get("display") or _("Unknown")
-	token = f"{metric_id}:{_slugify(display_value)}"
+	color_key = _build_color_key(metric_id, descriptor)
 	return {
 		"metric": metric_id,
 		"metric_label": definition.get("label") if definition else metric_id,
 		"label": display_value,
 		"display": display_value,
 		"value": descriptor.get("value"),
-		"token": token,
+		"color_key": color_key,
+		"token": color_key,
 	}
 
 
@@ -521,14 +532,15 @@ def _build_legend(points):
 	seen = set()
 	for point in points:
 		color = point["color"]
-		key = (color["display"], color["token"])
-		if key in seen:
+		color_key = color.get("color_key") or color.get("token")
+		if color_key in seen:
 			continue
-		seen.add(key)
+		seen.add(color_key)
 		legend_items.append(
 			{
 				"value": color["value"],
-				"token": color["token"],
+				"color_key": color_key,
+				"token": color.get("token") or color_key,
 				"label": color["display"],
 			}
 		)

@@ -380,7 +380,10 @@ dinext_project_evaluation.project_scoring_report.render = async function (report
 	const bubbleChart = message.bubble_chart || dinext_project_evaluation.project_scoring_report.getEmptyPayload().bubble_chart;
 	const points = Array.isArray(bubbleChart.points) ? bubbleChart.points : [];
 
-	dinext_project_evaluation.project_scoring_report.renderLegend(legendDom, bubbleChart.legend);
+	const colorMap = dinext_project_evaluation.project_scoring_report.buildUniqueColorMap(
+		dinext_project_evaluation.project_scoring_report.collectColorIdentities(points, bubbleChart.legend)
+	);
+	dinext_project_evaluation.project_scoring_report.renderLegend(legendDom, bubbleChart.legend, colorMap);
 	dinext_project_evaluation.project_scoring_report.syncMetricFilterOptions(report, message.metric_catalog);
 	dinext_project_evaluation.project_scoring_report.renderMetricControls(
 		report,
@@ -408,7 +411,7 @@ dinext_project_evaluation.project_scoring_report.render = async function (report
 	emptyDom.classList.remove("is-visible");
 	const chart = window.echarts.init(chartDom, dinext_project_evaluation.project_scoring_report.getThemeName());
 	chartDom._dinextProjectScoringChart = chart;
-	chart.setOption(dinext_project_evaluation.project_scoring_report.buildChartOptions(points, bubbleChart));
+	chart.setOption(dinext_project_evaluation.project_scoring_report.buildChartOptions(points, bubbleChart, colorMap));
 	dinext_project_evaluation.project_scoring_report.bindBubbleChartNavigation(chart);
 };
 
@@ -451,7 +454,7 @@ dinext_project_evaluation.project_scoring_report.bindBubbleChartNavigation = fun
 	});
 };
 
-dinext_project_evaluation.project_scoring_report.renderLegend = function (dom, legend) {
+dinext_project_evaluation.project_scoring_report.renderLegend = function (dom, legend, colorMap) {
 	if (!dom) {
 		return;
 	}
@@ -462,7 +465,7 @@ dinext_project_evaluation.project_scoring_report.renderLegend = function (dom, l
 	}
 	dom.innerHTML = items
 		.map((item) => {
-			const color = dinext_project_evaluation.project_scoring_report.resolveColorToken(item.token);
+			const color = dinext_project_evaluation.project_scoring_report.resolveColor(item, colorMap);
 			return `<span class="project-scoring-report-legend-item"><span class="project-scoring-report-legend-swatch" style="background:${color};"></span>${frappe.utils.escape_html(item.label)}</span>`;
 		})
 		.join("");
@@ -696,7 +699,7 @@ dinext_project_evaluation.project_scoring_report.renderMetricControls = function
 	);
 };
 
-dinext_project_evaluation.project_scoring_report.buildChartOptions = function (points, bubbleChart) {
+dinext_project_evaluation.project_scoring_report.buildChartOptions = function (points, bubbleChart, colorMap) {
 	const xAxis = bubbleChart?.axes?.x || { axis_type: "value", label: __("X Axis") };
 	const yAxis = bubbleChart?.axes?.y || { axis_type: "value", label: __("Y Axis") };
 	return {
@@ -750,7 +753,7 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 					point,
 					symbolSize: Number(point.size?.normalized ?? 18),
 					itemStyle: {
-						color: dinext_project_evaluation.project_scoring_report.resolveColorToken(point.color?.token),
+						color: dinext_project_evaluation.project_scoring_report.resolveColor(point.color, colorMap),
 						opacity: 0.78,
 					},
 				})),
@@ -800,24 +803,72 @@ dinext_project_evaluation.project_scoring_report.getPointAxisValue = function (m
 	return Number(metricPoint.value ?? 0);
 };
 
-dinext_project_evaluation.project_scoring_report.resolveColorToken = function (token) {
-	const palette = dinext_project_evaluation.project_scoring_report.getPalette();
-	if (palette[token]) {
-		return palette[token];
+dinext_project_evaluation.project_scoring_report.getColorIdentity = function (colorLike) {
+	if (!colorLike) {
+		return "";
 	}
-	const fallbackColors = [
-		"#4f6fa8",
-		"#4e7d5c",
-		"#a86f4f",
-		"#8f5ca8",
-		"#5a8a9e",
-		"#b38b4d",
-	];
-	let hash = 0;
-	for (const char of String(token || "unknown")) {
-		hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+	if (typeof colorLike === "string") {
+		return colorLike;
 	}
-	return fallbackColors[hash % fallbackColors.length];
+	return colorLike.color_key || colorLike.token || "";
+};
+
+dinext_project_evaluation.project_scoring_report.collectColorIdentities = function (points, legend) {
+	const identities = [];
+	const legendItems = Array.isArray(legend?.items) ? legend.items : [];
+	for (const item of legendItems) {
+		identities.push(dinext_project_evaluation.project_scoring_report.getColorIdentity(item));
+	}
+	for (const point of Array.isArray(points) ? points : []) {
+		identities.push(dinext_project_evaluation.project_scoring_report.getColorIdentity(point.color));
+	}
+	return identities.filter(Boolean);
+};
+
+dinext_project_evaluation.project_scoring_report.generateDistinctColor = function (index, total) {
+	const isDark = dinext_project_evaluation.project_scoring_report.getThemeName() === "dark";
+	const safeTotal = Math.max(Number(total) || 1, 1);
+	const hue = (index * (360 / safeTotal)) % 360;
+	const lightnessCycle = isDark ? [62, 55, 68] : [48, 42, 54];
+	const saturationCycle = isDark ? [70, 62, 78] : [60, 52, 68];
+	const lightness = lightnessCycle[index % lightnessCycle.length];
+	const saturation = saturationCycle[index % saturationCycle.length];
+	return `hsl(${hue.toFixed(2)}, ${saturation}%, ${lightness}%)`;
+};
+
+dinext_project_evaluation.project_scoring_report.buildUniqueColorMap = function (identities) {
+	const uniqueIdentities = [...new Set((identities || []).filter(Boolean))].sort();
+	const colorMap = {};
+	uniqueIdentities.forEach((identity, index) => {
+		colorMap[identity] = dinext_project_evaluation.project_scoring_report.generateDistinctColor(
+			index,
+			uniqueIdentities.length
+		);
+	});
+	return colorMap;
+};
+
+dinext_project_evaluation.project_scoring_report.resolveColor = function (colorLike, colorMap) {
+	const identity = dinext_project_evaluation.project_scoring_report.getColorIdentity(colorLike);
+	if (!identity) {
+		return dinext_project_evaluation.project_scoring_report.getFallbackColor();
+	}
+	const semanticPalette = dinext_project_evaluation.project_scoring_report.getPalette();
+	if (semanticPalette[identity]) {
+		return semanticPalette[identity];
+	}
+	if (colorMap?.[identity]) {
+		return colorMap[identity];
+	}
+	return dinext_project_evaluation.project_scoring_report.getFallbackColor();
+};
+
+dinext_project_evaluation.project_scoring_report.getFallbackColor = function () {
+	return dinext_project_evaluation.project_scoring_report.getThemeName() === "dark" ? "#8f9aa8" : "#6a7d92";
+};
+
+dinext_project_evaluation.project_scoring_report.resolveColorToken = function (token, colorMap) {
+	return dinext_project_evaluation.project_scoring_report.resolveColor(token, colorMap);
 };
 
 dinext_project_evaluation.project_scoring_report.getPalette = function () {

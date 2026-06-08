@@ -55,7 +55,9 @@
 }
 
 .project-scoring-report-legend-swatch {
+	border: 1px solid var(--border-color);
 	border-radius: 999px;
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-color) 8%, transparent);
 	display: inline-block;
 	height: 10px;
 	width: 10px;
