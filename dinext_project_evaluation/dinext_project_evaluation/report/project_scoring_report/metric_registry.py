@@ -173,6 +173,8 @@ def _build_field_metrics(doctype: str, namespace: str) -> dict[str, list[dict[st
 		fieldtype = getattr(docfield, "fieldtype", None)
 		if not fieldname or not fieldtype or fieldtype in EXCLUDED_FIELDTYPES:
 			continue
+		if frappe.utils.cint(getattr(docfield, "hidden", 0)):
+			continue
 		if not field_exists_in_db(doctype, fieldname):
 			continue
 

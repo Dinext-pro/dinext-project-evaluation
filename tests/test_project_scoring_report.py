@@ -16,9 +16,10 @@ except ModuleNotFoundError:
 		table_exists=lambda doctype: True,
 	)
 	_frappe_stub._dict = lambda value=None: SimpleNamespace(**(value or {}))
-	sys.modules["frappe"] = _frappe_stub
 	_frappe_utils_stub = types.ModuleType("frappe.utils")
 	_frappe_utils_stub.cint = int
+	_frappe_stub.utils = _frappe_utils_stub
+	sys.modules["frappe"] = _frappe_stub
 	sys.modules["frappe.utils"] = _frappe_utils_stub
 
 import frappe  # noqa: E402
@@ -31,8 +32,14 @@ from dinext_project_evaluation.dinext_project_evaluation.report.project_scoring_
 )
 
 
-def field(fieldname, label, fieldtype, options=None):
-	return SimpleNamespace(fieldname=fieldname, label=label, fieldtype=fieldtype, options=options)
+def field(fieldname, label, fieldtype, options=None, hidden=0):
+	return SimpleNamespace(
+		fieldname=fieldname,
+		label=label,
+		fieldtype=fieldtype,
+		options=options,
+		hidden=hidden,
+	)
 
 
 def meta(fields, title_field=None):
@@ -183,6 +190,32 @@ class TestProjectScoringMetricRegistry(unittest.TestCase):
 		self.assertNotIn("project:custom_команда", metric_ids)
 		fieldnames = metric_registry.get_field_metric_fieldnames(catalog, "Project")
 		self.assertNotIn("custom_команда", fieldnames)
+
+	def test_metric_catalog_excludes_hidden_docfields(self):
+		self.metas["Project Scorecard"].fields.extend(
+			[
+				field("portfolio", "Portfolio", "Link", "Project Portfolio", hidden=1),
+				field("stage_at_evaluation", "Stage at Evaluation", "Link", "Project Stage", hidden=1),
+			]
+		)
+		self.metas["Project"].fields.append(
+			field("confirm_scoring_profile_reset", "Confirm Reset", "Check", hidden=1)
+		)
+		self.queryable_fields["Project Scorecard"].update({"portfolio", "stage_at_evaluation"})
+		self.queryable_fields["Project"].add("confirm_scoring_profile_reset")
+
+		catalog = metric_registry.get_metric_catalog()
+		metric_ids = {
+			entry["id"]
+			for group in ("axis", "size", "color")
+			for entry in catalog[group]
+		}
+
+		self.assertNotIn("scorecard:portfolio", metric_ids)
+		self.assertNotIn("scorecard:stage_at_evaluation", metric_ids)
+		self.assertNotIn("project:confirm_scoring_profile_reset", metric_ids)
+		self.assertIn("scorecard:status", metric_ids)
+		self.assertIn("project:priority", metric_ids)
 
 	def test_metric_catalog_defaults_are_selected_from_dynamic_runtime_catalog(self):
 		catalog = metric_registry.get_metric_catalog()
