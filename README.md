@@ -235,6 +235,15 @@ Form script [`public/js/project_gate_checkpoint_scorecard.js`](dinext_project_ev
 9. В отчёте используйте фильтры: портфель, проект, профиль, стадия; оси X/Y, размер и цвет bubble настраиваются отдельными фильтрами.
 10. **Клик по bubble** проекта с agreed scorecard открывает форму соответствующего **Project Scorecard** (тот же маршрут, что у кликабельного виджета Stage Scorecard на checkpoint); если scorecard нет — открывается форма **Project**.
 
+### Навигация по bubble chart (Project Scoring Report)
+
+На пузырьковой диаграмме каждая точка соответствует проекту. При клике клиентский обработчик (`handleBubbleChartClick` в [`project_scoring_report.js`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js)) выбирает маршрут по приоритету:
+
+1. **Project Scorecard** — если у точки есть ссылка на последний agreed scorecard (`docstatus = 1`) для проекта.
+2. **Project** — если scorecard отсутствует, но проект отображён на графике (например, оси X/Y используют project-метрики вроде `percent_complete`).
+
+Если оба поля пусты, клик игнорируется. Курсор `pointer` на области графика задан в [`project_scoring_report.css`](dinext_project_evaluation/public/css/project_scoring_report.css).
+
 ### Сброс профиля и scorecard на Project
 
 Профиль оценки привязан к **Governance Model**: поле `custom_project_scoring_profile` скрыто и недоступно, пока модель управления не задана (`depends_on: eval:doc.governance_model` в Custom Field).
@@ -360,7 +369,7 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 
 - **Python 3.10+** — scoring engine, контроллеры DocType, backend Script Report, whitelisted API
 - **Frappe Framework / ERPNext** — DocTypes, fixtures, Client Scripts, Query Report
-- **JavaScript** — Client Scripts (Project, Project Portfolio), form scripts Project Scorecard (grid + dashboard KPI) и Project Gate Checkpoint (кликабельный виджет Stage Scorecard в секции формы), отрисовка bubble chart в отчёте и переход к **Project Scorecard** по клику на bubble
+- **JavaScript** — Client Scripts (Project, Project Portfolio), form scripts Project Scorecard (grid + dashboard KPI) и Project Gate Checkpoint (кликабельный виджет Stage Scorecard в секции формы), отрисовка bubble chart в отчёте; клик по bubble → **Project Scorecard**, при отсутствии scorecard → **Project**
 - **Ruff, ESLint, Prettier** — линтинг и форматирование через pre-commit
 
 ## 🔧 Конфигурация
@@ -507,7 +516,7 @@ dinext_project_evaluation/
     └── dinext_project_evaluation/
         ├── doctype/                   # DocTypes скоринга + Project Scorecard
         └── report/
-            └── project_scoring_report/  # Script Report + ECharts bubble chart, клик → Project Scorecard
+            └── project_scoring_report/  # Script Report + ECharts bubble chart, клик → Project Scorecard или Project
 ```
 
 | Путь | Назначение |

@@ -18,6 +18,8 @@ REPORT_FETCH_LIMIT = 5000
 RISK_CODES = ("RISK_IMP", "RISK_PROB")
 BENEFIT_CODES = ("STR_ALIGN", "BEN_FIN", "BEN_NONFIN", "MKT_SHARE", "SALES_POT")
 COST_CODES = ("COST", "RD_COST", "MFG_COST")
+CATEGORY_MISSING_VALUE = "__missing__"
+CATEGORY_MISSING_SORT = "__missing__"
 
 
 def execute(filters=None):
@@ -145,8 +147,14 @@ def build_bubble_chart_payload(rows, filters, metric_catalog=None):
 	raw_sizes = []
 
 	for row in rows:
-		x_value = _get_metric_descriptor(row, metric_config["x_axis"], x_definition)
-		y_value = _get_metric_descriptor(row, metric_config["y_axis"], y_definition)
+		x_value = _resolve_axis_metric_descriptor(
+			_get_metric_descriptor(row, metric_config["x_axis"], x_definition),
+			x_definition,
+		)
+		y_value = _resolve_axis_metric_descriptor(
+			_get_metric_descriptor(row, metric_config["y_axis"], y_definition),
+			y_definition,
+		)
 		if not _has_metric_value(x_value) or not _has_metric_value(y_value):
 			continue
 
@@ -468,7 +476,10 @@ def _build_color_descriptor(row, metric_id, definition):
 
 def _build_axis_definition(rows, metric_id, definition):
 	definition = definition or {"id": metric_id, "label": metric_id, "value_type": "categorical", "axis_type": "category"}
-	descriptors = [_get_metric_descriptor(row, metric_id, definition) for row in rows]
+	descriptors = [
+		_resolve_axis_metric_descriptor(_get_metric_descriptor(row, metric_id, definition), definition)
+		for row in rows
+	]
 	descriptors = [descriptor for descriptor in descriptors if _has_metric_value(descriptor)]
 	axis_definition = {
 		"id": metric_id,
@@ -596,6 +607,24 @@ def _has_metric_value(descriptor):
 	if value not in (None, ""):
 		return True
 	return descriptor.get("sort_value") is not None
+
+
+def _category_not_set_label():
+	return _("Not Set")
+
+
+def _resolve_axis_metric_descriptor(descriptor, definition):
+	definition = definition or {}
+	if _has_metric_value(descriptor):
+		return descriptor
+	if (definition.get("axis_type") or "category") != "category":
+		return descriptor
+	return {
+		**descriptor,
+		"value": CATEGORY_MISSING_VALUE,
+		"display": _category_not_set_label(),
+		"sort_value": CATEGORY_MISSING_SORT,
+	}
 
 
 def _requires_matching_scorecard(filters):
