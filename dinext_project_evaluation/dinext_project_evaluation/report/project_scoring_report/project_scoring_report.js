@@ -710,10 +710,10 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 					value: [
 						dinext_project_evaluation.project_scoring_report.getPointAxisValue(point.x, xAxis),
 						dinext_project_evaluation.project_scoring_report.getPointAxisValue(point.y, yAxis),
-						Number(point.size?.normalized || 18),
+						Number(point.size?.normalized ?? 18),
 					],
 					point,
-					symbolSize: Number(point.size?.normalized || 18),
+					symbolSize: Number(point.size?.normalized ?? 18),
 					itemStyle: {
 						color: dinext_project_evaluation.project_scoring_report.resolveColorToken(point.color?.token),
 						opacity: 0.78,
