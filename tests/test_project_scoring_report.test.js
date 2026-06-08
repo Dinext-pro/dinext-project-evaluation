@@ -353,8 +353,8 @@ test("make_control change handler updates hidden filter and refreshes report", (
 		},
 	};
 	const report = {
-		refresh() {
-			refreshCalls.push(true);
+		refresh(haveFiltersChanged) {
+			refreshCalls.push(haveFiltersChanged);
 		},
 		get_filter(fieldname) {
 			return fieldname === "x_axis" ? filterState : null;
@@ -367,8 +367,66 @@ test("make_control change handler updates hidden filter and refreshes report", (
 	controls.x_axis.triggerChange();
 
 	assert.equal(filterState.value, "integral_score");
-	assert.equal(refreshCalls.length, 1);
+	assert.deepEqual(refreshCalls, [true]);
 	assert.equal(state.makeControlCalls.length, 4);
+});
+
+test("handleMetricControlChange waits for async set_value before refresh(true)", async () => {
+	const { namespace } = loadReportScript();
+	const refreshCalls = [];
+	const events = [];
+	const filterState = {
+		value: "risk_score_norm",
+		get_value() {
+			return this.value;
+		},
+		set_value(value) {
+			return Promise.resolve().then(() => {
+				events.push("settled");
+				this.value = value;
+			});
+		},
+	};
+	const report = {
+		refresh(haveFiltersChanged) {
+			events.push("refresh");
+			refreshCalls.push(haveFiltersChanged);
+		},
+		get_filter(fieldname) {
+			return fieldname === "x_axis" ? filterState : null;
+		},
+	};
+
+	await namespace.handleMetricControlChange(report, "x_axis", "integral_score");
+
+	assert.equal(filterState.value, "integral_score");
+	assert.deepEqual(events, ["settled", "refresh"]);
+	assert.deepEqual(refreshCalls, [true]);
+});
+
+test("handleMetricControlChange is no-op while syncing controls", () => {
+	const { namespace } = loadReportScript();
+	const refreshCalls = [];
+	const report = {
+		_dinextProjectScoringSyncingControls: true,
+		refresh(haveFiltersChanged) {
+			refreshCalls.push(haveFiltersChanged);
+		},
+		get_filter() {
+			return {
+				get_value() {
+					return "risk_score_norm";
+				},
+				set_value() {
+					throw new Error("should not set value during sync");
+				},
+			};
+		},
+	};
+
+	namespace.handleMetricControlChange(report, "x_axis", "integral_score");
+
+	assert.equal(refreshCalls.length, 0);
 });
 
 test("syncMetricControlValues does not trigger refresh loop during programmatic sync", () => {
@@ -412,6 +470,7 @@ test("syncMetricControlValues does not trigger refresh loop during programmatic 
 	namespace.syncMetricControlValues(report, { axis: [] }, controls);
 
 	assert.equal(refreshCalls.length, 0);
+	assert.notEqual(report._no_refresh, true);
 });
 
 test("handleMetricControlChange updates filter and refreshes report", () => {
@@ -427,8 +486,8 @@ test("handleMetricControlChange updates filter and refreshes report", () => {
 		},
 	};
 	const report = {
-		refresh() {
-			refreshCalls.push(true);
+		refresh(haveFiltersChanged) {
+			refreshCalls.push(haveFiltersChanged);
 		},
 		get_filter(fieldname) {
 			return fieldname === "x_axis" ? filterState : null;
@@ -438,7 +497,7 @@ test("handleMetricControlChange updates filter and refreshes report", () => {
 	namespace.handleMetricControlChange(report, "x_axis", "integral_score");
 
 	assert.equal(filterState.value, "integral_score");
-	assert.equal(refreshCalls.length, 1);
+	assert.deepEqual(refreshCalls, [true]);
 });
 
 test("handleMetricControlChange is no-op when value is unchanged", () => {
@@ -545,6 +604,23 @@ test("openScorecard ignores empty scorecard name", () => {
 	assert.equal(state.setRouteCalls.length, 0);
 });
 
+test("openProject routes to Project form", () => {
+	const { namespace, state } = loadReportScript();
+
+	namespace.openProject("PRJ-001");
+
+	assert.deepEqual(state.setRouteCalls, [["Form", "Project", "PRJ-001"]]);
+});
+
+test("openProject ignores empty project name", () => {
+	const { namespace, state } = loadReportScript();
+
+	namespace.openProject("");
+	namespace.openProject(null);
+
+	assert.equal(state.setRouteCalls.length, 0);
+});
+
 test("handleBubbleChartClick opens linked scorecard from bubble payload", () => {
 	const { namespace, state } = loadReportScript();
 
@@ -560,13 +636,28 @@ test("handleBubbleChartClick opens linked scorecard from bubble payload", () => 
 	assert.deepEqual(state.setRouteCalls, [["Form", "Project Scorecard", "PSC-042"]]);
 });
 
-test("handleBubbleChartClick is no-op when bubble has no scorecard", () => {
+test("handleBubbleChartClick opens project form when bubble has no scorecard", () => {
 	const { namespace, state } = loadReportScript();
 
 	namespace.handleBubbleChartClick({
 		data: {
 			point: {
 				project: "PRJ-001",
+				scorecard: null,
+			},
+		},
+	});
+
+	assert.deepEqual(state.setRouteCalls, [["Form", "Project", "PRJ-001"]]);
+});
+
+test("handleBubbleChartClick is no-op when bubble has neither scorecard nor project", () => {
+	const { namespace, state } = loadReportScript();
+
+	namespace.handleBubbleChartClick({
+		data: {
+			point: {
+				project: null,
 				scorecard: null,
 			},
 		},

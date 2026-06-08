@@ -14,7 +14,7 @@
 - **Автосоздание Draft scorecard** — при назначении профиля оценки проекту с активной стадией или при переходе **Project Stage Instance** в статус **Active** (если на проекте уже задан профиль); идемпотентно, без дубликатов на одну stage instance.
 - **UI карточки Project** — form script (`project_scoring_evaluation.js`): выбор профиля оценки (только при заданной Governance Model), кнопки **Open Scorecards** / **Open Scoring Report** в меню Evaluation, переход к отчёту портфеля; сброс профиля при смене/очистке модели управления.
 - **UI Project Portfolio** — переход к отчёту скоринга и пузырьковой диаграмме для выбранного портфеля.
-- **Project Scoring Report** — фильтры по портфелю, проекту, профилю и стадии; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и пузырьковая диаграмма (ECharts) на клиенте; **клик по bubble** открывает связанную карточку **Project Scorecard**.
+- **Project Scoring Report** — фильтры по портфелю, проекту, профилю и стадии; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и пузырьковая диаграмма (ECharts) на клиенте; **клик по bubble** открывает связанную карточку **Project Scorecard**, а при её отсутствии — форму **Project**.
 - **Seed-данные по умолчанию** — типовые критерии (стратегическое соответствие, финансовая выгода и др.) и `Default Project Scoring Profile` согласно [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
 - **Чистый scoring engine** — модуль расчёта без зависимости от Frappe ORM и unit-тесты нормализации, взвешивания и gate-логики.
 - **Интеграция со Stage Gate** — флаг **Require Agreed Stage Scorecard** на `Stage Gate Template`; при включении checkpoint нельзя отправить в **In Review** без submitted scorecard (`docstatus = 1`) для той же `Project Stage Instance`. На форме `Project Gate Checkpoint` в секции **Stage Scorecard** (после `decision_comment`) — кликабельный KPI-виджет в стиле scorecard с переходом к связанной карточке; непройденные gate-пороги — **мягкое** предупреждение, не блокирует review. Подробнее — [Интеграция Stage Gate и scorecard](#интеграция-stage-gate-и-scorecard).
@@ -233,7 +233,7 @@ Form script [`public/js/project_gate_checkpoint_scorecard.js`](dinext_project_ev
 7. При необходимости **Cancel** (только **Approver**, только пока stage instance **Active**) — создаётся новый Draft для той же стадии.
 8. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
 9. В отчёте используйте фильтры: портфель, проект, профиль, стадия; оси X/Y, размер и цвет bubble настраиваются отдельными фильтрами.
-10. **Клик по bubble** проекта с agreed scorecard открывает форму соответствующего **Project Scorecard** (тот же маршрут, что у кликабельного виджета Stage Scorecard на checkpoint).
+10. **Клик по bubble** проекта с agreed scorecard открывает форму соответствующего **Project Scorecard** (тот же маршрут, что у кликабельного виджета Stage Scorecard на checkpoint); если scorecard нет — открывается форма **Project**.
 
 ### Сброс профиля и scorecard на Project
 
@@ -371,7 +371,7 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 | `dinext_project_evaluation/public/js/project_scoring_evaluation.js` | Форма Project: профиль оценки, сброс при смене governance model, кнопки Evaluation |
 | `dinext_project_evaluation/public/css/project_scorecard_dashboard.css` | KPI-карточки: dashboard **Project Scorecard** (Evaluation Summary) и in-form виджет **Project Gate Checkpoint** (Stage Scorecard) |
 | `dinext_project_evaluation/public/js/project_gate_checkpoint_scorecard.js` | Форма Project Gate Checkpoint: API fallback, кликабельный виджет Stage Scorecard в секции формы |
-| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js` | Отчёт Project Scoring Report: ECharts bubble chart, навигация bubble → **Project Scorecard** |
+| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js` | Отчёт Project Scoring Report: ECharts bubble chart, навигация bubble → **Project Scorecard** или **Project** |
 | `dinext_project_evaluation/public/css/project_scoring_report.css` | Стили bubble chart отчёта (legend, empty state, курсор кликабельности) |
 | `dinext_project_evaluation/scoring/stage_gate_integration.py` | Синхронизация snapshot-полей scorecard на checkpoint, hard-gate validate, backfill |
 | `dinext_project_evaluation/scoring/stage_gate_checkpoint_hooks.py` | `doc_events` на Project Gate Checkpoint и Project Scorecard для sync summary |
@@ -527,7 +527,7 @@ dinext_project_evaluation/
 | `scoring/stage_gate_checkpoint_hooks.py` | Hooks checkpoint/scorecard для sync summary |
 | `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля с опциональной стадией и порогами gate |
 | `doctype/project_scoring_profile/project_scoring_profile.js` | Условное отображение порогов gate по обязательности и типу критерия |
-| `report/project_scoring_report/` | Аналитика портфеля, bubble payload, ECharts-диаграмма, клик bubble → форма **Project Scorecard** |
+| `report/project_scoring_report/` | Аналитика портфеля, bubble payload, ECharts-диаграмма, клик bubble → форма **Project Scorecard** или **Project** |
 | `fixtures/` | Версионируемые метаданные и seed для migrate/install |
 
 ## 🔗 Схема потоков
@@ -579,7 +579,7 @@ flowchart TB
   R -->|latest scorecard| SC
 ```
 
-**Поток данных (scorecard):** создаётся **Draft** (вручную, API, `Project.on_update` при назначении профиля, или `Project Stage Instance.on_update` при активации стадии) → заполнение критериев → workflow **Submit for Review** (расчёт) → **Mark Reviewed** (пересчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии; bubble на диаграмме ссылается на этот scorecard и открывает его форму по клику.
+**Поток данных (scorecard):** создаётся **Draft** (вручную, API, `Project.on_update` при назначении профиля, или `Project Stage Instance.on_update` при активации стадии) → заполнение критериев → workflow **Submit for Review** (расчёт) → **Mark Reviewed** (пересчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии; bubble на диаграмме по клику открывает форму scorecard или, если его нет, форму **Project**.
 
 **Поток checkpoint ↔ scorecard:** при save checkpoint / create-update scorecard сервер синхронизирует snapshot-поля на **Project Gate Checkpoint** по ключу `stage_instance` = `stage_instance_at_evaluation`; форма checkpoint при пустом snapshot подгружает сводку через API и рендерит кликабельный виджет **Stage Scorecard** в секции формы после `decision_comment`.
 
