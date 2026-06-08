@@ -37,6 +37,8 @@
 }
 
 .project-scoring-report-chart {
+	background: transparent;
+	cursor: pointer;
 	height: 420px;
 	width: 100%;
 }
