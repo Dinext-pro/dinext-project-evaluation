@@ -179,6 +179,26 @@ class TestProjectScoringMetricRegistry(unittest.TestCase):
 		self.assertIn("criterion:scale:MATURITY", color_ids)
 		self.assertNotIn("project:is_active", color_ids)
 
+	def test_metric_catalog_includes_check_fields_in_color_only(self):
+		self.queryable_fields["Project"].add("is_active")
+		self.queryable_fields["Project Scorecard"].add("gate_pass")
+
+		catalog = metric_registry.get_metric_catalog()
+		axis_ids = {entry["id"] for entry in catalog["axis"]}
+		size_ids = {entry["id"] for entry in catalog["size"]}
+		color_ids = {entry["id"] for entry in catalog["color"]}
+
+		self.assertIn("scorecard:gate_pass", color_ids)
+		self.assertIn("project:is_active", color_ids)
+		self.assertNotIn("scorecard:gate_pass", axis_ids)
+		self.assertNotIn("scorecard:gate_pass", size_ids)
+		self.assertNotIn("project:is_active", axis_ids)
+		self.assertNotIn("project:is_active", size_ids)
+
+	def test_format_metric_value_renders_check_as_yes_no(self):
+		self.assertEqual(project_scoring_report._format_metric_value(1, "check"), "Yes")
+		self.assertEqual(project_scoring_report._format_metric_value(0, "check"), "No")
+
 	def test_metric_catalog_excludes_meta_fields_missing_db_column(self):
 		self.metas["Project"].fields.append(field("custom_команда", "Команда", "Link", "Team"))
 		catalog = metric_registry.get_metric_catalog()

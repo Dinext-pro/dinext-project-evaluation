@@ -594,6 +594,8 @@ def _format_metric_value(value, fmt):
 		return str(value)
 	if fmt == "text":
 		return str(value)
+	if fmt == "check":
+		return _("Yes") if frappe.utils.cint(value) else _("No")
 	return f"{value:.2f}" if isinstance(value, (int, float)) else str(value)
 
 
