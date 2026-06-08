@@ -47,6 +47,32 @@ const PROJECT_SCORING_COLOR_OPTIONS = [
 	"profile",
 	"portfolio",
 ];
+const PROJECT_SCORING_METRIC_CONTROLS = [
+	{
+		fieldname: "x_axis",
+		label: __("X Axis"),
+		fallbackOptions: PROJECT_SCORING_AXIS_OPTIONS,
+		catalogKey: "axis",
+	},
+	{
+		fieldname: "y_axis",
+		label: __("Y Axis"),
+		fallbackOptions: PROJECT_SCORING_AXIS_OPTIONS,
+		catalogKey: "axis",
+	},
+	{
+		fieldname: "size_metric",
+		label: __("Bubble Size"),
+		fallbackOptions: PROJECT_SCORING_SIZE_OPTIONS,
+		catalogKey: "size",
+	},
+	{
+		fieldname: "color_metric",
+		label: __("Bubble Color"),
+		fallbackOptions: PROJECT_SCORING_COLOR_OPTIONS,
+		catalogKey: "color",
+	},
+];
 
 frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 	filters: [
@@ -104,6 +130,7 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 			fieldtype: "Select",
 			options: PROJECT_SCORING_AXIS_OPTIONS.join("\n"),
 			default: PROJECT_SCORING_AXIS_DEFAULTS.x_axis,
+			hidden: 1,
 		},
 		{
 			fieldname: "y_axis",
@@ -111,6 +138,7 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 			fieldtype: "Select",
 			options: PROJECT_SCORING_AXIS_OPTIONS.join("\n"),
 			default: PROJECT_SCORING_AXIS_DEFAULTS.y_axis,
+			hidden: 1,
 		},
 		{
 			fieldname: "size_metric",
@@ -118,6 +146,7 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 			fieldtype: "Select",
 			options: PROJECT_SCORING_SIZE_OPTIONS.join("\n"),
 			default: PROJECT_SCORING_AXIS_DEFAULTS.size_metric,
+			hidden: 1,
 		},
 		{
 			fieldname: "color_metric",
@@ -125,6 +154,7 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 			fieldtype: "Select",
 			options: PROJECT_SCORING_COLOR_OPTIONS.join("\n"),
 			default: PROJECT_SCORING_AXIS_DEFAULTS.color_metric,
+			hidden: 1,
 		},
 	],
 
@@ -340,7 +370,7 @@ dinext_project_evaluation.project_scoring_report.ensureChartMount = function (re
 	let mount = report.page.main.find(".project-scoring-report-shell");
 	if (!mount?.length) {
 		mount = $(
-			'<div class="project-scoring-report-shell"><div class="project-scoring-report-card frappe-card"><div class="project-scoring-report-card-body frappe-card-body"><div class="project-scoring-report-legend"></div><div class="project-scoring-report-chart"></div><div class="project-scoring-report-empty-state"></div></div></div></div>'
+			'<div class="project-scoring-report-shell"><div class="project-scoring-report-card frappe-card"><div class="project-scoring-report-card-body frappe-card-body"><div class="project-scoring-report-controls"></div><div class="project-scoring-report-legend"></div><div class="project-scoring-report-chart"></div><div class="project-scoring-report-empty-state"></div></div></div></div>'
 		).prependTo(report.page.main);
 	}
 	return mount;
@@ -368,6 +398,9 @@ dinext_project_evaluation.project_scoring_report.teardownScoringMount = function
 	}
 	if (mount?.remove) {
 		mount.remove();
+	}
+	if (report) {
+		delete report._dinextProjectScoringMetricControls;
 	}
 };
 
@@ -453,6 +486,7 @@ dinext_project_evaluation.project_scoring_report.render = async function (report
 
 	dinext_project_evaluation.project_scoring_report.renderLegend(legendDom, bubbleChart.legend);
 	dinext_project_evaluation.project_scoring_report.syncMetricFilterOptions(report, message.metric_catalog);
+	dinext_project_evaluation.project_scoring_report.renderMetricControls(report, mount, message.metric_catalog);
 
 	const existing =
 		(typeof window.echarts?.getInstanceByDom === "function" && chartDom && window.echarts.getInstanceByDom(chartDom)) ||
@@ -533,6 +567,143 @@ dinext_project_evaluation.project_scoring_report.syncMetricFilterOptions = funct
 	updateSelect("y_axis", catalog.axis, PROJECT_SCORING_AXIS_OPTIONS);
 	updateSelect("size_metric", catalog.size, PROJECT_SCORING_SIZE_OPTIONS);
 	updateSelect("color_metric", catalog.color, PROJECT_SCORING_COLOR_OPTIONS);
+};
+
+dinext_project_evaluation.project_scoring_report.getMetricControlOptionIds = function (filter, fallbackOptions) {
+	const rawOptions = filter?.df?.options;
+	if (typeof rawOptions === "string" && rawOptions.trim()) {
+		return rawOptions
+			.split("\n")
+			.map((option) => option.trim())
+			.filter(Boolean);
+	}
+	return Array.isArray(fallbackOptions) ? [...fallbackOptions] : [];
+};
+
+dinext_project_evaluation.project_scoring_report.buildMetricOptionLabelMap = function (catalogEntries, optionIds) {
+	const labelMap = {};
+	if (Array.isArray(catalogEntries)) {
+		for (const entry of catalogEntries) {
+			if (entry?.id) {
+				labelMap[entry.id] = entry.label || entry.id;
+			}
+		}
+	}
+	for (const optionId of optionIds) {
+		if (!labelMap[optionId]) {
+			labelMap[optionId] = optionId;
+		}
+	}
+	return labelMap;
+};
+
+dinext_project_evaluation.project_scoring_report.buildMetricSelectOptions = function (catalogEntries, optionIds) {
+	const labelMap = dinext_project_evaluation.project_scoring_report.buildMetricOptionLabelMap(
+		catalogEntries,
+		optionIds
+	);
+	return optionIds.map((optionId) => ({
+		value: optionId,
+		label: labelMap[optionId] || optionId,
+	}));
+};
+
+dinext_project_evaluation.project_scoring_report.handleMetricControlChange = function (report, fieldname, value) {
+	const filter = report?.get_filter?.(fieldname);
+	if (!filter || filter.get_value?.() === value) {
+		return;
+	}
+	if (typeof filter.set_value === "function") {
+		filter.set_value(value);
+	}
+	if (typeof report.refresh === "function") {
+		report.refresh();
+	}
+};
+
+dinext_project_evaluation.project_scoring_report.ensureMetricControlInstances = function (report, mount) {
+	if (report?._dinextProjectScoringMetricControls) {
+		return report._dinextProjectScoringMetricControls;
+	}
+	const controlsDom = mount.find(".project-scoring-report-controls").get(0);
+	if (!controlsDom || typeof frappe.ui?.form?.make_control !== "function") {
+		return null;
+	}
+	const namespace = dinext_project_evaluation.project_scoring_report;
+	const controls = {};
+	controlsDom.innerHTML = "";
+	for (const spec of PROJECT_SCORING_METRIC_CONTROLS) {
+		const wrapper = document.createElement("div");
+		wrapper.className = "project-scoring-report-control";
+		controlsDom.appendChild(wrapper);
+		const control = frappe.ui.form.make_control({
+			parent: $(wrapper),
+			df: {
+				label: spec.label,
+				fieldname: spec.fieldname,
+				fieldtype: "Select",
+				options: spec.fallbackOptions.join("\n"),
+				input_class: "input-sm",
+				change() {
+					if (report._dinextProjectScoringSyncingControls) {
+						return;
+					}
+					namespace.handleMetricControlChange(report, spec.fieldname, this.get_value());
+				},
+			},
+			value: PROJECT_SCORING_AXIS_DEFAULTS[spec.fieldname],
+			render_input: true,
+		});
+		controls[spec.fieldname] = control;
+	}
+	report._dinextProjectScoringMetricControls = controls;
+	return controls;
+};
+
+dinext_project_evaluation.project_scoring_report.syncMetricControlValues = function (report, catalog, controls) {
+	if (!report || !controls) {
+		return;
+	}
+	const namespace = dinext_project_evaluation.project_scoring_report;
+	report._dinextProjectScoringSyncingControls = true;
+	try {
+		for (const spec of PROJECT_SCORING_METRIC_CONTROLS) {
+			const control = controls[spec.fieldname];
+			if (!control) {
+				continue;
+			}
+			const filter = report.get_filter?.(spec.fieldname);
+			const optionIds = namespace.getMetricControlOptionIds(filter, spec.fallbackOptions);
+			const selectOptions = namespace.buildMetricSelectOptions(catalog?.[spec.catalogKey], optionIds);
+			const currentValue =
+				filter?.get_value?.() || PROJECT_SCORING_AXIS_DEFAULTS[spec.fieldname] || optionIds[0] || "";
+			const resolvedValue = optionIds.includes(currentValue) ? currentValue : optionIds[0] || "";
+
+			control.df.options = selectOptions;
+			if (typeof control.refresh === "function") {
+				control.refresh();
+			}
+			if (filter && filter.get_value?.() !== resolvedValue && typeof filter.set_value === "function") {
+				filter.set_value(resolvedValue);
+			}
+			if (control.get_value?.() !== resolvedValue && typeof control.set_value === "function") {
+				control.set_value(resolvedValue);
+			}
+		}
+	} finally {
+		report._dinextProjectScoringSyncingControls = false;
+	}
+};
+
+dinext_project_evaluation.project_scoring_report.renderMetricControls = function (report, mount, catalog) {
+	if (!report || !mount?.length) {
+		return;
+	}
+	const controls = dinext_project_evaluation.project_scoring_report.ensureMetricControlInstances(report, mount);
+	if (!controls) {
+		return;
+	}
+	dinext_project_evaluation.project_scoring_report.syncMetricControlValues(report, catalog, controls);
 };
 
 dinext_project_evaluation.project_scoring_report.buildChartOptions = function (points, bubbleChart) {
