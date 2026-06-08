@@ -339,9 +339,7 @@ dinext_project_evaluation.project_scoring_report.ensureChartMount = function (re
 	let mount = report.page.main.find(".project-scoring-report-shell");
 	if (!mount?.length) {
 		mount = $(
-			'<div class="project-scoring-report-shell"><div class="project-scoring-report-card frappe-card"><div class="project-scoring-report-card-head frappe-card-head"><strong>' +
-				__("Bubble Chart") +
-				'</strong></div><div class="project-scoring-report-card-body frappe-card-body"><div class="project-scoring-report-summary"></div><div class="project-scoring-report-legend"></div><div class="project-scoring-report-chart"></div><div class="project-scoring-report-empty-state"></div></div></div></div>'
+			'<div class="project-scoring-report-shell"><div class="project-scoring-report-card frappe-card"><div class="project-scoring-report-card-body frappe-card-body"><div class="project-scoring-report-legend"></div><div class="project-scoring-report-chart"></div><div class="project-scoring-report-empty-state"></div></div></div></div>'
 		).prependTo(report.page.main);
 	}
 	return mount;
@@ -447,13 +445,11 @@ dinext_project_evaluation.project_scoring_report.render = async function (report
 		return;
 	}
 	const chartDom = mount.find(".project-scoring-report-chart").get(0);
-	const summaryDom = mount.find(".project-scoring-report-summary").get(0);
 	const legendDom = mount.find(".project-scoring-report-legend").get(0);
 	const emptyDom = mount.find(".project-scoring-report-empty-state").get(0);
 	const bubbleChart = message.bubble_chart || dinext_project_evaluation.project_scoring_report.getEmptyPayload().bubble_chart;
 	const points = Array.isArray(bubbleChart.points) ? bubbleChart.points : [];
 
-	dinext_project_evaluation.project_scoring_report.renderSummary(summaryDom, message.summary, bubbleChart.config);
 	dinext_project_evaluation.project_scoring_report.renderLegend(legendDom, bubbleChart.legend);
 	dinext_project_evaluation.project_scoring_report.syncMetricFilterOptions(report, message.metric_catalog);
 
@@ -477,24 +473,6 @@ dinext_project_evaluation.project_scoring_report.render = async function (report
 	const chart = window.echarts.init(chartDom, dinext_project_evaluation.project_scoring_report.getThemeName());
 	chartDom._dinextProjectScoringChart = chart;
 	chart.setOption(dinext_project_evaluation.project_scoring_report.buildChartOptions(points, bubbleChart));
-};
-
-dinext_project_evaluation.project_scoring_report.renderSummary = function (dom, summary, config) {
-	if (!dom) {
-		return;
-	}
-	const notice = summary?.notice
-		? `<div class="project-scoring-report-notice">${frappe.utils.escape_html(summary.notice)}</div>`
-		: "";
-	dom.innerHTML = `
-		<div class="project-scoring-report-summary-grid">
-			<div class="project-scoring-report-summary-chip">${__("X")}: ${frappe.utils.escape_html(config?.x_axis || PROJECT_SCORING_AXIS_DEFAULTS.x_axis)}</div>
-			<div class="project-scoring-report-summary-chip">${__("Y")}: ${frappe.utils.escape_html(config?.y_axis || PROJECT_SCORING_AXIS_DEFAULTS.y_axis)}</div>
-			<div class="project-scoring-report-summary-chip">${__("Size")}: ${frappe.utils.escape_html(config?.size_metric || PROJECT_SCORING_AXIS_DEFAULTS.size_metric)}</div>
-			<div class="project-scoring-report-summary-chip">${__("Color")}: ${frappe.utils.escape_html(config?.color_metric || PROJECT_SCORING_AXIS_DEFAULTS.color_metric)}</div>
-		</div>
-		${notice}
-	`;
 };
 
 dinext_project_evaluation.project_scoring_report.renderLegend = function (dom, legend) {
