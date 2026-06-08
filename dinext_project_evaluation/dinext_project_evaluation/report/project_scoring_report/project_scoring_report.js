@@ -2,74 +2,31 @@ frappe.provide("dinext_project_evaluation.project_scoring_report");
 
 const PROJECT_SCORING_REPORT_NAME = "Project Scoring Report";
 const PROJECT_SCORECARD_DOCTYPE = "Project Scorecard";
-const PROJECT_SCORING_AXIS_DEFAULTS = {
-	x_axis: "risk_score_norm",
-	y_axis: "integral_score",
-	size_metric: "cost_score_norm_inverse",
-	color_metric: "gate_pass",
+const PROJECT_SCORING_EMPTY_CONFIG = {
+	x_axis: "",
+	y_axis: "",
+	size_metric: "",
+	color_metric: "",
 };
-const PROJECT_SCORING_AXIS_OPTIONS = [
-	"integral_score",
-	"risk_score_norm",
-	"benefit_score_norm",
-	"cost_score_norm",
-	"strategic_alignment_norm",
-	"market_potential_norm",
-	"urgency_norm",
-	"regulatory_fit_norm",
-	"capability_norm",
-	"innovation_patent_norm",
-	"cost_raw",
-	"npv_raw",
-	"irr_raw",
-	"payback_period_raw",
-	"profitability_index_raw",
-	"ecv_raw",
-	"rd_cost_raw",
-	"mfg_cost_raw",
-	"tech_success_pct_raw",
-];
-const PROJECT_SCORING_SIZE_OPTIONS = [
-	"cost_score_norm_inverse",
-	"cost_raw",
-	"rd_cost_raw",
-	"mfg_cost_raw",
-	"innovation_cost_total_raw",
-	"integral_score",
-	"benefit_score_norm",
-	"npv_raw",
-	"ecv_raw",
-];
-const PROJECT_SCORING_COLOR_OPTIONS = [
-	"gate_pass",
-	"risk_band",
-	"current_stage",
-	"profile",
-	"portfolio",
-];
 const PROJECT_SCORING_METRIC_CONTROLS = [
 	{
 		fieldname: "x_axis",
 		label: __("X Axis"),
-		fallbackOptions: PROJECT_SCORING_AXIS_OPTIONS,
 		catalogKey: "axis",
 	},
 	{
 		fieldname: "y_axis",
 		label: __("Y Axis"),
-		fallbackOptions: PROJECT_SCORING_AXIS_OPTIONS,
 		catalogKey: "axis",
 	},
 	{
 		fieldname: "size_metric",
 		label: __("Bubble Size"),
-		fallbackOptions: PROJECT_SCORING_SIZE_OPTIONS,
 		catalogKey: "size",
 	},
 	{
 		fieldname: "color_metric",
 		label: __("Bubble Color"),
-		fallbackOptions: PROJECT_SCORING_COLOR_OPTIONS,
 		catalogKey: "color",
 	},
 ];
@@ -128,32 +85,28 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 			fieldname: "x_axis",
 			label: __("X Axis"),
 			fieldtype: "Select",
-			options: PROJECT_SCORING_AXIS_OPTIONS.join("\n"),
-			default: PROJECT_SCORING_AXIS_DEFAULTS.x_axis,
+			options: "",
 			hidden: 1,
 		},
 		{
 			fieldname: "y_axis",
 			label: __("Y Axis"),
 			fieldtype: "Select",
-			options: PROJECT_SCORING_AXIS_OPTIONS.join("\n"),
-			default: PROJECT_SCORING_AXIS_DEFAULTS.y_axis,
+			options: "",
 			hidden: 1,
 		},
 		{
 			fieldname: "size_metric",
 			label: __("Bubble Size"),
 			fieldtype: "Select",
-			options: PROJECT_SCORING_SIZE_OPTIONS.join("\n"),
-			default: PROJECT_SCORING_AXIS_DEFAULTS.size_metric,
+			options: "",
 			hidden: 1,
 		},
 		{
 			fieldname: "color_metric",
 			label: __("Bubble Color"),
 			fieldtype: "Select",
-			options: PROJECT_SCORING_COLOR_OPTIONS.join("\n"),
-			default: PROJECT_SCORING_AXIS_DEFAULTS.color_metric,
+			options: "",
 			hidden: 1,
 		},
 	],
@@ -233,11 +186,15 @@ dinext_project_evaluation.project_scoring_report.getEmptyPayload = function () {
 			axis: [],
 			size: [],
 			color: [],
-			defaults: { ...PROJECT_SCORING_AXIS_DEFAULTS },
+			defaults: { ...PROJECT_SCORING_EMPTY_CONFIG },
 		},
 		bubble_chart: {
-			config: { ...PROJECT_SCORING_AXIS_DEFAULTS },
-			legend: { metric: PROJECT_SCORING_AXIS_DEFAULTS.color_metric, items: [] },
+			config: { ...PROJECT_SCORING_EMPTY_CONFIG },
+			axes: {
+				x: { axis_type: "value", label: __("X Axis") },
+				y: { axis_type: "value", label: __("Y Axis") },
+			},
+			legend: { metric: "", metric_label: __("Bubble Color"), items: [] },
 			points: [],
 		},
 	};
@@ -245,68 +202,6 @@ dinext_project_evaluation.project_scoring_report.getEmptyPayload = function () {
 
 dinext_project_evaluation.project_scoring_report.normalizeReportPayload = function (report) {
 	if (report?.raw_data?.message?.bubble_chart) {
-		return report.raw_data.message;
-	}
-	if (report?.raw_data?.chart?.bubble_payload) {
-		const legacyMetricConfig =
-			report.raw_data?.message?.metric_config || PROJECT_SCORING_AXIS_DEFAULTS;
-		const points = report.raw_data.chart.bubble_payload.map((point) => ({
-			project: point.project,
-			label: point.label,
-			portfolio: point.portfolio || null,
-			project_stage: point.project_stage || point.stage || null,
-			evaluated_stage: point.evaluated_stage || null,
-			scorecard: point.scorecard || null,
-			profile: point.profile || null,
-			gate_pass: point.gate_pass,
-			x: {
-				metric: legacyMetricConfig.x_axis,
-				label: legacyMetricConfig.x_axis,
-				value: point.x,
-				display: point.x == null ? __("N/A") : String(point.x),
-			},
-			y: {
-				metric: legacyMetricConfig.y_axis,
-				label: legacyMetricConfig.y_axis,
-				value: point.y,
-				display: point.y == null ? __("N/A") : String(point.y),
-			},
-			size: {
-				metric: legacyMetricConfig.size_metric,
-				label: legacyMetricConfig.size_metric,
-				value: point.size,
-				display: point.size == null ? __("N/A") : String(point.size),
-				normalized: Number(point.size || 18),
-			},
-			color: {
-				value: point.color_token,
-				token: point.color_token,
-				label: point.color_token,
-			},
-			meta: {},
-		}));
-		report.raw_data.message = {
-			summary: {
-				total_rows: Array.isArray(report.raw_data.result) ? report.raw_data.result.length : points.length,
-				displayed_rows: Array.isArray(report.raw_data.result) ? report.raw_data.result.length : points.length,
-				plotted_points: points.length,
-				notice: null,
-			},
-			metric_catalog: {
-				axis: [],
-				size: [],
-				color: [],
-				defaults: { ...PROJECT_SCORING_AXIS_DEFAULTS },
-			},
-			bubble_chart: {
-				config: { ...PROJECT_SCORING_AXIS_DEFAULTS, ...legacyMetricConfig },
-				legend: {
-					metric: legacyMetricConfig.color_metric || PROJECT_SCORING_AXIS_DEFAULTS.color_metric,
-					items: dinext_project_evaluation.project_scoring_report.buildLegacyLegend(points),
-				},
-				points,
-			},
-		};
 		return report.raw_data.message;
 	}
 	report.raw_data = {
@@ -486,7 +381,12 @@ dinext_project_evaluation.project_scoring_report.render = async function (report
 
 	dinext_project_evaluation.project_scoring_report.renderLegend(legendDom, bubbleChart.legend);
 	dinext_project_evaluation.project_scoring_report.syncMetricFilterOptions(report, message.metric_catalog);
-	dinext_project_evaluation.project_scoring_report.renderMetricControls(report, mount, message.metric_catalog);
+	dinext_project_evaluation.project_scoring_report.renderMetricControls(
+		report,
+		mount,
+		message.metric_catalog,
+		bubbleChart.config
+	);
 
 	const existing =
 		(typeof window.echarts?.getInstanceByDom === "function" && chartDom && window.echarts.getInstanceByDom(chartDom)) ||
@@ -555,21 +455,21 @@ dinext_project_evaluation.project_scoring_report.syncMetricFilterOptions = funct
 	if (!report || !catalog) {
 		return;
 	}
-	const updateSelect = (fieldname, entries, fallbackOptions) => {
+	const updateSelect = (fieldname, entries) => {
 		const filter = report.get_filter?.(fieldname);
 		if (!filter?.df) {
 			return;
 		}
-		const options = Array.isArray(entries) && entries.length ? entries.map((entry) => entry.id).join("\n") : fallbackOptions.join("\n");
+		const options = Array.isArray(entries) && entries.length ? entries.map((entry) => entry.id).join("\n") : "";
 		filter.df.options = options;
 	};
-	updateSelect("x_axis", catalog.axis, PROJECT_SCORING_AXIS_OPTIONS);
-	updateSelect("y_axis", catalog.axis, PROJECT_SCORING_AXIS_OPTIONS);
-	updateSelect("size_metric", catalog.size, PROJECT_SCORING_SIZE_OPTIONS);
-	updateSelect("color_metric", catalog.color, PROJECT_SCORING_COLOR_OPTIONS);
+	updateSelect("x_axis", catalog.axis);
+	updateSelect("y_axis", catalog.axis);
+	updateSelect("size_metric", catalog.size);
+	updateSelect("color_metric", catalog.color);
 };
 
-dinext_project_evaluation.project_scoring_report.getMetricControlOptionIds = function (filter, fallbackOptions) {
+dinext_project_evaluation.project_scoring_report.getMetricControlOptionIds = function (filter) {
 	const rawOptions = filter?.df?.options;
 	if (typeof rawOptions === "string" && rawOptions.trim()) {
 		return rawOptions
@@ -577,7 +477,7 @@ dinext_project_evaluation.project_scoring_report.getMetricControlOptionIds = fun
 			.map((option) => option.trim())
 			.filter(Boolean);
 	}
-	return Array.isArray(fallbackOptions) ? [...fallbackOptions] : [];
+	return [];
 };
 
 dinext_project_evaluation.project_scoring_report.buildMetricOptionLabelMap = function (catalogEntries, optionIds) {
@@ -642,7 +542,7 @@ dinext_project_evaluation.project_scoring_report.ensureMetricControlInstances = 
 				label: spec.label,
 				fieldname: spec.fieldname,
 				fieldtype: "Select",
-				options: spec.fallbackOptions.join("\n"),
+				options: "",
 				input_class: "input-sm",
 				change() {
 					if (report._dinextProjectScoringSyncingControls) {
@@ -651,7 +551,7 @@ dinext_project_evaluation.project_scoring_report.ensureMetricControlInstances = 
 					namespace.handleMetricControlChange(report, spec.fieldname, this.get_value());
 				},
 			},
-			value: PROJECT_SCORING_AXIS_DEFAULTS[spec.fieldname],
+			value: "",
 			render_input: true,
 		});
 		controls[spec.fieldname] = control;
@@ -660,11 +560,17 @@ dinext_project_evaluation.project_scoring_report.ensureMetricControlInstances = 
 	return controls;
 };
 
-dinext_project_evaluation.project_scoring_report.syncMetricControlValues = function (report, catalog, controls) {
+dinext_project_evaluation.project_scoring_report.syncMetricControlValues = function (
+	report,
+	catalog,
+	controls,
+	currentConfig
+) {
 	if (!report || !controls) {
 		return;
 	}
 	const namespace = dinext_project_evaluation.project_scoring_report;
+	const defaults = catalog?.defaults || {};
 	report._dinextProjectScoringSyncingControls = true;
 	try {
 		for (const spec of PROJECT_SCORING_METRIC_CONTROLS) {
@@ -673,10 +579,10 @@ dinext_project_evaluation.project_scoring_report.syncMetricControlValues = funct
 				continue;
 			}
 			const filter = report.get_filter?.(spec.fieldname);
-			const optionIds = namespace.getMetricControlOptionIds(filter, spec.fallbackOptions);
+			const optionIds = namespace.getMetricControlOptionIds(filter);
 			const selectOptions = namespace.buildMetricSelectOptions(catalog?.[spec.catalogKey], optionIds);
 			const currentValue =
-				filter?.get_value?.() || PROJECT_SCORING_AXIS_DEFAULTS[spec.fieldname] || optionIds[0] || "";
+				filter?.get_value?.() || currentConfig?.[spec.fieldname] || defaults[spec.fieldname] || optionIds[0] || "";
 			const resolvedValue = optionIds.includes(currentValue) ? currentValue : optionIds[0] || "";
 
 			control.df.options = selectOptions;
@@ -695,7 +601,12 @@ dinext_project_evaluation.project_scoring_report.syncMetricControlValues = funct
 	}
 };
 
-dinext_project_evaluation.project_scoring_report.renderMetricControls = function (report, mount, catalog) {
+dinext_project_evaluation.project_scoring_report.renderMetricControls = function (
+	report,
+	mount,
+	catalog,
+	currentConfig
+) {
 	if (!report || !mount?.length) {
 		return;
 	}
@@ -703,12 +614,17 @@ dinext_project_evaluation.project_scoring_report.renderMetricControls = function
 	if (!controls) {
 		return;
 	}
-	dinext_project_evaluation.project_scoring_report.syncMetricControlValues(report, catalog, controls);
+	dinext_project_evaluation.project_scoring_report.syncMetricControlValues(
+		report,
+		catalog,
+		controls,
+		currentConfig
+	);
 };
 
 dinext_project_evaluation.project_scoring_report.buildChartOptions = function (points, bubbleChart) {
-	const xLabel = points[0]?.x?.label || bubbleChart?.config?.x_axis || __("X Axis");
-	const yLabel = points[0]?.y?.label || bubbleChart?.config?.y_axis || __("Y Axis");
+	const xAxis = bubbleChart?.axes?.x || { axis_type: "value", label: __("X Axis") };
+	const yAxis = bubbleChart?.axes?.y || { axis_type: "value", label: __("Y Axis") };
 	return {
 		animation: false,
 		backgroundColor: "transparent",
@@ -739,30 +655,24 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 					point.x ? `${frappe.utils.escape_html(point.x.label)}: ${frappe.utils.escape_html(point.x.display)}` : "",
 					point.y ? `${frappe.utils.escape_html(point.y.label)}: ${frappe.utils.escape_html(point.y.display)}` : "",
 					point.size ? `${frappe.utils.escape_html(point.size.label)}: ${frappe.utils.escape_html(point.size.display)}` : "",
-					point.color ? `${__("Color")}: ${frappe.utils.escape_html(point.color.label)}` : "",
+					point.color
+						? `${frappe.utils.escape_html(point.color.metric_label || __("Color"))}: ${frappe.utils.escape_html(point.color.display || point.color.label || "")}`
+						: "",
 				].filter(Boolean);
 				return fields.join("<br>");
 			},
 		},
-		xAxis: {
-			name: xLabel,
-			nameLocation: "middle",
-			nameGap: 32,
-			type: "value",
-			scale: true,
-		},
-		yAxis: {
-			name: yLabel,
-			nameLocation: "middle",
-			nameGap: 46,
-			type: "value",
-			scale: true,
-		},
+		xAxis: dinext_project_evaluation.project_scoring_report.buildAxisOption(xAxis, 32),
+		yAxis: dinext_project_evaluation.project_scoring_report.buildAxisOption(yAxis, 46),
 		series: [
 			{
 				type: "scatter",
 				data: points.map((point) => ({
-					value: [Number(point.x?.value || 0), Number(point.y?.value || 0), Number(point.size?.normalized || 18)],
+					value: [
+						dinext_project_evaluation.project_scoring_report.getPointAxisValue(point.x, xAxis),
+						dinext_project_evaluation.project_scoring_report.getPointAxisValue(point.y, yAxis),
+						Number(point.size?.normalized || 18),
+					],
 					point,
 					symbolSize: Number(point.size?.normalized || 18),
 					itemStyle: {
@@ -776,6 +686,44 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 			},
 		],
 	};
+};
+
+dinext_project_evaluation.project_scoring_report.buildAxisOption = function (axis, nameGap) {
+	const axisType = axis?.axis_type || "value";
+	const option = {
+		name: axis?.label || "",
+		nameLocation: "middle",
+		nameGap,
+		type: axisType,
+		scale: axisType !== "category",
+	};
+	if (axisType === "category") {
+		option.data = Array.isArray(axis?.categories) ? axis.categories : [];
+		option.axisLabel = { interval: 0, hideOverlap: true };
+	}
+	if (axisType !== "category") {
+		if (axis?.min != null) {
+			option.min = axis.min;
+		}
+		if (axis?.max != null) {
+			option.max = axis.max;
+		}
+	}
+	return option;
+};
+
+dinext_project_evaluation.project_scoring_report.getPointAxisValue = function (metricPoint, axis) {
+	if (!metricPoint) {
+		return null;
+	}
+	const axisType = axis?.axis_type || "value";
+	if (axisType === "category") {
+		return metricPoint.display || metricPoint.value || "";
+	}
+	if (axisType === "time") {
+		return metricPoint.sort_value ?? metricPoint.value ?? null;
+	}
+	return Number(metricPoint.value ?? 0);
 };
 
 dinext_project_evaluation.project_scoring_report.resolveColorToken = function (token) {
