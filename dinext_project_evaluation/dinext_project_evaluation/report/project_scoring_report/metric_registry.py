@@ -124,6 +124,21 @@ def resolve_metric_config(filters, catalog: dict[str, object] | None = None) -> 
 	}
 
 
+def filter_catalog_by_available_ids(
+	catalog: dict[str, object],
+	available_metric_ids: set[str] | list[str] | None,
+) -> dict[str, object]:
+	catalog = catalog or get_metric_catalog()
+	available = set(available_metric_ids or [])
+	filtered = {
+		"axis": [deepcopy(entry) for entry in catalog.get("axis") or [] if entry.get("id") in available],
+		"size": [deepcopy(entry) for entry in catalog.get("size") or [] if entry.get("id") in available],
+		"color": [deepcopy(entry) for entry in catalog.get("color") or [] if entry.get("id") in available],
+	}
+	filtered["defaults"] = get_default_metric_config(filtered)
+	return filtered
+
+
 def get_field_metric_fieldnames(catalog: dict[str, object], doctype: str) -> list[str]:
 	fieldnames = []
 	for entries in (catalog.get("axis") or [], catalog.get("size") or [], catalog.get("color") or []):

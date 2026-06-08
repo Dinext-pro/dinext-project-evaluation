@@ -22,11 +22,12 @@ COST_CODES = ("COST", "RD_COST", "MFG_COST")
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
-	metric_catalog = metric_registry.get_metric_catalog()
-	metric_config = metric_registry.resolve_metric_config(filters, metric_catalog)
+	full_catalog = metric_registry.get_metric_catalog()
 	columns = get_columns()
-	data, total_rows = get_data(filters, metric_catalog)
-	message = build_report_message(data, filters, total_rows, metric_config, metric_catalog)
+	data, total_rows, available_metric_ids = get_data(filters, full_catalog)
+	filtered_catalog = metric_registry.filter_catalog_by_available_ids(full_catalog, available_metric_ids)
+	metric_config = metric_registry.resolve_metric_config(filters, filtered_catalog)
+	message = build_report_message(data, filters, total_rows, metric_config, filtered_catalog)
 	report_summary = build_report_summary(data, message["bubble_chart"]["points"], total_rows)
 	return columns, data, message, None, report_summary
 
@@ -92,7 +93,17 @@ def get_data(filters, metric_catalog=None):
 
 	rows.sort(key=_sort_key)
 	total_rows = len(rows)
-	return rows[:PROJECT_LIMIT], total_rows
+	available_metric_ids = collect_available_metric_ids(rows)
+	return rows[:PROJECT_LIMIT], total_rows, available_metric_ids
+
+
+def collect_available_metric_ids(rows) -> set[str]:
+	available = set()
+	for row in rows:
+		for metric_id, descriptor in (row.get("dynamic_metric_values") or {}).items():
+			if _has_metric_value(descriptor):
+				available.add(metric_id)
+	return available
 
 
 def build_report_message(rows, filters, total_rows, metric_config=None, metric_catalog=None):
