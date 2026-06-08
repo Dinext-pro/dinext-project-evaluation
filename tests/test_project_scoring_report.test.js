@@ -136,6 +136,19 @@ test("after_datatable_render renders against frappe.query_report instead of data
 	assert.deepEqual(renderCalls, [context.frappe.query_report]);
 });
 
+test("ensureChartMount shell omits bubble chart header and metric summary", () => {
+	const { namespace } = loadReportScript();
+	const script = fs.readFileSync(REPORT_SCRIPT_PATH, "utf8");
+
+	assert.doesNotMatch(script, /project-scoring-report-card-head/);
+	assert.doesNotMatch(script, /project-scoring-report-summary/);
+	assert.doesNotMatch(script, /renderSummary/);
+	assert.match(script, /project-scoring-report-legend/);
+	assert.match(script, /project-scoring-report-chart/);
+	assert.match(script, /project-scoring-report-empty-state/);
+	assert.equal(typeof namespace.renderLegend, "function");
+});
+
 test("normalizeReportPayload converts legacy bubble_payload into custom message payload", () => {
 	const { namespace } = loadReportScript();
 	const report = {
