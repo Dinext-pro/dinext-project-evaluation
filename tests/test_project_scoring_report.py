@@ -412,3 +412,118 @@ class TestProjectScoringFilterAssembly(unittest.TestCase):
 		self.assertIn(["evaluation_date", ">=", "2026-06-01 00:00:00"], filters)
 		self.assertIn(["evaluation_date", "<=", "2026-06-30 23:59:59"], filters)
 
+
+class TestProjectScoringDatasetAwareCatalog(unittest.TestCase):
+	def setUp(self):
+		self.full_catalog = {
+			"axis": [
+				{"id": "project:expected_start_date", "label": "Expected Start Date", "value_type": "date"},
+				{"id": "project:priority", "label": "Priority", "value_type": "categorical"},
+				{"id": "scorecard:integral_score", "label": "Integral Score", "value_type": "numeric"},
+			],
+			"size": [
+				{"id": "scorecard:integral_score", "label": "Integral Score", "value_type": "numeric"},
+				{"id": "criterion:number:raw:FIN_VALUE", "label": "Financial Value (Raw)", "value_type": "numeric"},
+			],
+			"color": [
+				{"id": "project:priority", "label": "Priority", "value_type": "categorical"},
+				{"id": "criterion:scale:MATURITY", "label": "Maturity", "value_type": "categorical"},
+			],
+			"defaults": {
+				"x_axis": "project:expected_start_date",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "scorecard:integral_score",
+				"color_metric": "project:priority",
+			},
+		}
+
+	def test_collect_available_metric_ids_treats_zero_as_present(self):
+		rows = [
+			{
+				"dynamic_metric_values": {
+					"scorecard:integral_score": metric_value(0, display="0.00", label="Integral Score"),
+					"project:priority": metric_value(None, display="N/A", label="Priority"),
+				}
+			}
+		]
+		available = project_scoring_report.collect_available_metric_ids(rows)
+		self.assertIn("scorecard:integral_score", available)
+		self.assertNotIn("project:priority", available)
+
+	def test_filter_catalog_by_available_ids_removes_empty_metrics(self):
+		filtered = metric_registry.filter_catalog_by_available_ids(
+			self.full_catalog,
+			{"project:expected_start_date", "scorecard:integral_score"},
+		)
+		axis_ids = {entry["id"] for entry in filtered["axis"]}
+		size_ids = {entry["id"] for entry in filtered["size"]}
+		color_ids = {entry["id"] for entry in filtered["color"]}
+
+		self.assertEqual(axis_ids, {"project:expected_start_date", "scorecard:integral_score"})
+		self.assertEqual(size_ids, {"scorecard:integral_score"})
+		self.assertEqual(color_ids, set())
+		self.assertIn(filtered["defaults"]["x_axis"], axis_ids)
+		self.assertIn(filtered["defaults"]["y_axis"], axis_ids)
+
+	def test_collect_available_metric_ids_scans_beyond_display_slice(self):
+		rows = [{"dynamic_metric_values": {}} for _ in range(project_scoring_report.PROJECT_LIMIT)]
+		rows.append(
+			{
+				"dynamic_metric_values": {
+					"criterion:number:raw:FIN_VALUE": metric_value(1000, display="1000.00"),
+				}
+			}
+		)
+		available = project_scoring_report.collect_available_metric_ids(rows)
+		self.assertIn("criterion:number:raw:FIN_VALUE", available)
+
+	def test_resolve_metric_config_falls_back_when_selection_not_in_filtered_catalog(self):
+		filtered = metric_registry.filter_catalog_by_available_ids(
+			self.full_catalog,
+			{"scorecard:integral_score", "project:priority"},
+		)
+		config = metric_registry.resolve_metric_config(
+			{
+				"x_axis": "project:expected_start_date",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			filtered,
+		)
+		axis_ids = {entry["id"] for entry in filtered["axis"]}
+		size_ids = {entry["id"] for entry in filtered["size"]}
+		color_ids = {entry["id"] for entry in filtered["color"]}
+
+		self.assertIn(config["x_axis"], axis_ids)
+		self.assertEqual(config["y_axis"], "scorecard:integral_score")
+		self.assertIn(config["size_metric"], size_ids)
+		self.assertIn(config["color_metric"], color_ids)
+
+	def test_build_report_message_returns_filtered_catalog(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"scorecard": "PSC-001",
+				"dynamic_metric_values": {
+					"project:expected_start_date": metric_value(
+						"2026-06-01",
+						display="2026-06-01",
+						sort_value=1717200000000,
+					),
+					"scorecard:integral_score": metric_value(0.81, display="0.81"),
+				},
+			}
+		]
+		available = project_scoring_report.collect_available_metric_ids(rows)
+		filtered_catalog = metric_registry.filter_catalog_by_available_ids(self.full_catalog, available)
+		metric_config = metric_registry.resolve_metric_config({}, filtered_catalog)
+		message = project_scoring_report.build_report_message(rows, {}, 1, metric_config, filtered_catalog)
+
+		payload_axis_ids = {entry["id"] for entry in message["metric_catalog"]["axis"]}
+		self.assertIn("project:expected_start_date", payload_axis_ids)
+		self.assertIn("scorecard:integral_score", payload_axis_ids)
+		self.assertNotIn("project:priority", payload_axis_ids)
+		self.assertNotIn("criterion:number:raw:FIN_VALUE", {entry["id"] for entry in message["metric_catalog"]["size"]})
+
