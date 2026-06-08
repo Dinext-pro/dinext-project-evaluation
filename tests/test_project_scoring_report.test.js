@@ -262,6 +262,35 @@ test("buildMetricOptionLabelMap prefers catalog labels", () => {
 	assert.equal(labelMap.risk_score_norm, "risk_score_norm");
 });
 
+test("buildMetricOptionLabelMap disambiguates duplicate Project and Scorecard labels", () => {
+	const { namespace } = loadReportScript();
+	const catalogEntries = [
+		{
+			id: "project:status",
+			label: "Status",
+			source_kind: "project_field",
+			source_doctype: "Project",
+		},
+		{
+			id: "scorecard:status",
+			label: "Status",
+			source_kind: "scorecard_field",
+			source_doctype: "Project Scorecard",
+		},
+		{ id: "project:priority", label: "Priority", source_kind: "project_field" },
+	];
+
+	const labelMap = namespace.buildMetricOptionLabelMap(catalogEntries, [
+		"project:status",
+		"scorecard:status",
+		"project:priority",
+	]);
+
+	assert.equal(labelMap["project:status"], "Project - Status");
+	assert.equal(labelMap["scorecard:status"], "Project Evaluation - Status");
+	assert.equal(labelMap["project:priority"], "Priority");
+});
+
 test("buildMetricSelectOptions returns value/label pairs for make_control", () => {
 	const { namespace } = loadReportScript();
 
@@ -273,6 +302,24 @@ test("buildMetricSelectOptions returns value/label pairs for make_control", () =
 	assert.equal(JSON.stringify(options), JSON.stringify([
 		{ value: "integral_score", label: "Integral Score" },
 		{ value: "risk_score_norm", label: "risk_score_norm" },
+	]));
+});
+
+test("buildMetricSelectOptions disambiguates duplicate labels in select options", () => {
+	const { namespace } = loadReportScript();
+	const catalogEntries = [
+		{ id: "project:status", label: "Status", source_kind: "project_field" },
+		{ id: "scorecard:status", label: "Status", source_kind: "scorecard_field" },
+	];
+
+	const options = namespace.buildMetricSelectOptions(catalogEntries, [
+		"project:status",
+		"scorecard:status",
+	]);
+
+	assert.equal(JSON.stringify(options), JSON.stringify([
+		{ value: "project:status", label: "Project - Status" },
+		{ value: "scorecard:status", label: "Project Evaluation - Status" },
 	]));
 });
 

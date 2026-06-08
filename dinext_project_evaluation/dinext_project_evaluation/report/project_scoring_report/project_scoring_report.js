@@ -497,15 +497,50 @@ dinext_project_evaluation.project_scoring_report.getMetricControlOptionIds = fun
 	return [];
 };
 
-dinext_project_evaluation.project_scoring_report.buildMetricOptionLabelMap = function (catalogEntries, optionIds) {
-	const labelMap = {};
+dinext_project_evaluation.project_scoring_report.getMetricDropdownSourcePrefix = function (entry) {
+	if (entry?.source_kind === "project_field") {
+		return __("Project");
+	}
+	if (entry?.source_kind === "scorecard_field") {
+		return __("Project Evaluation");
+	}
+	return null;
+};
+
+dinext_project_evaluation.project_scoring_report.disambiguateMetricDropdownLabels = function (catalogEntries) {
+	const labelCounts = {};
 	if (Array.isArray(catalogEntries)) {
 		for (const entry of catalogEntries) {
-			if (entry?.id) {
-				labelMap[entry.id] = entry.label || entry.id;
+			if (!entry?.id) {
+				continue;
 			}
+			const baseLabel = entry.label || entry.id;
+			labelCounts[baseLabel] = (labelCounts[baseLabel] || 0) + 1;
 		}
 	}
+
+	const disambiguated = {};
+	if (Array.isArray(catalogEntries)) {
+		for (const entry of catalogEntries) {
+			if (!entry?.id) {
+				continue;
+			}
+			const baseLabel = entry.label || entry.id;
+			if ((labelCounts[baseLabel] || 0) <= 1) {
+				disambiguated[entry.id] = baseLabel;
+				continue;
+			}
+			const prefix = dinext_project_evaluation.project_scoring_report.getMetricDropdownSourcePrefix(entry);
+			disambiguated[entry.id] = prefix ? `${prefix} - ${baseLabel}` : baseLabel;
+		}
+	}
+	return disambiguated;
+};
+
+dinext_project_evaluation.project_scoring_report.buildMetricOptionLabelMap = function (catalogEntries, optionIds) {
+	const labelMap = dinext_project_evaluation.project_scoring_report.disambiguateMetricDropdownLabels(
+		catalogEntries
+	);
 	for (const optionId of optionIds) {
 		if (!labelMap[optionId]) {
 			labelMap[optionId] = optionId;
