@@ -2,6 +2,7 @@ frappe.provide("dinext_project_evaluation.project_scoring_report");
 
 const PROJECT_SCORING_REPORT_NAME = "Project Scoring Report";
 const PROJECT_SCORECARD_DOCTYPE = "Project Scorecard";
+const PROJECT_DOCTYPE = "Project";
 const PROJECT_SCORING_EMPTY_CONFIG = {
 	x_axis: "",
 	y_axis: "",
@@ -419,9 +420,25 @@ dinext_project_evaluation.project_scoring_report.openScorecard = function (score
 	frappe.set_route("Form", PROJECT_SCORECARD_DOCTYPE, name);
 };
 
+dinext_project_evaluation.project_scoring_report.openProject = function (projectName) {
+	const name = String(projectName || "").trim();
+	if (!name) {
+		return;
+	}
+	frappe.set_route("Form", PROJECT_DOCTYPE, name);
+};
+
 dinext_project_evaluation.project_scoring_report.handleBubbleChartClick = function (params) {
-	const scorecardName = params?.data?.point?.scorecard;
-	dinext_project_evaluation.project_scoring_report.openScorecard(scorecardName);
+	const point = params?.data?.point || {};
+	const scorecardName = String(point.scorecard || "").trim();
+	if (scorecardName) {
+		dinext_project_evaluation.project_scoring_report.openScorecard(scorecardName);
+		return;
+	}
+	const projectName = String(point.project || "").trim();
+	if (projectName) {
+		dinext_project_evaluation.project_scoring_report.openProject(projectName);
+	}
 };
 
 dinext_project_evaluation.project_scoring_report.bindBubbleChartNavigation = function (chart) {
@@ -509,16 +526,35 @@ dinext_project_evaluation.project_scoring_report.buildMetricSelectOptions = func
 };
 
 dinext_project_evaluation.project_scoring_report.handleMetricControlChange = function (report, fieldname, value) {
-	const filter = report?.get_filter?.(fieldname);
-	if (!filter || filter.get_value?.() === value) {
+	if (report?._dinextProjectScoringSyncingControls) {
 		return;
 	}
-	if (typeof filter.set_value === "function") {
-		filter.set_value(value);
+	const filter = report?.get_filter?.(fieldname);
+	const nextValue = String(value ?? "").trim();
+	if (!filter || String(filter.get_value?.() ?? "").trim() === nextValue) {
+		return;
 	}
-	if (typeof report.refresh === "function") {
-		report.refresh();
+
+	const refreshReport = () => {
+		if (typeof report?.refresh === "function") {
+			return report.refresh(true);
+		}
+	};
+	const previousNoRefresh = report?._no_refresh;
+	if (report) {
+		report._no_refresh = true;
 	}
+	const setResult = filter.set_value?.(nextValue);
+	const finish = () => {
+		if (report) {
+			report._no_refresh = previousNoRefresh;
+		}
+		return refreshReport();
+	};
+	if (setResult && typeof setResult.then === "function") {
+		return setResult.then(finish);
+	}
+	return finish();
 };
 
 dinext_project_evaluation.project_scoring_report.ensureMetricControlInstances = function (report, mount) {
@@ -571,7 +607,9 @@ dinext_project_evaluation.project_scoring_report.syncMetricControlValues = funct
 	}
 	const namespace = dinext_project_evaluation.project_scoring_report;
 	const defaults = catalog?.defaults || {};
+	const previousNoRefresh = report._no_refresh;
 	report._dinextProjectScoringSyncingControls = true;
+	report._no_refresh = true;
 	try {
 		for (const spec of PROJECT_SCORING_METRIC_CONTROLS) {
 			const control = controls[spec.fieldname];
@@ -597,6 +635,7 @@ dinext_project_evaluation.project_scoring_report.syncMetricControlValues = funct
 			}
 		}
 	} finally {
+		report._no_refresh = previousNoRefresh;
 		report._dinextProjectScoringSyncingControls = false;
 	}
 };
