@@ -20,6 +20,9 @@ BENEFIT_CODES = ("STR_ALIGN", "BEN_FIN", "BEN_NONFIN", "MKT_SHARE", "SALES_POT")
 COST_CODES = ("COST", "RD_COST", "MFG_COST")
 CATEGORY_MISSING_VALUE = "__missing__"
 CATEGORY_MISSING_SORT = "__missing__"
+MIN_BUBBLE_SYMBOL_SIZE = 8
+DEFAULT_BUBBLE_SYMBOL_SIZE = 18
+BUBBLE_SYMBOL_SIZE_RANGE = 26
 
 
 def execute(filters=None):
@@ -583,20 +586,23 @@ def _format_metric_value(value, fmt):
 def _normalize_bubble_sizes(values):
 	normalized = [value for value in values if value is not None]
 	if not normalized:
-		return [18 for _ in values]
+		return [MIN_BUBBLE_SYMBOL_SIZE for _ in values]
 
 	minimum = min(normalized)
 	maximum = max(normalized)
 	if math.isclose(minimum, maximum):
-		return [18 if value is not None else 12 for value in values]
+		return [
+			DEFAULT_BUBBLE_SYMBOL_SIZE if value is not None else MIN_BUBBLE_SYMBOL_SIZE
+			for value in values
+		]
 
 	result = []
 	for value in values:
 		if value is None:
-			result.append(12)
+			result.append(MIN_BUBBLE_SYMBOL_SIZE)
 			continue
 		scale = (value - minimum) / (maximum - minimum)
-		result.append(8 + scale * 26)
+		result.append(MIN_BUBBLE_SYMBOL_SIZE + scale * BUBBLE_SYMBOL_SIZE_RANGE)
 	return result
 
 

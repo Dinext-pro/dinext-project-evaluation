@@ -569,6 +569,127 @@ class TestProjectScoringBubblePayload(unittest.TestCase):
 		self.assertEqual(payload["points"], [])
 
 
+class TestNormalizeBubbleSizes(unittest.TestCase):
+	def test_normalize_bubble_sizes_uses_minimum_for_missing_in_mixed_range(self):
+		result = project_scoring_report._normalize_bubble_sizes([100, 200, None])
+
+		self.assertEqual(result[0], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[2], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
+		self.assertGreater(result[1], result[0])
+
+	def test_normalize_bubble_sizes_uses_minimum_when_all_missing(self):
+		result = project_scoring_report._normalize_bubble_sizes([None, None])
+
+		self.assertEqual(
+			result,
+			[
+				project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE,
+				project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE,
+			],
+		)
+
+	def test_normalize_bubble_sizes_uses_minimum_for_missing_with_uniform_present_values(self):
+		result = project_scoring_report._normalize_bubble_sizes([50, 50, None])
+
+		self.assertEqual(result[0], project_scoring_report.DEFAULT_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[1], project_scoring_report.DEFAULT_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[2], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
+
+	def test_normalize_bubble_sizes_scales_present_values_without_change(self):
+		result = project_scoring_report._normalize_bubble_sizes([100, 200])
+
+		self.assertEqual(result[0], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(
+			result[1],
+			project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE + project_scoring_report.BUBBLE_SYMBOL_SIZE_RANGE,
+		)
+
+	def test_build_bubble_chart_payload_keeps_missing_size_rows_as_minimum_points(self):
+		metric_catalog = {
+			"axis": [
+				{
+					"id": "project:priority",
+					"label": "Priority",
+					"value_type": "categorical",
+					"axis_type": "category",
+					"format": "text",
+				},
+				{
+					"id": "scorecard:integral_score",
+					"label": "Integral Score",
+					"value_type": "numeric",
+					"axis_type": "value",
+					"format": "float_2",
+				},
+			],
+			"size": [
+				{
+					"id": "criterion:number:raw:FIN_VALUE",
+					"label": "Financial Value (Raw)",
+					"value_type": "numeric",
+					"format": "currency",
+				},
+			],
+			"color": [
+				{
+					"id": "criterion:scale:MATURITY",
+					"label": "Maturity",
+					"value_type": "categorical",
+					"format": "text",
+				},
+			],
+			"defaults": {
+				"x_axis": "project:priority",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+		}
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"scorecard:integral_score": metric_value(0.81, display="0.81", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+			{
+				"project": "PRJ-002",
+				"project_name": "Beta",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("Medium", display="Medium", label="Priority"),
+					"scorecard:integral_score": metric_value(0.62, display="0.62", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						None,
+						display="N/A",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("2", display="Medium", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			metric_catalog["defaults"],
+			metric_catalog,
+		)
+
+		missing_size_point = next(point for point in payload["points"] if point["project"] == "PRJ-002")
+		sized_point = next(point for point in payload["points"] if point["project"] == "PRJ-001")
+
+		self.assertEqual(missing_size_point["size"]["display"], "N/A")
+		self.assertEqual(missing_size_point["size"]["normalized"], project_scoring_report.MIN_BUBBLE_SYMBOL_SIZE)
+		self.assertGreater(sized_point["size"]["normalized"], missing_size_point["size"]["normalized"])
+
+
 class TestProjectScoringFilterAssembly(unittest.TestCase):
 	def test_scorecard_filters_keep_both_date_bounds(self):
 		filters = project_scoring_report.build_scorecard_filters(
