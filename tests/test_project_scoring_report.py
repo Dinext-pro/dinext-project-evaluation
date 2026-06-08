@@ -355,11 +355,56 @@ class TestProjectScoringBubblePayload(unittest.TestCase):
 		self.assertLess(payload["axes"]["x"]["min"], 1717200000000)
 		self.assertGreater(payload["axes"]["x"]["max"], 1718064000000)
 		self.assertEqual(payload["legend"]["items"][0]["label"], "High")
+		self.assertEqual(payload["legend"]["items"][0]["color_key"], "criterion:scale:MATURITY:4")
+		self.assertEqual(payload["points"][0]["color"]["color_key"], "criterion:scale:MATURITY:4")
 		self.assertEqual(payload["points"][0]["x"]["value"], "2026-06-01")
 		self.assertEqual(payload["points"][0]["y"]["value"], 0.81)
 		self.assertEqual(payload["points"][0]["size"]["value"], 150000)
 		self.assertEqual(payload["points"][0]["color"]["label"], "High")
 		self.assertEqual(payload["points"][0]["meta"]["evaluation_date"], "2026-06-08 00:00:00")
+
+	def test_build_color_descriptor_uses_raw_value_for_collision_safe_identity(self):
+		row = {
+			"dynamic_metric_values": {
+				"project:customer": metric_value(
+					"CUST-SEVER",
+					display="СеверЭнерго",
+					label="Customer",
+				),
+			}
+		}
+		definition = {"id": "project:customer", "label": "Customer"}
+
+		color = project_scoring_report._build_color_descriptor(row, "project:customer", definition)
+
+		self.assertEqual(color["value"], "CUST-SEVER")
+		self.assertEqual(color["display"], "СеверЭнерго")
+		self.assertEqual(color["color_key"], "project:customer:CUST-SEVER")
+		self.assertEqual(color["token"], "project:customer:CUST-SEVER")
+
+	def test_build_color_descriptor_keeps_distinct_keys_for_similar_display_values(self):
+		rows = [
+			{
+				"dynamic_metric_values": {
+					"project:customer": metric_value("CUST-001", display="БалтХим", label="Customer"),
+				}
+			},
+			{
+				"dynamic_metric_values": {
+					"project:customer": metric_value("CUST-002", display="МедТех-Сервис", label="Customer"),
+				}
+			},
+		]
+		definition = {"id": "project:customer", "label": "Customer"}
+		keys = {
+			project_scoring_report._build_color_descriptor(row, "project:customer", definition)["color_key"]
+			for row in rows
+		}
+
+		self.assertEqual(
+			keys,
+			{"project:customer:CUST-001", "project:customer:CUST-002"},
+		)
 
 	def test_build_bubble_chart_payload_builds_category_axis_and_link_title_legend(self):
 		rows = [

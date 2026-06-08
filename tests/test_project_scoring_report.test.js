@@ -749,3 +749,72 @@ test("bindBubbleChartNavigation registers click handler without duplicate routes
 	assert.deepEqual(state.setRouteCalls, [["Form", "Project Scorecard", "PSC-008"]]);
 });
 
+test("buildUniqueColorMap assigns distinct colors for distinct identities", () => {
+	const { namespace } = loadReportScript();
+	const identities = [
+		"project:customer:CUST-001",
+		"project:customer:CUST-002",
+		"project:customer:CUST-003",
+		"project:customer:CUST-004",
+		"project:customer:CUST-005",
+		"project:customer:CUST-006",
+	];
+	const colorMap = namespace.buildUniqueColorMap(identities);
+	const colors = identities.map((identity) => colorMap[identity]);
+
+	assert.equal(new Set(colors).size, identities.length);
+});
+
+test("buildUniqueColorMap assigns distinct colors for 24 identities in dark theme", () => {
+	const { context, namespace } = loadReportScript();
+	context.document.documentElement.getAttribute = () => "dark";
+	const identities = Array.from({ length: 24 }, (_, index) => `project:customer:CUST-${index}`);
+	const colorMap = namespace.buildUniqueColorMap(identities);
+	const colors = identities.map((identity) => colorMap[identity]);
+
+	assert.equal(new Set(colors).size, identities.length);
+});
+
+test("resolveColor uses the same generated color for legend item and point", () => {
+	const { namespace } = loadReportScript();
+	const identities = ["project:customer:CUST-001", "project:customer:CUST-002"];
+	const colorMap = namespace.buildUniqueColorMap(identities);
+	const legendItem = { color_key: "project:customer:CUST-001", token: "project:customer:CUST-001" };
+	const pointColor = { color_key: "project:customer:CUST-001", token: "project:customer:CUST-001" };
+
+	assert.equal(namespace.resolveColor(legendItem, colorMap), namespace.resolveColor(pointColor, colorMap));
+});
+
+test("resolveColor prefers color_key over token when both are present", () => {
+	const { namespace } = loadReportScript();
+	const colorMap = namespace.buildUniqueColorMap(["project:customer:CUST-001"]);
+
+	assert.equal(
+		namespace.resolveColor(
+			{ color_key: "project:customer:CUST-001", token: "project:customer:legacy-token" },
+			colorMap
+		),
+		colorMap["project:customer:CUST-001"]
+	);
+});
+
+test("resolveColor regenerates theme-specific colors while keeping one identity per color", () => {
+	const { context, namespace } = loadReportScript();
+	const identities = ["project:customer:CUST-001", "project:customer:CUST-002"];
+	const lightMap = namespace.buildUniqueColorMap(identities);
+
+	context.document.documentElement.getAttribute = () => "dark";
+	const darkMap = namespace.buildUniqueColorMap(identities);
+
+	assert.notEqual(lightMap[identities[0]], darkMap[identities[0]]);
+	assert.equal(new Set(Object.values(lightMap)).size, identities.length);
+	assert.equal(new Set(Object.values(darkMap)).size, identities.length);
+});
+
+test("resolveColor honors semantic palette overrides", () => {
+	const { namespace } = loadReportScript();
+
+	assert.equal(namespace.resolveColor("gate-pass"), "#739b7f");
+	assert.equal(namespace.resolveColor("gate-fail"), "#c08b8b");
+});
+
