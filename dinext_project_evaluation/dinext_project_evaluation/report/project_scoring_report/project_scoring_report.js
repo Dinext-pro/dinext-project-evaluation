@@ -1,6 +1,7 @@
 frappe.provide("dinext_project_evaluation.project_scoring_report");
 
 const PROJECT_SCORING_REPORT_NAME = "Project Scoring Report";
+const PROJECT_SCORECARD_DOCTYPE = "Project Scorecard";
 const PROJECT_SCORING_AXIS_DEFAULTS = {
 	x_axis: "risk_score_norm",
 	y_axis: "integral_score",
@@ -473,6 +474,30 @@ dinext_project_evaluation.project_scoring_report.render = async function (report
 	const chart = window.echarts.init(chartDom, dinext_project_evaluation.project_scoring_report.getThemeName());
 	chartDom._dinextProjectScoringChart = chart;
 	chart.setOption(dinext_project_evaluation.project_scoring_report.buildChartOptions(points, bubbleChart));
+	dinext_project_evaluation.project_scoring_report.bindBubbleChartNavigation(chart);
+};
+
+dinext_project_evaluation.project_scoring_report.openScorecard = function (scorecardName) {
+	const name = String(scorecardName || "").trim();
+	if (!name) {
+		return;
+	}
+	frappe.set_route("Form", PROJECT_SCORECARD_DOCTYPE, name);
+};
+
+dinext_project_evaluation.project_scoring_report.handleBubbleChartClick = function (params) {
+	const scorecardName = params?.data?.point?.scorecard;
+	dinext_project_evaluation.project_scoring_report.openScorecard(scorecardName);
+};
+
+dinext_project_evaluation.project_scoring_report.bindBubbleChartNavigation = function (chart) {
+	if (!chart || typeof chart.off !== "function" || typeof chart.on !== "function") {
+		return;
+	}
+	chart.off("click");
+	chart.on("click", (params) => {
+		dinext_project_evaluation.project_scoring_report.handleBubbleChartClick(params);
+	});
 };
 
 dinext_project_evaluation.project_scoring_report.renderLegend = function (dom, legend) {
@@ -515,6 +540,7 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 	const yLabel = points[0]?.y?.label || bubbleChart?.config?.y_axis || __("Y Axis");
 	return {
 		animation: false,
+		backgroundColor: "transparent",
 		grid: {
 			left: 60,
 			right: 24,

@@ -11,6 +11,7 @@ function loadReportScript() {
 	const state = {
 		requiredAssets: [],
 		windowListeners: {},
+		setRouteCalls: [],
 	};
 
 	const context = {
@@ -66,6 +67,9 @@ function loadReportScript() {
 				escape_html(value) {
 					return value;
 				},
+			},
+			set_route(...args) {
+				state.setRouteCalls.push(args);
 			},
 		},
 		dinext_project_evaluation: {},
@@ -149,6 +153,41 @@ test("ensureChartMount shell omits bubble chart header and metric summary", () =
 	assert.equal(typeof namespace.renderLegend, "function");
 });
 
+test("buildChartOptions uses transparent chart background", () => {
+	const { namespace } = loadReportScript();
+	const points = [
+		{
+			x: { label: "Risk", value: 0.4, display: "0.4" },
+			y: { label: "Score", value: 0.8, display: "0.8" },
+			size: { normalized: 18 },
+			color: { token: "gate-pass" },
+		},
+	];
+
+	const options = namespace.buildChartOptions(points, { config: {} });
+
+	assert.equal(options.backgroundColor, "transparent");
+});
+
+test("buildChartOptions keeps transparent background in dark theme", () => {
+	const { context, namespace } = loadReportScript();
+	context.document.documentElement.getAttribute = () => "dark";
+
+	const points = [
+		{
+			x: { label: "Risk", value: 0.4, display: "0.4" },
+			y: { label: "Score", value: 0.8, display: "0.8" },
+			size: { normalized: 18 },
+			color: { token: "gate-pass" },
+		},
+	];
+
+	const options = namespace.buildChartOptions(points, { config: {} });
+
+	assert.equal(namespace.getThemeName(), "dark");
+	assert.equal(options.backgroundColor, "transparent");
+});
+
 test("normalizeReportPayload converts legacy bubble_payload into custom message payload", () => {
 	const { namespace } = loadReportScript();
 	const report = {
@@ -175,5 +214,88 @@ test("normalizeReportPayload converts legacy bubble_payload into custom message 
 	assert.equal(payload.bubble_chart.points[0].x.value, 0.4);
 	assert.equal(payload.bubble_chart.points[0].color.token, "gate-pass");
 	assert.equal(payload.summary.plotted_points, 1);
+});
+
+test("openScorecard routes to Project Scorecard form", () => {
+	const { namespace, state } = loadReportScript();
+
+	namespace.openScorecard("PSC-001");
+
+	assert.deepEqual(state.setRouteCalls, [["Form", "Project Scorecard", "PSC-001"]]);
+});
+
+test("openScorecard ignores empty scorecard name", () => {
+	const { namespace, state } = loadReportScript();
+
+	namespace.openScorecard("");
+	namespace.openScorecard(null);
+
+	assert.equal(state.setRouteCalls.length, 0);
+});
+
+test("handleBubbleChartClick opens linked scorecard from bubble payload", () => {
+	const { namespace, state } = loadReportScript();
+
+	namespace.handleBubbleChartClick({
+		data: {
+			point: {
+				project: "PRJ-001",
+				scorecard: "PSC-042",
+			},
+		},
+	});
+
+	assert.deepEqual(state.setRouteCalls, [["Form", "Project Scorecard", "PSC-042"]]);
+});
+
+test("handleBubbleChartClick is no-op when bubble has no scorecard", () => {
+	const { namespace, state } = loadReportScript();
+
+	namespace.handleBubbleChartClick({
+		data: {
+			point: {
+				project: "PRJ-001",
+				scorecard: null,
+			},
+		},
+	});
+
+	assert.equal(state.setRouteCalls.length, 0);
+});
+
+test("bindBubbleChartNavigation registers click handler without duplicate routes", () => {
+	const { namespace, state } = loadReportScript();
+	const handlers = {};
+	const chart = {
+		off(event) {
+			delete handlers[event];
+		},
+		on(event, handler) {
+			handlers[event] = handler;
+		},
+	};
+
+	namespace.bindBubbleChartNavigation(chart);
+	assert.equal(typeof handlers.click, "function");
+
+	handlers.click({
+		data: {
+			point: {
+				scorecard: "PSC-007",
+			},
+		},
+	});
+	assert.deepEqual(state.setRouteCalls, [["Form", "Project Scorecard", "PSC-007"]]);
+
+	state.setRouteCalls.length = 0;
+	namespace.bindBubbleChartNavigation(chart);
+	handlers.click({
+		data: {
+			point: {
+				scorecard: "PSC-008",
+			},
+		},
+	});
+	assert.deepEqual(state.setRouteCalls, [["Form", "Project Scorecard", "PSC-008"]]);
 });
 
