@@ -14,7 +14,6 @@ EXCLUDED_FIELDTYPES = {
 	"Attach Image",
 	"Barcode",
 	"Button",
-	"Check",
 	"Code",
 	"Column Break",
 	"Geolocation",
@@ -30,6 +29,7 @@ EXCLUDED_FIELDTYPES = {
 	"Table MultiSelect",
 	"Text Editor",
 }
+COLOR_ONLY_FIELDTYPES = {"Check"}
 NUMERIC_FIELDTYPES = {"Currency", "Duration", "Float", "Int", "Percent", "Rating"}
 DATE_FIELDTYPES = {"Date", "Datetime"}
 NUMERIC_CRITERION_TYPES = {"Currency", "Number", "Percent"}
@@ -192,6 +192,10 @@ def _build_field_metrics(doctype: str, namespace: str) -> dict[str, list[dict[st
 			"format": _get_format(fieldtype),
 		}
 
+		if fieldtype in COLOR_ONLY_FIELDTYPES:
+			color.append(deepcopy(base_entry))
+			continue
+
 		axis.append(deepcopy(base_entry))
 		color.append(deepcopy(base_entry))
 		if fieldtype in NUMERIC_FIELDTYPES:
@@ -346,6 +350,8 @@ def _get_format(fieldtype: str) -> str:
 		return "duration"
 	if fieldtype in {"Link", "Select", "Data"}:
 		return "text"
+	if fieldtype == "Check":
+		return "check"
 	return "float_2"
 
 
