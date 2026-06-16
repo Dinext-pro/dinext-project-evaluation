@@ -80,7 +80,32 @@ def normalize_bool(criterion: BoolCriterion, value: bool) -> float:
 
 
 def filter_applicable_criteria(criteria: list[ProfileCriterion], current_stage: str | None) -> list[ProfileCriterion]:
-	return [criterion for criterion in criteria if not criterion.stages or current_stage in criterion.stages]
+	applicable = [
+		criterion for criterion in criteria if not criterion.stages or current_stage in criterion.stages
+	]
+	return _resolve_stage_overridden_profile_criteria(applicable, current_stage)
+
+
+def _resolve_stage_overridden_profile_criteria(
+	criteria: list[ProfileCriterion],
+	current_stage: str | None,
+) -> list[ProfileCriterion]:
+	by_code: dict[str, list[ProfileCriterion]] = {}
+	for criterion in criteria:
+		by_code.setdefault(criterion.code, []).append(criterion)
+
+	selected: list[ProfileCriterion] = []
+	for grouped_criteria in by_code.values():
+		stage_specific = [
+			criterion
+			for criterion in grouped_criteria
+			if criterion.stages and current_stage and criterion.stages == [current_stage]
+		]
+		if stage_specific:
+			selected.extend(stage_specific)
+			continue
+		selected.extend([criterion for criterion in grouped_criteria if not criterion.stages])
+	return selected
 
 
 def calculate_scorecard(criteria: list[ProfileCriterion], inputs: dict[str, CriterionInput]) -> ScorecardResult:

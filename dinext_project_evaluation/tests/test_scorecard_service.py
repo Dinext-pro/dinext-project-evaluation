@@ -352,6 +352,49 @@ class TestScorecardService(unittest.TestCase):
 		self.assertTrue(result.gate_pass)
 		self.assertTrue(result.items["STR_ALIGN"].gate_pass)
 
+	def test_stage_specific_profile_row_overrides_global_for_integral_score(self):
+		profile = row(
+			name="Default",
+			criteria=[
+				profile_criterion_row(
+					criterion="MKT_SHARE",
+					stage=None,
+					weight=1,
+					requirement_level="Desired",
+					minimum_normalized_score=None,
+					minimum_raw_value=None,
+					maximum_raw_value=None,
+				),
+				profile_criterion_row(
+					criterion="MKT_SHARE",
+					stage="Идея",
+					weight=2,
+					requirement_level="Desired",
+					minimum_normalized_score=None,
+					minimum_raw_value=None,
+					maximum_raw_value=None,
+				),
+			],
+		)
+		criteria_by_name = {
+			"MKT_SHARE": row(
+				criterion_code="MKT_SHARE",
+				input_type="Scale",
+				influence_direction="higher_is_better",
+				scale_rows=[row(score=0), row(score=5)],
+			),
+		}
+		scorecard = row(
+			stage_at_evaluation="Идея",
+			items=[row(criterion="MKT_SHARE", raw_value="5", raw_numeric_value=None)],
+		)
+
+		result = calculate_scorecard_document(scorecard, profile, criteria_by_name)
+
+		self.assertEqual(len(result.applicable_criteria), 1)
+		self.assertEqual(result.applicable_criteria[0].weight, 2)
+		self.assertAlmostEqual(result.integral_score, 1.0)
+
 
 if __name__ == "__main__":
 	unittest.main()

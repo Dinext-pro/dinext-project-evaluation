@@ -43,9 +43,8 @@ class TestBuildScaleOptions(unittest.TestCase):
 
 
 class TestScorecardFactory(unittest.TestCase):
-	@patch("dinext_project_evaluation.scoring.scorecard_factory.get_applicable_stages", return_value=[])
 	@patch("dinext_project_evaluation.scoring.scorecard_factory.frappe.get_doc")
-	def test_get_applicable_criteria_for_stage_includes_description(self, get_doc, _stages):
+	def test_get_applicable_criteria_for_stage_includes_description(self, get_doc):
 		criterion = SimpleNamespace(
 			name="STR_ALIGN",
 			criterion_code="STR_ALIGN",
@@ -81,6 +80,94 @@ class TestScorecardFactory(unittest.TestCase):
 			rows[0]["description"],
 			"Explain how well the project aligns with strategy.",
 		)
+
+	@patch("dinext_project_evaluation.scoring.scorecard_factory.frappe.get_doc")
+	def test_get_applicable_criteria_for_stage_prefers_stage_specific_over_global(self, get_doc):
+		criterion = SimpleNamespace(
+			name="MKT_SHARE",
+			criterion_code="MKT_SHARE",
+			criterion_name="Доля рынка / новые рынки",
+			description="Market share",
+			criterion_group="Market",
+			input_type="Scale",
+			min_value=None,
+			max_value=None,
+			influence_direction="higher_is_better",
+			requires_comment=0,
+			scale_rows=[],
+		)
+		global_row = SimpleNamespace(
+			criterion="MKT_SHARE",
+			weight=1,
+			requirement_level="Desired",
+			stage=None,
+		)
+		stage_row = SimpleNamespace(
+			criterion="MKT_SHARE",
+			weight=2,
+			requirement_level="Desired",
+			stage="Идея",
+		)
+		profile_doc = SimpleNamespace(criteria=[global_row, stage_row])
+		get_doc.side_effect = lambda doctype, name: {
+			("Project Scoring Profile", "PROFILE-001"): profile_doc,
+			("Project Scoring Criterion", "MKT_SHARE"): criterion,
+		}[doctype, name]
+
+		rows = scorecard_factory.get_applicable_criteria_for_stage(
+			"PRJ-001",
+			"PROFILE-001",
+			"Идея",
+		)
+
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0]["criterion"], "MKT_SHARE")
+		self.assertEqual(rows[0]["weight"], 2)
+
+	@patch("dinext_project_evaluation.scoring.scorecard_factory.frappe.get_doc")
+	def test_sync_scorecard_items_deduplicates_stage_overridden_criteria(self, get_doc):
+		criterion = SimpleNamespace(
+			name="MKT_SHARE",
+			criterion_code="MKT_SHARE",
+			criterion_name="Доля рынка / новые рынки",
+			description="Market share",
+			criterion_group="Market",
+			input_type="Scale",
+			min_value=None,
+			max_value=None,
+			influence_direction="higher_is_better",
+			requires_comment=0,
+			scale_rows=[],
+		)
+		global_row = SimpleNamespace(
+			criterion="MKT_SHARE",
+			weight=1,
+			requirement_level="Desired",
+			stage=None,
+		)
+		stage_row = SimpleNamespace(
+			criterion="MKT_SHARE",
+			weight=2,
+			requirement_level="Desired",
+			stage="Идея",
+		)
+		profile_doc = SimpleNamespace(criteria=[global_row, stage_row])
+		get_doc.side_effect = lambda doctype, name: {
+			("Project Scoring Profile", "PROFILE-001"): profile_doc,
+			("Project Scoring Criterion", "MKT_SHARE"): criterion,
+		}[doctype, name]
+		scorecard = SimpleNamespace(
+			project="PRJ-001",
+			profile="PROFILE-001",
+			stage_at_evaluation="Идея",
+			items=[],
+		)
+		scorecard.set = lambda fieldname, value: setattr(scorecard, fieldname, value)
+
+		scorecard_factory.sync_scorecard_items(scorecard, "PROFILE-001")
+
+		self.assertEqual([row["criterion"] for row in scorecard.items], ["MKT_SHARE"])
+		self.assertEqual(scorecard.items[0]["weight"], 2)
 
 	@patch.object(
 		scorecard_factory,
