@@ -30,6 +30,10 @@ from dinext_project_evaluation.dinext_project_evaluation.report.project_scoring_
 from dinext_project_evaluation.dinext_project_evaluation.report.project_scoring_report import (  # noqa: E402
 	metric_registry,
 )
+from dinext_project_evaluation.scoring.workflow_constants import (  # noqa: E402
+	SCORECARD_AGREED_DOCSTATUS,
+	SCORECARD_CANCELED_DOCSTATUS,
+)
 
 
 def field(fieldname, label, fieldtype, options=None, hidden=0):
@@ -860,6 +864,100 @@ class TestProjectScoringFilterAssembly(unittest.TestCase):
 	def test_build_project_filters_skips_active_filter_when_unchecked(self):
 		filters = project_scoring_report.build_project_filters({"only_active_projects": 0})
 		self.assertNotIn("is_active", filters)
+
+	def test_build_scorecard_filters_excludes_canceled_for_total_counts(self):
+		filters = project_scoring_report.build_scorecard_filters(
+			["PRJ-001"],
+			{},
+			agreed_only=False,
+		)
+
+		self.assertIn(["docstatus", "!=", SCORECARD_CANCELED_DOCSTATUS], filters)
+		self.assertNotIn(["docstatus", "=", SCORECARD_AGREED_DOCSTATUS], filters)
+
+	def test_build_scorecard_filters_keeps_agreed_docstatus_for_latest_scorecard_lookup(self):
+		filters = project_scoring_report.build_scorecard_filters(["PRJ-001"], {})
+
+		self.assertIn(["docstatus", "=", SCORECARD_AGREED_DOCSTATUS], filters)
+
+	def test_build_scorecard_filters_apply_evaluated_stage_gate_pass_and_dates(self):
+		filters = project_scoring_report.build_scorecard_filters(
+			["PRJ-001", "PRJ-002"],
+			{
+				"evaluated_stage": "STAGE-001",
+				"gate_pass": 1,
+				"from_date": "2026-06-01",
+				"to_date": "2026-06-30",
+			},
+			agreed_only=False,
+		)
+
+		self.assertIn(["project", "in", ["PRJ-001", "PRJ-002"]], filters)
+		self.assertIn(["stage_at_evaluation", "=", "STAGE-001"], filters)
+		self.assertIn(["gate_pass", "=", 1], filters)
+		self.assertIn(["evaluation_date", ">=", "2026-06-01 00:00:00"], filters)
+		self.assertIn(["evaluation_date", "<=", "2026-06-30 23:59:59"], filters)
+
+
+class TestProjectScoringReportSummary(unittest.TestCase):
+	def test_build_report_summary_replaces_plotted_projects_with_scorecard_counts(self):
+		rows = [
+			{"project": "PRJ-001", "scorecard": "PSC-001"},
+			{"project": "PRJ-002", "scorecard": None},
+		]
+		summary = project_scoring_report.build_report_summary(
+			rows,
+			2,
+			{"total_scorecards": 7, "agreed_scorecards": 5},
+		)
+
+		self.assertEqual(
+			[(item["label"], item["value"]) for item in summary],
+			[
+				("Projects", 2),
+				("Scored Projects", 1),
+				("Project Scorecards", 7),
+				("Agreed Project Scorecards", 5),
+			],
+		)
+		self.assertNotIn("Plotted Projects", {item["label"] for item in summary})
+
+	def test_get_scorecard_summary_counts_returns_zero_for_empty_project_set(self):
+		counts = project_scoring_report.get_scorecard_summary_counts([], {})
+		self.assertEqual(counts, {"total_scorecards": 0, "agreed_scorecards": 0})
+
+	def test_count_scorecards_uses_filter_scope_and_docstatus_mode(self):
+		calls = []
+
+		def fake_count(doctype, filters=None, **kwargs):
+			calls.append((doctype, filters))
+			return len(filters or [])
+
+		original_count = getattr(frappe.db, "count", None)
+		frappe.db.count = fake_count
+		try:
+			total = project_scoring_report.count_scorecards(
+				["PRJ-001"],
+				{"evaluated_stage": "STAGE-001"},
+				agreed_only=False,
+			)
+			agreed = project_scoring_report.count_scorecards(
+				["PRJ-001"],
+				{"evaluated_stage": "STAGE-001"},
+				agreed_only=True,
+			)
+		finally:
+			if original_count is None:
+				del frappe.db.count
+			else:
+				frappe.db.count = original_count
+
+		self.assertEqual(calls[0][0], "Project Scorecard")
+		self.assertEqual(calls[1][0], "Project Scorecard")
+		self.assertIn(["project", "in", ["PRJ-001"]], calls[0][1])
+		self.assertIn(["stage_at_evaluation", "=", "STAGE-001"], calls[0][1])
+		self.assertIn(["docstatus", "!=", SCORECARD_CANCELED_DOCSTATUS], calls[0][1])
+		self.assertIn(["docstatus", "=", SCORECARD_AGREED_DOCSTATUS], calls[1][1])
 
 
 class TestProjectScoringDatasetAwareCatalog(unittest.TestCase):
