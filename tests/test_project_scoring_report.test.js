@@ -244,10 +244,23 @@ test("getMetricControlOptionIds reads filter options with fallback", () => {
 	const { namespace } = loadReportScript();
 
 	assert.equal(
-		namespace.getMetricControlOptionIds({ df: { options: "a\nb" } }, ["c"]).join(","),
+		namespace.getMetricControlOptionIds({ df: { options: "a\nb" } }).join(","),
 		"a,b"
 	);
-	assert.equal(namespace.getMetricControlOptionIds(null, ["c", "d"]).join(","), "c,d");
+	assert.equal(
+		namespace
+			.getMetricControlOptionIds({
+				df: {
+					options: [
+						{ value: "c", label: "C" },
+						{ value: "d", label: "D" },
+					],
+				},
+			})
+			.join(","),
+		"c,d"
+	);
+	assert.equal(namespace.getMetricControlOptionIds(null).join(","), "");
 });
 
 test("buildMetricOptionLabelMap prefers catalog labels", () => {
@@ -262,7 +275,7 @@ test("buildMetricOptionLabelMap prefers catalog labels", () => {
 	assert.equal(labelMap.risk_score_norm, "risk_score_norm");
 });
 
-test("buildMetricOptionLabelMap disambiguates duplicate Project and Scorecard labels", () => {
+test("buildMetricOptionLabelMap keeps plain catalog labels for duplicate Project and Scorecard names", () => {
 	const { namespace } = loadReportScript();
 	const catalogEntries = [
 		{
@@ -286,8 +299,8 @@ test("buildMetricOptionLabelMap disambiguates duplicate Project and Scorecard la
 		"project:priority",
 	]);
 
-	assert.equal(labelMap["project:status"], "Project - Status");
-	assert.equal(labelMap["scorecard:status"], "Project Evaluation - Status");
+	assert.equal(labelMap["project:status"], "Status");
+	assert.equal(labelMap["scorecard:status"], "Status");
 	assert.equal(labelMap["project:priority"], "Priority");
 });
 
@@ -305,7 +318,91 @@ test("buildMetricSelectOptions returns value/label pairs for make_control", () =
 	]));
 });
 
-test("buildMetricSelectOptions disambiguates duplicate labels in select options", () => {
+test("buildMetricSelectOptions groups Project fields before Project Evaluation fields", () => {
+	const { namespace } = loadReportScript();
+	const catalogEntries = [
+		{ id: "scorecard:integral_score", label: "Integral Score", source_kind: "scorecard_field" },
+		{ id: "project:priority", label: "Priority", source_kind: "project_field" },
+		{ id: "project:status", label: "Status", source_kind: "project_field" },
+		{ id: "scorecard:status", label: "Status", source_kind: "scorecard_field" },
+	];
+
+	const options = namespace.buildMetricSelectOptions(catalogEntries, [
+		"scorecard:integral_score",
+		"project:priority",
+		"project:status",
+		"scorecard:status",
+	]);
+
+	assert.equal(JSON.stringify(options), JSON.stringify([
+		{ label: "#Project", value: "" },
+		{ value: "project:priority", label: "Priority" },
+		{ value: "project:status", label: "Status" },
+		{ label: "#Project Evaluation", value: "" },
+		{ value: "scorecard:integral_score", label: "Integral Score" },
+		{ value: "scorecard:status", label: "Status" },
+	]));
+});
+
+test("buildGroupedMetricOptionIds matches grouped select option order without optgroup markers", () => {
+	const { namespace } = loadReportScript();
+	const catalogEntries = [
+		{ id: "scorecard:integral_score", label: "Integral Score", source_kind: "scorecard_field" },
+		{ id: "project:priority", label: "Priority", source_kind: "project_field" },
+		{ id: "project:status", label: "Status", source_kind: "project_field" },
+		{ id: "scorecard:status", label: "Status", source_kind: "scorecard_field" },
+	];
+
+	const optionIds = namespace.buildGroupedMetricOptionIds(catalogEntries);
+	const selectOptions = namespace.buildMetricSelectOptions(catalogEntries, optionIds);
+	const selectValues = selectOptions
+		.filter((option) => option.value)
+		.map((option) => option.value);
+
+	assert.equal(JSON.stringify(selectValues), JSON.stringify(optionIds));
+	assert.equal(JSON.stringify(optionIds), JSON.stringify([
+		"project:priority",
+		"project:status",
+		"scorecard:integral_score",
+		"scorecard:status",
+	]));
+});
+
+test("buildMetricSelectOptions sorts labels inside each group using locale collator", () => {
+	const { namespace } = loadReportScript();
+	const catalogEntries = [
+		{ id: "project:zebra", label: "Zebra", source_kind: "project_field" },
+		{ id: "project:alpha", label: "Alpha", source_kind: "project_field" },
+		{ id: "scorecard:beta", label: "Beta", source_kind: "scorecard_field" },
+		{ id: "scorecard:gamma", label: "Gamma", source_kind: "scorecard_field" },
+	];
+
+	const options = namespace.buildMetricSelectOptions(catalogEntries, [
+		"project:zebra",
+		"project:alpha",
+		"scorecard:beta",
+		"scorecard:gamma",
+	]);
+
+	assert.equal(
+		JSON.stringify(
+			options
+				.filter((option) => option.value?.startsWith("project:"))
+				.map((option) => option.value)
+		),
+		JSON.stringify(["project:alpha", "project:zebra"])
+	);
+	assert.equal(
+		JSON.stringify(
+			options
+				.filter((option) => option.value?.startsWith("scorecard:"))
+				.map((option) => option.value)
+		),
+		JSON.stringify(["scorecard:beta", "scorecard:gamma"])
+	);
+});
+
+test("buildMetricSelectOptions keeps plain labels for duplicate names in grouped select options", () => {
 	const { namespace } = loadReportScript();
 	const catalogEntries = [
 		{ id: "project:status", label: "Status", source_kind: "project_field" },
@@ -318,8 +415,10 @@ test("buildMetricSelectOptions disambiguates duplicate labels in select options"
 	]);
 
 	assert.equal(JSON.stringify(options), JSON.stringify([
-		{ value: "project:status", label: "Project - Status" },
-		{ value: "scorecard:status", label: "Project Evaluation - Status" },
+		{ label: "#Project", value: "" },
+		{ value: "project:status", label: "Status" },
+		{ label: "#Project Evaluation", value: "" },
+		{ value: "scorecard:status", label: "Status" },
 	]));
 });
 
