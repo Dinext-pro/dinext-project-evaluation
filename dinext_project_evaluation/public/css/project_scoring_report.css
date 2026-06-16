@@ -79,6 +79,7 @@
 }
 
 .project-scoring-report-legend-swatch {
+	background: var(--project-scoring-report-legend-color, var(--text-muted));
 	border: 1px solid var(--border-color);
 	border-radius: 999px;
 	box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-color) 8%, transparent);

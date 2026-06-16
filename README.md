@@ -4,7 +4,7 @@
 
 **Dinext Project Evaluation** — приложение Frappe/ERPNext для формализованного скоринга проектов, scorecard-документов и аналитики портфеля поверх стандартных ERPNext Projects. PMO и менеджеры проектов могут задавать критерии и профили оценки, заполнять scorecard по стадиям проекта, рассчитывать взвешенный интегральный балл с правилами «ворот» и сравнивать проекты в Script Report с пузырьковой диаграммой.
 
-Приложение интегрируется с существующим управлением проектами Dinext (Project Portfolio, Project Stage, stage-gate) и не заменяет модуль stage-gate. При установке автоматически создаются типовые критерии и стартовый профиль оценки.
+Приложение интегрируется с существующим управлением проектами Dinext (Project Portfolio, Project Stage, stage-gate) и не заменяет модуль stage-gate. При установке и `migrate` автоматически импортируются fixture-backed типовые критерии и стартовый профиль оценки.
 
 ## ✨ Возможности
 
@@ -15,7 +15,7 @@
 - **UI карточки Project** — form script (`project_scoring_evaluation.js`): выбор профиля оценки (только при заданной Governance Model), кнопки **Open Scorecards** / **Open Scoring Report** в меню Evaluation, переход к отчёту портфеля; сброс профиля при смене/очистке модели управления.
 - **UI Project Portfolio** — переход к отчёту скоринга и пузырьковой диаграмме для выбранного портфеля.
 - **Project Scoring Report** — фильтры по портфелю, проекту, типу проекта, статусу, модели управления, **Project Scoring Profile** (`custom_project_scoring_profile`), только активным проектам (`is_active = Yes`), текущей и оценённой стадии, gate pass и диапазону дат оценки; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и пузырьковая диаграмма (ECharts) на клиенте; **клик по bubble** открывает связанную карточку **Project Scorecard**, а при её отсутствии — форму **Project**. Оси X/Y, размер и цвет bubble настраиваются **динамическими метриками** из runtime meta (**Project**, **Project Scorecard**, критерии профиля); списки метрик учитывают текущую выборку данных и скрытые поля DocType; см. [Project Scoring Report: динамические метрики](#project-scoring-report-динамические-метрики-и-bubble-chart).
-- **Seed-данные по умолчанию** — типовые критерии (стратегическое соответствие, финансовая выгода и др.) и `Default Project Scoring Profile` согласно [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
+- **Каталог по умолчанию из fixtures** — типовые критерии (стратегическое соответствие, финансовая выгода и др.) и `Default Project Scoring Profile` согласно [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
 - **Чистый scoring engine** — модуль расчёта без зависимости от Frappe ORM и unit-тесты нормализации, взвешивания и gate-логики.
 - **Интеграция со Stage Gate** — флаг **Require Agreed Stage Scorecard** на `Stage Gate Template`; при включении checkpoint нельзя отправить в **In Review** без submitted scorecard (`docstatus = 1`) для той же `Project Stage Instance`. На форме `Project Gate Checkpoint` в секции **Stage Scorecard** (после `decision_comment`) — кликабельный KPI-виджет в стиле scorecard с переходом к связанной карточке; непройденные gate-пороги — **мягкое** предупреждение, не блокирует review. Подробнее — [Интеграция Stage Gate и scorecard](#интеграция-stage-gate-и-scorecard).
 
@@ -30,16 +30,9 @@ bench --site <site> install-app dinext_project_evaluation
 bench --site <site> migrate
 ```
 
-Хук `after_install` вызывает `seed_default_scoring_model` и создаёт критерии и профиль по умолчанию.
+Источник истины для стартового scoring catalog — versioned fixtures в `dinext_project_evaluation/fixtures/`. После `install-app` и `migrate` на сайт подтягиваются workflow, роли, report, custom fields и каталог по умолчанию.
 
-Повторный seed на уже установленном сайте (идемпотентно):
-
-```bash
-bench --site <site> execute dinext_project_evaluation.seed.seed_default_scoring_model
-bench --site <site> export-fixtures
-```
-
-После изменений метаданных, workflow или seed экспортируйте fixtures в репозиторий (`dinext_project_evaluation/fixtures/`):
+После изменений метаданных, workflow или fixture-backed master data экспортируйте fixtures в репозиторий (`dinext_project_evaluation/fixtures/`):
 
 ```bash
 bench --site <site> export-fixtures
@@ -220,7 +213,7 @@ Form script [`public/js/project_gate_checkpoint_scorecard.js`](dinext_project_ev
 
 ### В интерфейсе Desk
 
-1. Откройте **Project Scoring Criterion** и **Project Scoring Profile** — просмотр или расширение каталога (либо используйте seed по умолчанию).
+1. Откройте **Project Scoring Criterion** и **Project Scoring Profile** — просмотр или расширение каталога (либо используйте каталог по умолчанию из fixtures).
 2. В **Project Scoring Profile** для каждой строки критерия задайте вес, обязательность и при необходимости пороги gate:
    - **Desired** — пороговые поля скрыты; gate не проверяется.
    - **Mandatory + шкала/да-нет** — доступен только **Minimum Normalized Score** (0…1).
@@ -384,36 +377,38 @@ Draft scorecard создаётся сервером через `ensure_scorecard
 | `dinext_project_evaluation.api.approve_scorecard` | Workflow-утверждение scorecard и обновление денормализованных полей Project |
 | `dinext_project_evaluation.api.get_checkpoint_scorecard_summary` | Сводка scorecard для checkpoint (snapshot + `checkpoint_fields` для client fallback) |
 
-Пример (bench console):
+Пример проверки API и permissions:
 
 ```bash
-bench --site <site> execute dinext_project_evaluation.seed.seed_default_scoring_model
+bench --site <site> run-tests --module dinext_project_evaluation.tests.test_api
 ```
 
 ### Проверка
 
 ```bash
 cd apps/dinext_project_evaluation
-python3 -m unittest \
-  tests.test_project_scoring_report \
-  dinext_project_evaluation.tests.test_gate_fields \
-  dinext_project_evaluation.tests.test_scoring_engine \
-  dinext_project_evaluation.tests.test_scorecard_service \
-  dinext_project_evaluation.tests.test_scorecard_cancel \
-  dinext_project_evaluation.tests.test_scorecard_factory \
-  dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.test_project_scorecard
+node --test \
+  tests/test_project_scoring_report.test.js \
+  tests/test_project_scoring_evaluation.test.js \
+  tests/test_project_scoring_profile.test.js \
+  tests/test_project_gate_checkpoint_scorecard.test.js \
+  tests/test_project_portfolio_scoring_navigation.test.js
 
-node --test tests/test_project_scoring_report.test.js
-
-bench --site <site> run-tests --app dinext_project_evaluation \
+bench --site <site> run-tests \
+  --module dinext_project_evaluation.tests.test_api \
+  --module dinext_project_evaluation.tests.test_gate_fields \
+  --module dinext_project_evaluation.tests.test_scoring_engine \
+  --module dinext_project_evaluation.tests.test_scorecard_service \
   --module dinext_project_evaluation.tests.test_scorecard_cancel \
   --module dinext_project_evaluation.tests.test_scorecard_factory \
-  --module dinext_project_evaluation.tests.test_scorecard_service \
+  --module dinext_project_evaluation.tests.test_workflow_constants \
+  --module dinext_project_evaluation.tests.test_criterion_config \
+  --module dinext_project_evaluation.tests.test_profile_criterion_stage_validation \
   --module dinext_project_evaluation.tests.test_stage_gate_scorecard_integration \
   --module dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.test_project_scorecard
 ```
 
-Сценарии приёмки описаны в [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
+GitHub Actions в репозитории гоняет Semgrep и JS regression tests; Frappe `bench run-tests` остаётся обязательной локальной проверкой на bench-сайте. Сценарии приёмки описаны в [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
 
 ## 📦 Технологии
 
@@ -426,7 +421,7 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 
 | Расположение | Назначение |
 |--------------|------------|
-| `dinext_project_evaluation/hooks.py` | `required_apps`, `fixtures`, `after_install`, `doc_events` на Project / Project Stage Instance |
+| `dinext_project_evaluation/hooks.py` | `required_apps`, `fixtures`, `doc_events` на Project / Project Stage Instance |
 | `dinext_project_evaluation/public/js/project_scoring_evaluation.js` | Форма Project: профиль оценки, сброс при смене governance model, кнопки Evaluation |
 | `dinext_project_evaluation/public/css/project_scorecard_dashboard.css` | KPI-карточки: dashboard **Project Scorecard** (Evaluation Summary) и in-form виджет **Project Gate Checkpoint** (Stage Scorecard) |
 | `dinext_project_evaluation/public/js/project_gate_checkpoint_scorecard.js` | Форма Project Gate Checkpoint: API fallback, кликабельный виджет Stage Scorecard в секции формы |
@@ -438,8 +433,7 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 | `dinext_project_evaluation/scoring/stage_gate_checkpoint_hooks.py` | `doc_events` на Project Gate Checkpoint и Project Scorecard для sync summary |
 | `dinext_project_evaluation/scoring/project_hooks.py` | Validate / before_save / on_update: сброс профиля, отмена scorecard, автосоздание Draft scorecard |
 | `dinext_project_evaluation/scoring/scorecard_provision.py` | `on_update` на Project Stage Instance: Draft scorecard при переходе стадии в Active |
-| `dinext_project_evaluation/fixtures/` | Экспорт Client Scripts, Custom Fields, критериев, профилей, Report |
-| `dinext_project_evaluation/seed.py` | Коды критериев по умолчанию, шкалы, веса профиля, пороги gate для обязательных критериев |
+| `dinext_project_evaluation/fixtures/` | Экспорт Client Scripts, Custom Fields, workflow, report и fixture-backed каталога критериев/профилей |
 | `dinext_project_evaluation/scoring/criterion_config.py` | Валидация конфигурации критериев и введённых значений scorecard |
 | `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_criterion/project_scoring_criterion.js` | Условная видимость полей критерия по `input_type` |
 | `dinext_project_evaluation/scoring/workflow_constants.py` | Статусы, роли, действия workflow; `SCORECARD_AGREED_DOCSTATUS`, `SCORECARD_CANCEL_ROLES` |
@@ -532,10 +526,8 @@ dinext_project_evaluation/
 │   └── 2026-04-28-project-scoring-architecture-and-task.md
 ├── sources/pdfs/md/                   # справочные PDF (markdown)
 └── dinext_project_evaluation/
-    ├── hooks.py                       # fixtures, after_install, required_apps
+    ├── hooks.py                       # fixtures, required_apps
     ├── api.py                         # whitelisted API scorecard
-    ├── install.py                     # post-install hook
-    ├── seed.py                        # seed критериев и профиля по умолчанию
     ├── scoring/
     │   ├── engine.py                  # чистые расчёты (unit-тесты)
     │   ├── gate_fields.py             # релевантность и sanitize порогов gate
@@ -562,7 +554,7 @@ dinext_project_evaluation/
     │   ├── test_scorecard_factory.py
     │   ├── test_scorecard_cancel.py
     │   └── test_stage_gate_scorecard_integration.py
-    ├── fixtures/                      # вывод bench export-fixtures (+ workflow)
+    ├── fixtures/                      # вывод bench export-fixtures (+ workflow + default catalog)
     ├── public/
     │   ├── js/project_scoring_evaluation.js  # форма Project: профиль, governance reset, кнопки Evaluation
     │   ├── js/project_gate_checkpoint_scorecard.js  # форма checkpoint: виджет Stage Scorecard в секции формы
@@ -597,7 +589,7 @@ dinext_project_evaluation/
 | `report/project_scoring_report/project_scoring_report.js` | UI метрик, ECharts, клик bubble → форма **Project Scorecard** или **Project** |
 | `tests/test_project_scoring_report.py` | Regression: catalog, bubble payload, Not Set, size normalization |
 | `tests/test_project_scoring_report.test.js` | Regression: metric controls, label disambiguation, refresh |
-| `fixtures/` | Версионируемые метаданные и seed для migrate/install |
+| `fixtures/` | Версионируемые метаданные и каталог по умолчанию для migrate/install |
 
 ## 🔗 Схема потоков
 

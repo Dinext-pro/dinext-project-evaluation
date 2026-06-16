@@ -20,6 +20,8 @@ function jqueryGet(nodes) {
 function loadReportScript() {
 	const script = fs.readFileSync(REPORT_SCRIPT_PATH, "utf8");
 	const state = {
+		documentTheme: null,
+		observers: [],
 		requiredAssets: [],
 		windowListeners: {},
 		setRouteCalls: [],
@@ -43,8 +45,8 @@ function loadReportScript() {
 		},
 		document: {
 			documentElement: {
-				getAttribute() {
-					return null;
+				getAttribute(name) {
+					return name === "data-theme" ? state.documentTheme : null;
 				},
 			},
 			createElement(tag) {
@@ -60,6 +62,7 @@ function loadReportScript() {
 		},
 		MutationObserver: function MutationObserver(callback) {
 			this.callback = callback;
+			state.observers.push(this);
 			this.observe = () => {};
 			this.disconnect = () => {};
 		},
@@ -259,6 +262,41 @@ test("after_datatable_render renders against frappe.query_report instead of data
 	report.after_datatable_render({ not: "the report instance" });
 
 	assert.deepEqual(renderCalls, [context.frappe.query_report]);
+});
+
+test("ensureThemeObserver rerenders active scoring report on runtime theme change", () => {
+	const { context, namespace, state } = loadReportScript();
+	const renderCalls = [];
+	const report = { report_name: "Project Scoring Report" };
+	state.documentTheme = "light";
+	context.frappe.query_report = report;
+	namespace.render = (activeReport) => {
+		renderCalls.push(activeReport);
+	};
+
+	namespace.ensureThemeObserver(report);
+	assert.equal(state.observers.length, 1);
+
+	state.documentTheme = "dark";
+	state.observers[0].callback();
+
+	assert.deepEqual(renderCalls, [report]);
+});
+
+test("ensureThemeObserver ignores foreign active report on runtime theme change", () => {
+	const { context, namespace, state } = loadReportScript();
+	const renderCalls = [];
+	state.documentTheme = "light";
+	context.frappe.query_report = { report_name: "Another Report" };
+	namespace.render = (activeReport) => {
+		renderCalls.push(activeReport);
+	};
+
+	namespace.ensureThemeObserver({ report_name: "Project Scoring Report" });
+	state.documentTheme = "dark";
+	state.observers[0].callback();
+
+	assert.deepEqual(renderCalls, []);
 });
 
 test("ensureChartMount shell includes metric controls above chart", () => {
@@ -934,32 +972,20 @@ test("buildChartOptions series label uses theme text color in dark theme", () =>
 	assert.equal(options.series[0].label.color, "#e4e4e7");
 });
 
-test("normalizeReportPayload converts legacy bubble_payload into custom message payload", () => {
+test("normalizeReportPayload initializes empty custom message payload when none is provided", () => {
 	const { namespace } = loadReportScript();
 	const report = {
 		raw_data: {
 			result: [{ project: "PRJ-001" }],
-			chart: {
-				bubble_payload: [
-					{
-						project: "PRJ-001",
-						label: "Alpha",
-						x: 0.4,
-						y: 0.8,
-						size: 12,
-						color_token: "gate-pass",
-					},
-				],
-			},
 		},
+		data: [{ project: "PRJ-001" }],
 	};
 
 	const payload = namespace.normalizeReportPayload(report);
 
-	assert.equal(payload.bubble_chart.points.length, 1);
-	assert.equal(payload.bubble_chart.points[0].x.value, 0.4);
-	assert.equal(payload.bubble_chart.points[0].color.token, "gate-pass");
-	assert.equal(payload.summary.plotted_points, 1);
+	assert.equal(payload.bubble_chart.points.length, 0);
+	assert.equal(payload.summary.plotted_points, 0);
+	assert.deepEqual(report.raw_data.result, [{ project: "PRJ-001" }]);
 });
 
 test("openScorecard routes to Project Scorecard form", () => {
