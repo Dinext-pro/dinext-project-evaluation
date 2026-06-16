@@ -57,10 +57,15 @@ def get_default_metric_config(catalog: dict[str, object] | None = None) -> dict[
 	size_entries = list(catalog.get("size") or [])
 	color_entries = list(catalog.get("color") or [])
 
-	x_axis = _pick_metric_id(axis_entries, preferred_value_types=("date", "numeric", "categorical"))
+	x_axis = _pick_metric_id(
+		axis_entries,
+		preferred_ids=("project:estimated_costing",),
+		preferred_value_types=("numeric", "date", "categorical"),
+	)
 	y_axis = _pick_metric_id(
 		axis_entries,
-		preferred_value_types=("numeric", "date", "categorical"),
+		preferred_ids=("project:current_stage",),
+		preferred_value_types=("categorical", "numeric", "date"),
 		exclude_ids={x_axis} if x_axis else set(),
 	) or x_axis
 	size_metric = _pick_metric_id(
@@ -70,7 +75,12 @@ def get_default_metric_config(catalog: dict[str, object] | None = None) -> dict[
 	)
 	color_metric = _pick_metric_id(
 		color_entries,
-		preferred_ids=("scorecard:status", "project:custom_project_portfolio", "scorecard:profile"),
+		preferred_ids=(
+			"project:department",
+			"scorecard:status",
+			"project:custom_project_portfolio",
+			"scorecard:profile",
+		),
 		preferred_value_types=("categorical", "date", "numeric"),
 	)
 

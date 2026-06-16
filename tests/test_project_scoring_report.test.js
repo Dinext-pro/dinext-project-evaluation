@@ -487,6 +487,51 @@ test("ensureMetricControlInstances creates make_control selects once", () => {
 	assert.equal(first.x_axis.df.label, "X Axis");
 });
 
+test("syncMetricControlValues uses catalog defaults on clean open when hidden filters are empty", () => {
+	const { namespace } = loadReportScript();
+	const emptyFilter = {
+		value: "",
+		df: { options: "project:priority\nproject:estimated_costing" },
+		get_value() {
+			return this.value;
+		},
+		set_value(value) {
+			this.value = value;
+		},
+	};
+	const report = {
+		get_filter(fieldname) {
+			return fieldname === "x_axis" ? emptyFilter : null;
+		},
+	};
+	const controls = {
+		x_axis: {
+			df: { options: [] },
+			_value: "",
+			get_value() {
+				return this._value;
+			},
+			set_value(value) {
+				this._value = value;
+			},
+			refresh() {},
+		},
+	};
+	const catalog = {
+		axis: [
+			{ id: "project:priority", label: "Priority" },
+			{ id: "project:estimated_costing", label: "Estimated Cost" },
+		],
+		defaults: { x_axis: "project:estimated_costing" },
+	};
+	const currentConfig = { x_axis: "project:estimated_costing" };
+
+	namespace.syncMetricControlValues(report, catalog, controls, currentConfig);
+
+	assert.equal(controls.x_axis._value, "project:estimated_costing");
+	assert.equal(emptyFilter.value, "project:estimated_costing");
+});
+
 test("syncMetricControlValues updates make_control options and values from hidden filters", () => {
 	const { namespace } = loadReportScript();
 	const filterState = {
