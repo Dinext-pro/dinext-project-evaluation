@@ -752,6 +752,93 @@ test("buildChartOptions toolbox saveAsImage uses theme card background when avai
 	assert.equal(options.toolbox.feature.saveAsImage.backgroundColor, "#1b1c1f");
 });
 
+test("getBubbleSizeLabel returns formatted display when size value is present", () => {
+	const { namespace } = loadReportScript();
+	const point = {
+		size: {
+			label: "Financial Value (Raw)",
+			value: 150000,
+			display: "150000.00",
+			normalized: 24,
+		},
+	};
+
+	assert.equal(namespace.getBubbleSizeLabel(point), "150000.00");
+});
+
+test("getBubbleSizeLabel returns empty string when size value is missing", () => {
+	const { namespace } = loadReportScript();
+	const point = {
+		size: {
+			label: "Financial Value (Raw)",
+			value: null,
+			display: "N/A",
+			normalized: 6,
+		},
+	};
+
+	assert.equal(namespace.getBubbleSizeLabel(point), "");
+});
+
+test("buildChartOptions series label formatter shows bubble size display for populated values", () => {
+	const { namespace } = loadReportScript();
+	const points = [
+		{
+			x: { label: "Risk", value: 0.4, display: "0.4" },
+			y: { label: "Score", value: 0.8, display: "0.8" },
+			size: { label: "Financial Value (Raw)", value: 150000, display: "150000.00", normalized: 24 },
+			color: { token: "gate-pass" },
+		},
+	];
+
+	const options = namespace.buildChartOptions(points, { config: {} });
+	const labelFormatter = options.series[0].label.formatter;
+
+	assert.equal(labelFormatter({ data: { point: points[0] } }), "150000.00");
+	assert.equal(options.series[0].label.show, true);
+	assert.equal(options.series[0].label.position, "top");
+	assert.equal(options.series[0].label.hideOverlap, true);
+});
+
+test("buildChartOptions series label formatter hides label when bubble size is missing", () => {
+	const { namespace } = loadReportScript();
+	const point = {
+		x: { label: "Risk", value: 0.4, display: "0.4" },
+		y: { label: "Score", value: 0.8, display: "0.8" },
+		size: { label: "Financial Value (Raw)", value: null, display: "N/A", normalized: 6 },
+		color: { token: "gate-pass" },
+	};
+	const points = [point];
+
+	const options = namespace.buildChartOptions(points, { config: {} });
+	const labelFormatter = options.series[0].label.formatter;
+
+	assert.equal(labelFormatter({ data: { point } }), "");
+});
+
+test("buildChartOptions series label uses theme text color in dark theme", () => {
+	const { context, namespace } = loadReportScript();
+	context.document.documentElement.getAttribute = () => "dark";
+	context.getComputedStyle = () => ({
+		getPropertyValue(name) {
+			return name === "--text-color" ? "#e4e4e7" : "";
+		},
+	});
+
+	const points = [
+		{
+			x: { label: "Risk", value: 0.4, display: "0.4" },
+			y: { label: "Score", value: 0.8, display: "0.8" },
+			size: { label: "Financial Value (Raw)", value: 150000, display: "150000.00", normalized: 24 },
+			color: { token: "gate-pass" },
+		},
+	];
+
+	const options = namespace.buildChartOptions(points, { config: {} });
+
+	assert.equal(options.series[0].label.color, "#e4e4e7");
+});
+
 test("normalizeReportPayload converts legacy bubble_payload into custom message payload", () => {
 	const { namespace } = loadReportScript();
 	const report = {

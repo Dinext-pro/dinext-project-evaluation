@@ -1024,9 +1024,26 @@ dinext_project_evaluation.project_scoring_report.renderMetricControls = function
 	);
 };
 
+dinext_project_evaluation.project_scoring_report.getBubbleSizeLabel = function (point) {
+	const size = point?.size;
+	if (!size) {
+		return "";
+	}
+	const value = size.value;
+	if (value == null || value === "") {
+		return "";
+	}
+	const display = String(size.display || "").trim();
+	return display && display !== "N/A" ? display : "";
+};
+
 dinext_project_evaluation.project_scoring_report.buildChartOptions = function (points, bubbleChart, colorMap) {
 	const xAxis = bubbleChart?.axes?.x || { axis_type: "value", label: __("X Axis") };
 	const yAxis = bubbleChart?.axes?.y || { axis_type: "value", label: __("Y Axis") };
+	const labelColor = dinext_project_evaluation.project_scoring_report.getThemeVariableColor(
+		"--text-color",
+		dinext_project_evaluation.project_scoring_report.getFallbackColor()
+	);
 	return {
 		animation: false,
 		backgroundColor: "transparent",
@@ -1104,6 +1121,20 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 						opacity: 0.78,
 					},
 				})),
+				label: {
+					show: true,
+					position: "top",
+					distance: 4,
+					fontSize: 11,
+					color: labelColor,
+					hideOverlap: true,
+					formatter(params) {
+						return dinext_project_evaluation.project_scoring_report.getBubbleSizeLabel(params.data?.point);
+					},
+				},
+				labelLayout: {
+					hideOverlap: true,
+				},
 				emphasis: {
 					scale: true,
 				},
