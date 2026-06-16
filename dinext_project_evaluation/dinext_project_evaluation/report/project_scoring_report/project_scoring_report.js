@@ -985,6 +985,28 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 			top: 40,
 			bottom: 56,
 		},
+		toolbox: {
+			right: 8,
+			top: 4,
+			itemSize: 16,
+			iconStyle: {
+				borderColor: dinext_project_evaluation.project_scoring_report.getThemeVariableColor(
+					"--text-muted",
+					dinext_project_evaluation.project_scoring_report.getFallbackColor()
+				),
+			},
+			feature: {
+				saveAsImage: {
+					title: __("Save as Image"),
+					name: "project-scoring-report",
+					pixelRatio: 2,
+					backgroundColor: dinext_project_evaluation.project_scoring_report.getThemeVariableColor(
+						"--card-bg",
+						"#ffffff"
+					),
+				},
+			},
+		},
 		tooltip: {
 			trigger: "item",
 			confine: true,
@@ -1171,4 +1193,17 @@ dinext_project_evaluation.project_scoring_report.getPalette = function () {
 dinext_project_evaluation.project_scoring_report.getThemeName = function () {
 	const root = document.documentElement;
 	return root && root.getAttribute("data-theme") === "dark" ? "dark" : undefined;
+};
+
+dinext_project_evaluation.project_scoring_report.getThemeVariableColor = function (variableName, fallback) {
+	if (
+		typeof getComputedStyle !== "function" ||
+		!document ||
+		!document.documentElement ||
+		!variableName
+	) {
+		return fallback;
+	}
+	const value = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+	return value || fallback;
 };
