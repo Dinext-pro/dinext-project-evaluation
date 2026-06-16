@@ -812,6 +812,112 @@ test("handleBubbleChartClick is no-op when bubble has neither scorecard nor proj
 	assert.equal(state.setRouteCalls.length, 0);
 });
 
+test("syncBubbleNavContext stores size metric source kind on report", () => {
+	const { namespace } = loadReportScript();
+	const report = {};
+
+	namespace.syncBubbleNavContext(report, {
+		metric_catalog: {
+			size: [{ id: "project:percent_complete", source_kind: "project_field" }],
+		},
+		bubble_chart: {
+			config: { size_metric: "project:percent_complete" },
+		},
+	});
+
+	assert.equal(report._dinextProjectScoringBubbleNavContext.size_metric, "project:percent_complete");
+	assert.equal(report._dinextProjectScoringBubbleNavContext.size_source_kind, "project_field");
+});
+
+test("handleBubbleChartClick opens project when bubble size metric is a project field", () => {
+	const { namespace, state } = loadReportScript();
+	const report = {};
+
+	namespace.syncBubbleNavContext(report, {
+		metric_catalog: {
+			size: [{ id: "project:percent_complete", source_kind: "project_field" }],
+		},
+		bubble_chart: {
+			config: { size_metric: "project:percent_complete" },
+		},
+	});
+
+	namespace.handleBubbleChartClick(
+		{
+			data: {
+				point: {
+					project: "PRJ-001",
+					scorecard: "PSC-042",
+				},
+			},
+		},
+		report
+	);
+
+	assert.deepEqual(state.setRouteCalls, [["Form", "Project", "PRJ-001"]]);
+});
+
+test("handleBubbleChartClick keeps scorecard-first routing for scorecard size metric", () => {
+	const { namespace, state } = loadReportScript();
+	const report = {};
+
+	namespace.syncBubbleNavContext(report, {
+		metric_catalog: {
+			size: [{ id: "scorecard:integral_score", source_kind: "scorecard_field" }],
+		},
+		bubble_chart: {
+			config: { size_metric: "scorecard:integral_score" },
+		},
+	});
+
+	namespace.handleBubbleChartClick(
+		{
+			data: {
+				point: {
+					project: "PRJ-001",
+					scorecard: "PSC-042",
+				},
+			},
+		},
+		report
+	);
+
+	assert.deepEqual(state.setRouteCalls, [["Form", "Project Scorecard", "PSC-042"]]);
+});
+
+test("handleBubbleChartClick keeps scorecard-first routing for criterion size metric", () => {
+	const { namespace, state } = loadReportScript();
+	const report = {};
+
+	namespace.syncBubbleNavContext(report, {
+		metric_catalog: {
+			size: [
+				{
+					id: "criterion:number:normalized:RISK_IMP",
+					source_kind: "criterion_normalized",
+				},
+			],
+		},
+		bubble_chart: {
+			config: { size_metric: "criterion:number:normalized:RISK_IMP" },
+		},
+	});
+
+	namespace.handleBubbleChartClick(
+		{
+			data: {
+				point: {
+					project: "PRJ-001",
+					scorecard: "PSC-042",
+				},
+			},
+		},
+		report
+	);
+
+	assert.deepEqual(state.setRouteCalls, [["Form", "Project Scorecard", "PSC-042"]]);
+});
+
 test("bindBubbleChartNavigation registers click handler without duplicate routes", () => {
 	const { namespace, state } = loadReportScript();
 	const handlers = {};
