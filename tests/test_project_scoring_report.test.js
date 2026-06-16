@@ -5,6 +5,8 @@ const vm = require("node:vm");
 
 const REPORT_SCRIPT_PATH =
 	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js";
+const REPORT_PYTHON_PATH =
+	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py";
 
 function jqueryGet(nodes) {
 	return function get(index) {
@@ -205,6 +207,33 @@ test("project scoring report defines project governance and activity filters", (
 	const activeFilter = report.filters.find((filter) => filter.fieldname === "only_active_projects");
 	assert.equal(activeFilter.fieldtype, "Check");
 	assert.equal(activeFilter.default, 0);
+});
+
+test("project scoring report table columns align with row-level filters", () => {
+	const pythonSource = fs.readFileSync(REPORT_PYTHON_PATH, "utf8");
+	const columnsBlockMatch = pythonSource.match(/def get_columns\(\):[\s\S]*?^\t\]/m);
+	assert.ok(columnsBlockMatch, "expected get_columns() definition in report python module");
+
+	const columnsBlock = columnsBlockMatch[0];
+	const requiredColumns = [
+		"project",
+		"portfolio",
+		"project_type",
+		"project_status",
+		"governance_model",
+		"project_stage",
+		"evaluated_stage",
+		"profile",
+		"gate_pass",
+	];
+
+	for (const fieldname of requiredColumns) {
+		assert.match(columnsBlock, new RegExp(`"fieldname": "${fieldname}"`));
+	}
+
+	for (const fieldname of ["risk_score_norm", "benefit_score_norm", "cost_score_norm"]) {
+		assert.doesNotMatch(columnsBlock, new RegExp(`"fieldname": "${fieldname}"`));
+	}
 });
 
 test("project scoring report uses roadmap-safe namespace and onload hook", () => {
