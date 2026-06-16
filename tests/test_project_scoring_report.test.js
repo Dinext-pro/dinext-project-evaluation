@@ -705,6 +705,53 @@ test("buildChartOptions keeps transparent background in dark theme", () => {
 	assert.equal(options.backgroundColor, "transparent");
 });
 
+test("buildChartOptions adds minimal toolbox with saveAsImage export", () => {
+	const { namespace } = loadReportScript();
+	const points = [
+		{
+			x: { label: "Risk", value: 0.4, display: "0.4" },
+			y: { label: "Score", value: 0.8, display: "0.8" },
+			size: { normalized: 18 },
+			color: { token: "gate-pass" },
+		},
+	];
+
+	const options = namespace.buildChartOptions(points, { config: {} });
+
+	assert.ok(options.toolbox);
+	assert.equal(options.toolbox.right, 8);
+	assert.equal(options.toolbox.top, 4);
+	assert.equal(options.toolbox.itemSize, 16);
+	assert.ok(options.toolbox.feature.saveAsImage);
+	assert.equal(options.toolbox.feature.saveAsImage.title, "Save as Image");
+	assert.equal(options.toolbox.feature.saveAsImage.name, "project-scoring-report");
+	assert.equal(options.toolbox.feature.saveAsImage.pixelRatio, 2);
+	assert.equal(options.toolbox.feature.saveAsImage.backgroundColor, "#ffffff");
+	assert.equal(options.backgroundColor, "transparent");
+});
+
+test("buildChartOptions toolbox saveAsImage uses theme card background when available", () => {
+	const { context, namespace } = loadReportScript();
+	context.getComputedStyle = () => ({
+		getPropertyValue(name) {
+			return name === "--card-bg" ? "#1b1c1f" : "";
+		},
+	});
+
+	const points = [
+		{
+			x: { label: "Risk", value: 0.4, display: "0.4" },
+			y: { label: "Score", value: 0.8, display: "0.8" },
+			size: { normalized: 18 },
+			color: { token: "gate-pass" },
+		},
+	];
+
+	const options = namespace.buildChartOptions(points, { config: {} });
+
+	assert.equal(options.toolbox.feature.saveAsImage.backgroundColor, "#1b1c1f");
+});
+
 test("normalizeReportPayload converts legacy bubble_payload into custom message payload", () => {
 	const { namespace } = loadReportScript();
 	const report = {
