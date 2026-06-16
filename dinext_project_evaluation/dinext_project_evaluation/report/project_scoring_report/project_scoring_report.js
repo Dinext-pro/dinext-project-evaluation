@@ -9,6 +9,10 @@ const PROJECT_SCORING_EMPTY_CONFIG = {
 	size_metric: "",
 	color_metric: "",
 };
+const PROJECT_SCORING_METRIC_GROUP_ORDER = [
+	{ key: "project", label: __("Project") },
+	{ key: "scorecard", label: __("Project Evaluation") },
+];
 const PROJECT_SCORING_METRIC_CONTROLS = [
 	{
 		fieldname: "x_axis",
@@ -475,13 +479,14 @@ dinext_project_evaluation.project_scoring_report.syncMetricFilterOptions = funct
 	if (!report || !catalog) {
 		return;
 	}
+	const namespace = dinext_project_evaluation.project_scoring_report;
 	const updateSelect = (fieldname, entries) => {
 		const filter = report.get_filter?.(fieldname);
 		if (!filter?.df) {
 			return;
 		}
-		const options = Array.isArray(entries) && entries.length ? entries.map((entry) => entry.id).join("\n") : "";
-		filter.df.options = options;
+		const optionIds = namespace.buildGroupedMetricOptionIds(entries);
+		filter.df.options = optionIds.length ? optionIds.join("\n") : "";
 	};
 	updateSelect("x_axis", catalog.axis);
 	updateSelect("y_axis", catalog.axis);
@@ -497,47 +502,108 @@ dinext_project_evaluation.project_scoring_report.getMetricControlOptionIds = fun
 			.map((option) => option.trim())
 			.filter(Boolean);
 	}
+	if (Array.isArray(rawOptions)) {
+		return rawOptions
+			.map((option) => {
+				if (option && typeof option === "object") {
+					return String(option.value ?? "").trim();
+				}
+				return String(option ?? "").trim();
+			})
+			.filter(Boolean);
+	}
 	return [];
 };
 
-dinext_project_evaluation.project_scoring_report.getMetricDropdownSourcePrefix = function (entry) {
+dinext_project_evaluation.project_scoring_report.getMetricEntryGroupKey = function (entry) {
 	if (entry?.source_kind === "project_field") {
-		return __("Project");
+		return "project";
 	}
 	if (entry?.source_kind === "scorecard_field") {
-		return __("Project Evaluation");
+		return "scorecard";
 	}
-	return null;
+	return "criterion";
+};
+
+dinext_project_evaluation.project_scoring_report.getMetricLocaleCollator = function () {
+	const locale = frappe.boot?.lang || document?.documentElement?.lang || undefined;
+	return new Intl.Collator(locale, { sensitivity: "base", numeric: true });
+};
+
+dinext_project_evaluation.project_scoring_report.partitionMetricEntriesByGroup = function (catalogEntries, optionIds) {
+	const allowedIds = new Set(optionIds || []);
+	const entries = (catalogEntries || []).filter((entry) => entry?.id && allowedIds.has(entry.id));
+	const grouped = {
+		project: [],
+		scorecard: [],
+		criterion: [],
+	};
+	for (const entry of entries) {
+		const groupKey = dinext_project_evaluation.project_scoring_report.getMetricEntryGroupKey(entry);
+		grouped[groupKey].push(entry);
+	}
+	return grouped;
+};
+
+dinext_project_evaluation.project_scoring_report.sortMetricEntriesByDisplayLabel = function (entries, labelMap) {
+	const collator = dinext_project_evaluation.project_scoring_report.getMetricLocaleCollator();
+	return [...entries].sort((left, right) => {
+		const leftLabel = labelMap[left.id] || left.id;
+		const rightLabel = labelMap[right.id] || right.id;
+		const comparison = collator.compare(leftLabel, rightLabel);
+		if (comparison !== 0) {
+			return comparison;
+		}
+		return String(left.id).localeCompare(String(right.id));
+	});
+};
+
+dinext_project_evaluation.project_scoring_report.buildGroupedMetricOptionIds = function (catalogEntries, optionIds) {
+	const namespace = dinext_project_evaluation.project_scoring_report;
+	const resolvedOptionIds =
+		optionIds ||
+		(catalogEntries || []).map((entry) => entry?.id).filter(Boolean);
+	const labelMap = namespace.buildMetricOptionLabelMap(catalogEntries, resolvedOptionIds);
+	const grouped = namespace.partitionMetricEntriesByGroup(catalogEntries, resolvedOptionIds);
+	const orderedIds = [];
+
+	for (const groupSpec of PROJECT_SCORING_METRIC_GROUP_ORDER) {
+		const sortedEntries = namespace.sortMetricEntriesByDisplayLabel(
+			grouped[groupSpec.key],
+			labelMap
+		);
+		for (const entry of sortedEntries) {
+			orderedIds.push(entry.id);
+		}
+	}
+
+	const criterionEntries = namespace.sortMetricEntriesByDisplayLabel(grouped.criterion, labelMap);
+	for (const entry of criterionEntries) {
+		orderedIds.push(entry.id);
+	}
+
+	const knownIds = new Set(orderedIds);
+	const orphanIds = resolvedOptionIds.filter((optionId) => !knownIds.has(optionId));
+	const orphanEntries = orphanIds.map((optionId) => ({ id: optionId, label: labelMap[optionId] || optionId }));
+	const sortedOrphans = namespace.sortMetricEntriesByDisplayLabel(orphanEntries, labelMap);
+	for (const entry of sortedOrphans) {
+		orderedIds.push(entry.id);
+	}
+
+	return orderedIds;
 };
 
 dinext_project_evaluation.project_scoring_report.disambiguateMetricDropdownLabels = function (catalogEntries) {
-	const labelCounts = {};
+	const labelMap = {};
 	if (Array.isArray(catalogEntries)) {
 		for (const entry of catalogEntries) {
 			if (!entry?.id) {
 				continue;
 			}
-			const baseLabel = entry.label || entry.id;
-			labelCounts[baseLabel] = (labelCounts[baseLabel] || 0) + 1;
+			labelMap[entry.id] = entry.label || entry.id;
 		}
 	}
-
-	const disambiguated = {};
-	if (Array.isArray(catalogEntries)) {
-		for (const entry of catalogEntries) {
-			if (!entry?.id) {
-				continue;
-			}
-			const baseLabel = entry.label || entry.id;
-			if ((labelCounts[baseLabel] || 0) <= 1) {
-				disambiguated[entry.id] = baseLabel;
-				continue;
-			}
-			const prefix = dinext_project_evaluation.project_scoring_report.getMetricDropdownSourcePrefix(entry);
-			disambiguated[entry.id] = prefix ? `${prefix} - ${baseLabel}` : baseLabel;
-		}
-	}
-	return disambiguated;
+	return labelMap;
 };
 
 dinext_project_evaluation.project_scoring_report.buildMetricOptionLabelMap = function (catalogEntries, optionIds) {
@@ -553,14 +619,56 @@ dinext_project_evaluation.project_scoring_report.buildMetricOptionLabelMap = fun
 };
 
 dinext_project_evaluation.project_scoring_report.buildMetricSelectOptions = function (catalogEntries, optionIds) {
-	const labelMap = dinext_project_evaluation.project_scoring_report.buildMetricOptionLabelMap(
-		catalogEntries,
-		optionIds
+	const namespace = dinext_project_evaluation.project_scoring_report;
+	const labelMap = namespace.buildMetricOptionLabelMap(catalogEntries, optionIds);
+	const grouped = namespace.partitionMetricEntriesByGroup(catalogEntries, optionIds);
+	const selectOptions = [];
+
+	for (const groupSpec of PROJECT_SCORING_METRIC_GROUP_ORDER) {
+		const sortedEntries = namespace.sortMetricEntriesByDisplayLabel(
+			grouped[groupSpec.key],
+			labelMap
+		);
+		if (!sortedEntries.length) {
+			continue;
+		}
+		selectOptions.push({
+			label: `#${groupSpec.label}`,
+			value: "",
+		});
+		for (const entry of sortedEntries) {
+			selectOptions.push({
+				value: entry.id,
+				label: labelMap[entry.id] || entry.id,
+			});
+		}
+	}
+
+	const criterionEntries = namespace.sortMetricEntriesByDisplayLabel(grouped.criterion, labelMap);
+	for (const entry of criterionEntries) {
+		selectOptions.push({
+			value: entry.id,
+			label: labelMap[entry.id] || entry.id,
+		});
+	}
+
+	const knownIds = new Set(
+		selectOptions.map((option) => option.value).filter((value) => value != null && value !== "")
 	);
-	return optionIds.map((optionId) => ({
-		value: optionId,
+	const orphanIds = (optionIds || []).filter((optionId) => !knownIds.has(optionId));
+	const orphanEntries = orphanIds.map((optionId) => ({
+		id: optionId,
 		label: labelMap[optionId] || optionId,
 	}));
+	const sortedOrphans = namespace.sortMetricEntriesByDisplayLabel(orphanEntries, labelMap);
+	for (const entry of sortedOrphans) {
+		selectOptions.push({
+			value: entry.id,
+			label: labelMap[entry.id] || entry.id,
+		});
+	}
+
+	return selectOptions;
 };
 
 dinext_project_evaluation.project_scoring_report.handleMetricControlChange = function (report, fieldname, value) {
