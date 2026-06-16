@@ -8,7 +8,10 @@ import frappe
 from frappe import _
 
 from dinext_project_evaluation.dinext_project_evaluation.report.project_scoring_report import metric_registry
-from dinext_project_evaluation.scoring.workflow_constants import SCORECARD_AGREED_DOCSTATUS
+from dinext_project_evaluation.scoring.workflow_constants import (
+	SCORECARD_AGREED_DOCSTATUS,
+	SCORECARD_CANCELED_DOCSTATUS,
+)
 
 
 PROJECT_LIMIT = 100
@@ -33,11 +36,11 @@ def execute(filters=None):
 	filters = frappe._dict(filters or {})
 	full_catalog = metric_registry.get_metric_catalog()
 	columns = get_columns()
-	data, total_rows, available_metric_ids = get_data(filters, full_catalog)
+	data, total_rows, available_metric_ids, scorecard_counts = get_data(filters, full_catalog)
 	filtered_catalog = metric_registry.filter_catalog_by_available_ids(full_catalog, available_metric_ids)
 	metric_config = metric_registry.resolve_metric_config(filters, filtered_catalog)
 	message = build_report_message(data, filters, total_rows, metric_config, filtered_catalog)
-	report_summary = build_report_summary(data, message["bubble_chart"]["points"], total_rows)
+	report_summary = build_report_summary(data, total_rows, scorecard_counts)
 	return columns, data, message, None, report_summary
 
 
@@ -103,7 +106,8 @@ def get_data(filters, metric_catalog=None):
 	rows.sort(key=_sort_key)
 	total_rows = len(rows)
 	available_metric_ids = collect_available_metric_ids(rows)
-	return rows[:PROJECT_LIMIT], total_rows, available_metric_ids
+	scorecard_counts = get_scorecard_summary_counts([project["name"] for project in projects], filters)
+	return rows[:PROJECT_LIMIT], total_rows, available_metric_ids, scorecard_counts
 
 
 def collect_available_metric_ids(rows) -> set[str]:
@@ -134,12 +138,38 @@ def build_report_message(rows, filters, total_rows, metric_config=None, metric_c
 	}
 
 
-def build_report_summary(rows, points, total_rows):
+def build_report_summary(rows, total_rows, scorecard_counts=None):
+	scorecard_counts = scorecard_counts or {}
 	return [
 		{"value": total_rows, "label": _("Projects"), "datatype": "Int"},
 		{"value": sum(1 for row in rows if row.get("scorecard")), "label": _("Scored Projects"), "datatype": "Int"},
-		{"value": len(points), "label": _("Plotted Projects"), "datatype": "Int"},
+		{
+			"value": scorecard_counts.get("total_scorecards", 0),
+			"label": _("Project Scorecards"),
+			"datatype": "Int",
+		},
+		{
+			"value": scorecard_counts.get("agreed_scorecards", 0),
+			"label": _("Agreed Project Scorecards"),
+			"datatype": "Int",
+		},
 	]
+
+
+def get_scorecard_summary_counts(project_names, filters):
+	if not project_names:
+		return {"total_scorecards": 0, "agreed_scorecards": 0}
+	return {
+		"total_scorecards": count_scorecards(project_names, filters, agreed_only=False),
+		"agreed_scorecards": count_scorecards(project_names, filters, agreed_only=True),
+	}
+
+
+def count_scorecards(project_names, filters, *, agreed_only=False):
+	return frappe.db.count(
+		"Project Scorecard",
+		filters=build_scorecard_filters(project_names, filters, agreed_only=agreed_only),
+	)
 
 
 def build_bubble_chart_payload(rows, filters, metric_catalog=None):
@@ -276,11 +306,12 @@ def _get_latest_agreed_scorecards(project_names, filters, dynamic_fields):
 	return latest_by_project
 
 
-def build_scorecard_filters(project_names, filters):
-	scorecard_filters = [
-		["project", "in", project_names],
-		["docstatus", "=", SCORECARD_AGREED_DOCSTATUS],
-	]
+def build_scorecard_filters(project_names, filters, *, agreed_only=True):
+	scorecard_filters = [["project", "in", project_names]]
+	if agreed_only:
+		scorecard_filters.append(["docstatus", "=", SCORECARD_AGREED_DOCSTATUS])
+	else:
+		scorecard_filters.append(["docstatus", "!=", SCORECARD_CANCELED_DOCSTATUS])
 	if filters.get("evaluated_stage"):
 		scorecard_filters.append(["stage_at_evaluation", "=", filters["evaluated_stage"]])
 	if filters.get("gate_pass") in (0, 1, "0", "1"):
