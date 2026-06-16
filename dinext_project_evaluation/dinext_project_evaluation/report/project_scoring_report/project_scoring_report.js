@@ -302,6 +302,7 @@ dinext_project_evaluation.project_scoring_report.teardownScoringMount = function
 	}
 	if (report) {
 		delete report._dinextProjectScoringMetricControls;
+		delete report._dinextProjectScoringBubbleNavContext;
 	}
 };
 
@@ -382,6 +383,7 @@ dinext_project_evaluation.project_scoring_report.updateLegendChartView = functio
 	const legendDom = mount.find(".project-scoring-report-legend").get(0);
 	const emptyDom = mount.find(".project-scoring-report-empty-state").get(0);
 	const bubbleChart = message?.bubble_chart || namespace.getEmptyPayload().bubble_chart;
+	namespace.syncBubbleNavContext(report, message);
 	const allPoints = Array.isArray(bubbleChart.points) ? bubbleChart.points : [];
 	const visiblePoints = namespace.filterPointsByHiddenLegend(report, allPoints);
 	const hiddenKeys = namespace.getHiddenLegendColorKeys(report);
@@ -420,7 +422,7 @@ dinext_project_evaluation.project_scoring_report.updateLegendChartView = functio
 		namespace.disposeChartInstance(chartDom);
 		chart = window.echarts.init(chartDom, namespace.getThemeName());
 		chartDom._dinextProjectScoringChart = chart;
-		namespace.bindBubbleChartNavigation(chart);
+		namespace.bindBubbleChartNavigation(chart, report);
 	}
 	chart.setOption(namespace.buildChartOptions(visiblePoints, bubbleChart, colorMap), true);
 	if (typeof chart.resize === "function") {
@@ -534,26 +536,65 @@ dinext_project_evaluation.project_scoring_report.openProject = function (project
 	frappe.set_route("Form", PROJECT_DOCTYPE, name);
 };
 
-dinext_project_evaluation.project_scoring_report.handleBubbleChartClick = function (params) {
+dinext_project_evaluation.project_scoring_report.getMetricCatalogEntry = function (catalog, metricId, catalogKey) {
+	const entries = catalog?.[catalogKey] || [];
+	const id = String(metricId || "").trim();
+	if (!id) {
+		return null;
+	}
+	return entries.find((entry) => entry?.id === id) || null;
+};
+
+dinext_project_evaluation.project_scoring_report.syncBubbleNavContext = function (report, message) {
+	if (!report) {
+		return;
+	}
+	const bubbleChart = message?.bubble_chart || {};
+	const sizeMetricId = bubbleChart?.config?.size_metric || "";
+	const sizeEntry = dinext_project_evaluation.project_scoring_report.getMetricCatalogEntry(
+		message?.metric_catalog,
+		sizeMetricId,
+		"size"
+	);
+	report._dinextProjectScoringBubbleNavContext = {
+		size_metric: sizeMetricId,
+		size_source_kind: sizeEntry?.source_kind || null,
+	};
+};
+
+dinext_project_evaluation.project_scoring_report.shouldOpenProjectOnBubbleClick = function (report) {
+	return report?._dinextProjectScoringBubbleNavContext?.size_source_kind === "project_field";
+};
+
+dinext_project_evaluation.project_scoring_report.handleBubbleChartClick = function (params, report) {
+	const activeReport = report || frappe.query_report;
 	const point = params?.data?.point || {};
+	const projectName = String(point.project || "").trim();
+
+	if (dinext_project_evaluation.project_scoring_report.shouldOpenProjectOnBubbleClick(activeReport)) {
+		if (projectName) {
+			dinext_project_evaluation.project_scoring_report.openProject(projectName);
+		}
+		return;
+	}
+
 	const scorecardName = String(point.scorecard || "").trim();
 	if (scorecardName) {
 		dinext_project_evaluation.project_scoring_report.openScorecard(scorecardName);
 		return;
 	}
-	const projectName = String(point.project || "").trim();
 	if (projectName) {
 		dinext_project_evaluation.project_scoring_report.openProject(projectName);
 	}
 };
 
-dinext_project_evaluation.project_scoring_report.bindBubbleChartNavigation = function (chart) {
+dinext_project_evaluation.project_scoring_report.bindBubbleChartNavigation = function (chart, report) {
 	if (!chart || typeof chart.off !== "function" || typeof chart.on !== "function") {
 		return;
 	}
 	chart.off("click");
 	chart.on("click", (params) => {
-		dinext_project_evaluation.project_scoring_report.handleBubbleChartClick(params);
+		dinext_project_evaluation.project_scoring_report.handleBubbleChartClick(params, report);
 	});
 };
 
