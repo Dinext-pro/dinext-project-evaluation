@@ -72,6 +72,9 @@ class TestProjectScoringMetricRegistry(unittest.TestCase):
 			"Project": meta(
 				[
 					field("project_name", "Project Name", "Data"),
+					field("estimated_costing", "Estimated Cost", "Currency"),
+					field("current_stage", "Current Stage", "Link", "Project Stage"),
+					field("department", "Department", "Link", "Department"),
 					field("custom_budget", "Budget", "Currency"),
 					field("expected_start_date", "Expected Start Date", "Date"),
 					field("priority", "Priority", "Select"),
@@ -103,6 +106,9 @@ class TestProjectScoringMetricRegistry(unittest.TestCase):
 				"creation",
 				"modified",
 				"project_name",
+				"estimated_costing",
+				"current_stage",
+				"department",
 				"custom_budget",
 				"expected_start_date",
 				"priority",
@@ -248,6 +254,36 @@ class TestProjectScoringMetricRegistry(unittest.TestCase):
 		size_ids = {entry["id"] for entry in catalog["size"]}
 		color_ids = {entry["id"] for entry in catalog["color"]}
 
+		self.assertEqual(defaults["x_axis"], "project:estimated_costing")
+		self.assertEqual(defaults["y_axis"], "project:current_stage")
+		self.assertEqual(defaults["size_metric"], "scorecard:integral_score")
+		self.assertEqual(defaults["color_metric"], "project:department")
+		self.assertIn(defaults["x_axis"], axis_ids)
+		self.assertIn(defaults["y_axis"], axis_ids)
+		self.assertIn(defaults["size_metric"], size_ids)
+		self.assertIn(defaults["color_metric"], color_ids)
+		self.assertNotEqual(defaults["x_axis"], defaults["y_axis"])
+
+	def test_metric_catalog_defaults_fall_back_when_preferred_metrics_are_unavailable(self):
+		catalog = metric_registry.get_metric_catalog()
+		available = {
+			entry["id"]
+			for entry in catalog["axis"] + catalog["size"] + catalog["color"]
+			if entry["id"] not in {
+				"project:estimated_costing",
+				"project:current_stage",
+				"project:department",
+			}
+		}
+		filtered = metric_registry.filter_catalog_by_available_ids(catalog, available)
+		defaults = filtered["defaults"]
+		axis_ids = {entry["id"] for entry in filtered["axis"]}
+		size_ids = {entry["id"] for entry in filtered["size"]}
+		color_ids = {entry["id"] for entry in filtered["color"]}
+
+		self.assertNotIn("project:estimated_costing", axis_ids)
+		self.assertNotIn("project:current_stage", axis_ids)
+		self.assertNotIn("project:department", color_ids)
 		self.assertIn(defaults["x_axis"], axis_ids)
 		self.assertIn(defaults["y_axis"], axis_ids)
 		self.assertIn(defaults["size_metric"], size_ids)
