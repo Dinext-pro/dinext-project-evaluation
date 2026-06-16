@@ -14,7 +14,7 @@
 - **Автосоздание Draft scorecard** — при назначении профиля оценки проекту с активной стадией или при переходе **Project Stage Instance** в статус **Active** (если на проекте уже задан профиль); идемпотентно, без дубликатов на одну stage instance.
 - **UI карточки Project** — form script (`project_scoring_evaluation.js`): выбор профиля оценки (только при заданной Governance Model), кнопки **Open Scorecards** / **Open Scoring Report** в меню Evaluation, переход к отчёту портфеля; сброс профиля при смене/очистке модели управления.
 - **UI Project Portfolio** — переход к отчёту скоринга и пузырьковой диаграмме для выбранного портфеля.
-- **Project Scoring Report** — фильтры по портфелю, проекту, профилю и стадии; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и пузырьковая диаграмма (ECharts) на клиенте; **клик по bubble** открывает связанную карточку **Project Scorecard**, а при её отсутствии — форму **Project**. Оси X/Y, размер и цвет bubble настраиваются **динамическими метриками** из runtime meta (**Project**, **Project Scorecard**, критерии профиля); списки метрик учитывают текущую выборку данных и скрытые поля DocType; см. [Project Scoring Report: динамические метрики](#project-scoring-report-динамические-метрики-и-bubble-chart).
+- **Project Scoring Report** — фильтры по портфелю, проекту, типу проекта, статусу, модели управления, **Project Scoring Profile** (`custom_project_scoring_profile`), только активным проектам (`is_active = Yes`), текущей и оценённой стадии, gate pass и диапазону дат оценки; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и пузырьковая диаграмма (ECharts) на клиенте; **клик по bubble** открывает связанную карточку **Project Scorecard**, а при её отсутствии — форму **Project**. Оси X/Y, размер и цвет bubble настраиваются **динамическими метриками** из runtime meta (**Project**, **Project Scorecard**, критерии профиля); списки метрик учитывают текущую выборку данных и скрытые поля DocType; см. [Project Scoring Report: динамические метрики](#project-scoring-report-динамические-метрики-и-bubble-chart).
 - **Seed-данные по умолчанию** — типовые критерии (стратегическое соответствие, финансовая выгода и др.) и `Default Project Scoring Profile` согласно [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
 - **Чистый scoring engine** — модуль расчёта без зависимости от Frappe ORM и unit-тесты нормализации, взвешивания и gate-логики.
 - **Интеграция со Stage Gate** — флаг **Require Agreed Stage Scorecard** на `Stage Gate Template`; при включении checkpoint нельзя отправить в **In Review** без submitted scorecard (`docstatus = 1`) для той же `Project Stage Instance`. На форме `Project Gate Checkpoint` в секции **Stage Scorecard** (после `decision_comment`) — кликабельный KPI-виджет в стиле scorecard с переходом к связанной карточке; непройденные gate-пороги — **мягкое** предупреждение, не блокирует review. Подробнее — [Интеграция Stage Gate и scorecard](#интеграция-stage-gate-и-scorecard).
@@ -232,13 +232,31 @@ Form script [`public/js/project_gate_checkpoint_scorecard.js`](dinext_project_ev
 6. Переведите scorecard по workflow: **Submit for Review** (расчёт интегрального балла и gate) → **Mark Reviewed** (пересчёт при необходимости) → **Approve** (submit, `docstatus = 1`). После **Submit for Review** на форме scorecard в dashboard появляется секция **Evaluation Summary** с KPI **Integral Score** и **Gate Pass** (см. [Dashboard KPI](#dashboard-kpi-на-форме-project-scorecard)). Утверждённые submitted scorecard обновляют денормализованные поля Project.
 7. При необходимости **Cancel** (только **Approver**, только пока stage instance **Active**) — создаётся новый Draft для той же стадии.
 8. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
-9. В отчёте используйте фильтры: портфель, проект, профиль, стадия; оси **X Axis**, **Y Axis**, **Bubble Size** и **Bubble Color** — отдельные выпадающие списки над диаграммой (метрики строятся из полей Project/Scorecard и критериев; в списках только поля с `hidden = 0` и только те метрики, для которых в текущей выборке есть хотя бы одно значение).
+9. В отчёте используйте фильтры: портфель, проект, тип проекта, статус, модель управления, **Project Scoring Profile**, «только активные проекты», текущая и оценённая стадия, gate pass, диапазон дат оценки; оси **X Axis**, **Y Axis**, **Bubble Size** и **Bubble Color** — отдельные выпадающие списки над диаграммой (метрики строятся из полей Project/Scorecard и критериев; в списках только поля с `hidden = 0` и только те метрики, для которых в текущей выборке есть хотя бы одно значение).
 10. Смена метрики X/Y/size/color **автоматически обновляет** отчёт и диаграмму (как изменение обычного фильтра).
 11. **Клик по bubble** проекта с agreed scorecard открывает форму соответствующего **Project Scorecard** (тот же маршрут, что у кликабельного виджета Stage Scorecard на checkpoint); если scorecard нет — открывается форма **Project**.
 
 ### Project Scoring Report: динамические метрики и bubble chart
 
 Script Report [`project_scoring_report/`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/) строит каталог метрик на сервере (`metric_registry.py`) и отдаёт его клиенту вместе с данными. Пользователь выбирает метрики в четырёх Select-контролах над диаграммой; технические фильтры `x_axis` / `y_axis` / `size_metric` / `color_metric` скрыты в стандартной панели фильтров и синхронизируются с видимыми контролами.
+
+**Фильтры отчёта (стандартная панель):**
+
+| Фильтр | Поле / источник | Примечание |
+|--------|-----------------|------------|
+| **Project Portfolio** | `Project.custom_project_portfolio` | |
+| **Project** | `Project.name` | MultiSelectList |
+| **Project Type** | `Project.project_type` | Link → Project Type |
+| **Status** | `Project.status` | Open / Completed / Cancelled |
+| **Governance Model** | `Project.governance_model` | Link → Project Governance Model (stage-gate) |
+| **Project Scoring Profile** | `Project.custom_project_scoring_profile` | Назначенный на проекте профиль, не `Project Scorecard.profile` |
+| **Only Active Projects** | `Project.is_active = Yes` | Check; при включении оставляет только активные проекты ERPNext |
+| **Current Stage** | `Project.current_stage` | |
+| **Evaluated Stage** | `Project Scorecard.stage_at_evaluation` | Требует agreed scorecard для строки |
+| **Gate Pass** | `Project Scorecard.gate_pass` | Требует agreed scorecard для строки |
+| **From Date** / **To Date** | `Project Scorecard.evaluation_date` | Требует agreed scorecard для строки |
+
+Фильтры уровня **Project** сужают список проектов до сборки последнего agreed scorecard на проект. Фильтры уровня **Scorecard** дополнительно отсекают проекты без подходящей submitted-оценки (`docstatus = 1`).
 
 | Группа метрик | Источник | Примеры |
 |---------------|----------|---------|
@@ -262,7 +280,7 @@ Script Report [`project_scoring_report/`](dinext_project_evaluation/dinext_proje
 | Пустое значение **Bubble Size** | Точка рисуется **минимальным** bubble (dot); в tooltip size показывается как N/A |
 | Пустое **Bubble Color** | Цвет по fallback-токену «Unknown» (как раньше) |
 
-Серверная сборка payload: [`project_scoring_report.py`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py) (`build_bubble_chart_payload`, нормализация размеров, категория `Not Set` → перевод **Не задано**). Клиент: [`project_scoring_report.js`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js) (ECharts, disambiguation label в Select, auto-refresh при смене метрики).
+Серверная сборка payload: [`project_scoring_report.py`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py) (`build_project_filters`, `build_bubble_chart_payload`, нормализация размеров, категория `Not Set` → перевод **Не задано**). Клиент: [`project_scoring_report.js`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js) (ECharts, disambiguation label в Select, auto-refresh при смене метрики).
 
 ### Навигация по bubble chart (Project Scoring Report)
 
@@ -413,7 +431,7 @@ bench --site <site> run-tests --app dinext_project_evaluation \
 | `dinext_project_evaluation/public/css/project_scorecard_dashboard.css` | KPI-карточки: dashboard **Project Scorecard** (Evaluation Summary) и in-form виджет **Project Gate Checkpoint** (Stage Scorecard) |
 | `dinext_project_evaluation/public/js/project_gate_checkpoint_scorecard.js` | Форма Project Gate Checkpoint: API fallback, кликабельный виджет Stage Scorecard в секции формы |
 | `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/metric_registry.py` | Runtime-каталог метрик X/Y/size/color из meta Project, Scorecard и критериев; фильтр hidden-полей и колонок БД |
-| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py` | Backend Script Report: данные, bubble payload, категория «Не задано», нормализация размеров bubble |
+| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py` | Backend Script Report: фильтры Project/Scorecard, данные, bubble payload, категория «Не задано», нормализация размеров bubble |
 | `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js` | Отчёт Project Scoring Report: Select метрик, ECharts bubble chart, disambiguation подписей, auto-refresh, навигация bubble → **Project Scorecard** или **Project** |
 | `dinext_project_evaluation/public/css/project_scoring_report.css` | Стили bubble chart отчёта (legend, empty state, курсор кликабельности) |
 | `dinext_project_evaluation/scoring/stage_gate_integration.py` | Синхронизация snapshot-полей scorecard на checkpoint, hard-gate validate, backfill |
@@ -493,7 +511,8 @@ pre-commit install
 
 | Commit | Кратко |
 |--------|--------|
-| *(текущая ветка)* | **Project Scoring Report:** динамические метрики X/Y/size/color из runtime meta; dataset-aware dropdown; auto-refresh при смене метрики; категория **Не задано** на категориальных осях; минимальный bubble при пустом size; disambiguation `Project - …` / `Project Evaluation - …` в Select; исключение hidden DocFields из каталога |
+| *(текущая ветка)* | **Project Scoring Report:** фильтры тип проекта, статус, Governance Model, Project Scoring Profile (`custom_project_scoring_profile`), только активные проекты; project-фильтры через `build_project_filters`, profile больше не фильтрует scorecard |
+| *(предыдущая)* | **Project Scoring Report:** динамические метрики X/Y/size/color из runtime meta; dataset-aware dropdown; auto-refresh при смене метрики; категория **Не задано** на категориальных осях; минимальный bubble при пустом size; disambiguation `Project - …` / `Project Evaluation - …` в Select; исключение hidden DocFields из каталога |
 | *(предыдущая)* | Виджет **Stage Scorecard** в исходной секции формы Project Gate Checkpoint (`stage_scorecard_widget_mount`); скрытые snapshot-поля; reuse CSS `project_scorecard_dashboard.css`; API fallback `get_checkpoint_scorecard_summary` |
 | *(предыдущая)* | Dashboard KPI на форме Project Scorecard: Integral Score и Gate Pass в `frm.dashboard`; видимость после расчёта (`evaluation_date` + `integral_score`); CSS `project_scorecard_dashboard.css` |
 | *(предыдущая)* | Автосоздание Draft scorecard при назначении профиля: серверный хук на `Project.on_update` (не `after_save`); резолв `current_stage_instance` из документа или БД |

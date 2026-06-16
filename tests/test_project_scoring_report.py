@@ -823,6 +823,44 @@ class TestProjectScoringFilterAssembly(unittest.TestCase):
 		self.assertIn(["evaluation_date", ">=", "2026-06-01 00:00:00"], filters)
 		self.assertIn(["evaluation_date", "<=", "2026-06-30 23:59:59"], filters)
 
+	def test_scorecard_filters_do_not_apply_project_scoring_profile(self):
+		filters = project_scoring_report.build_scorecard_filters(
+			["PRJ-001"],
+			{"profile": "PROFILE-001"},
+		)
+
+		self.assertNotIn(["profile", "=", "PROFILE-001"], filters)
+
+	def test_build_project_filters_maps_new_report_filters_to_project_fields(self):
+		filters = project_scoring_report.build_project_filters(
+			{
+				"project_portfolio": "PORT-001",
+				"project_stage": "STAGE-001",
+				"project": ["PRJ-001", "PRJ-002"],
+				"project_type": "TYPE-001",
+				"project_status": "Open",
+				"governance_model": "GM-001",
+				"profile": "PROFILE-001",
+				"only_active_projects": 1,
+			}
+		)
+
+		self.assertEqual(filters["custom_project_portfolio"], "PORT-001")
+		self.assertEqual(filters["current_stage"], "STAGE-001")
+		self.assertEqual(filters["name"], ["in", ["PRJ-001", "PRJ-002"]])
+		self.assertEqual(filters["project_type"], "TYPE-001")
+		self.assertEqual(filters["status"], "Open")
+		self.assertEqual(filters["governance_model"], "GM-001")
+		self.assertEqual(
+			filters[project_scoring_report.PROJECT_SCORING_PROFILE_FIELD],
+			"PROFILE-001",
+		)
+		self.assertEqual(filters["is_active"], project_scoring_report.PROJECT_ACTIVE_VALUE)
+
+	def test_build_project_filters_skips_active_filter_when_unchecked(self):
+		filters = project_scoring_report.build_project_filters({"only_active_projects": 0})
+		self.assertNotIn("is_active", filters)
+
 
 class TestProjectScoringDatasetAwareCatalog(unittest.TestCase):
 	def setUp(self):

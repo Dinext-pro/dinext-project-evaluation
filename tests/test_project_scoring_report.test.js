@@ -186,6 +186,27 @@ test("project scoring report defines evaluated stage, size metric and color metr
 	assert.ok(filterNames.includes("color_metric"));
 });
 
+test("project scoring report defines project governance and activity filters", () => {
+	const { report } = loadReportScript();
+	const filterNames = report.filters.map((filter) => filter.fieldname);
+
+	assert.ok(filterNames.includes("project_type"));
+	assert.ok(filterNames.includes("project_status"));
+	assert.ok(filterNames.includes("governance_model"));
+	assert.ok(filterNames.includes("only_active_projects"));
+
+	const profileFilter = report.filters.find((filter) => filter.fieldname === "profile");
+	assert.equal(profileFilter.label, "Project Scoring Profile");
+	assert.equal(profileFilter.options, "Project Scoring Profile");
+
+	const governanceFilter = report.filters.find((filter) => filter.fieldname === "governance_model");
+	assert.equal(governanceFilter.options, "Project Governance Model");
+
+	const activeFilter = report.filters.find((filter) => filter.fieldname === "only_active_projects");
+	assert.equal(activeFilter.fieldtype, "Check");
+	assert.equal(activeFilter.default, 0);
+});
+
 test("project scoring report uses roadmap-safe namespace and onload hook", () => {
 	const { report, namespace } = loadReportScript();
 
