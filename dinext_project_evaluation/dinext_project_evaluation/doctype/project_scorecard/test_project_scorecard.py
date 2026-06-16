@@ -855,6 +855,7 @@ class TestProjectScorecard(FrappeTestCase):
 		doc._persist_calculation_results = ProjectScorecard._persist_calculation_results.__get__(
 			doc, ProjectScorecard
 		)
+		doc._refresh_related_gate_checkpoints = lambda: None
 
 		doc.recalculate_in_place()
 

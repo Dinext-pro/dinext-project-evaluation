@@ -3,26 +3,6 @@
 
 frappe.provide("dinext_project_evaluation.project_scorecard");
 
-dinext_project_evaluation.project_scorecard.form_styles = `
-.dpe-project-scorecard-form .grid-row.dpe-project-scorecard-mandatory-row {
-	border-radius: var(--border-radius-md, 8px);
-	box-shadow: inset 0 0 0 1px var(--red-500, #dc2626);
-}
-.dpe-project-scorecard-form .grid-form .dpe-scale-key-phrases-hint {
-	font-size: var(--text-xs, 11px);
-	color: var(--text-muted, #6b7280);
-	margin-top: 4px;
-	line-height: 1.35;
-	white-space: normal;
-}
-.dpe-project-scorecard-form .dpe-criterion-description-hint {
-	margin-left: 4px;
-	color: var(--text-muted, #6b7280);
-	cursor: help;
-	vertical-align: middle;
-}
-`;
-
 dinext_project_evaluation.project_scorecard.typed_field_by_type = {
 	Scale: "scale_value",
 	Boolean: "boolean_value",
@@ -82,12 +62,7 @@ dinext_project_evaluation.project_scorecard.apply_content_editability = function
 };
 
 dinext_project_evaluation.project_scorecard.ensure_styles = function () {
-	if (dinext_project_evaluation.project_scorecard._styles_injected) {
-		return;
-	}
-
-	frappe.dom.set_style(dinext_project_evaluation.project_scorecard.form_styles);
-	dinext_project_evaluation.project_scorecard._styles_injected = true;
+	return dinext_project_evaluation.project_scorecard.ensure_dashboard_styles();
 };
 
 dinext_project_evaluation.project_scorecard.load_applicable_criteria = function (frm) {

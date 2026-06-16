@@ -9,8 +9,6 @@ app_license = "mit"
 # ------------------
 
 required_apps = ["erpnext", "dinext_project_stage_gate"]
-
-from dinext_project_evaluation.seed import DEFAULT_CRITERIA, DEFAULT_GROUPS
 from dinext_project_evaluation.scoring.workflow_constants import (
 	SCORECARD_WORKFLOW_ACTIONS,
 	SCORECARD_WORKFLOW_ROLES,
@@ -18,8 +16,41 @@ from dinext_project_evaluation.scoring.workflow_constants import (
 	WORKFLOW_NAME,
 )
 
-_SCORING_GROUP_NAMES = [group_code for group_code, _ in DEFAULT_GROUPS]
-_SCORING_CRITERION_NAMES = [code for code, *_ in DEFAULT_CRITERIA]
+_SCORING_GROUP_NAMES = [
+	"Strategy",
+	"Benefits",
+	"Market",
+	"Finance",
+	"Risks",
+	"Resources",
+	"Regulatory",
+	"Priority",
+	"Innovation",
+	"Environment",
+]
+_SCORING_CRITERION_NAMES = [
+	"STR_ALIGN",
+	"BEN_FIN",
+	"BEN_NONFIN",
+	"MKT_SHARE",
+	"COST",
+	"DEP_INT",
+	"RISK_IMP",
+	"RISK_PROB",
+	"REG",
+	"CAP_HUM_TECH",
+	"URGENCY",
+	"NPV",
+	"IRR",
+	"PP",
+	"PI",
+	"ECV",
+	"PATENT",
+	"RD_COST",
+	"MFG_COST",
+	"TECH_SUCCESS",
+	"SALES_POT",
+]
 _DEFAULT_PROFILE_NAME = "Default Project Scoring Profile"
 
 fixtures = [
@@ -142,7 +173,6 @@ doctype_js = {
 # ------------
 
 # before_install = "dinext_project_evaluation.install.before_install"
-after_install = "dinext_project_evaluation.install.after_install"
 
 # Uninstallation
 # ------------

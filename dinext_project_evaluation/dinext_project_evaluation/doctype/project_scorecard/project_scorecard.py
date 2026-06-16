@@ -1,4 +1,5 @@
 import json
+import re
 
 import frappe
 from frappe import _
@@ -66,6 +67,16 @@ ITEM_CALCULATION_FIELDS = (
 	"weighted_score",
 	"weight",
 	"gate_pass",
+)
+
+NORMALIZED_SCORE_BELOW_REQUIRED_PATTERN = re.compile(
+	r"^(?P<code>\S+) normalized score (?P<actual>-?\d+(?:\.\d+)?) is below required (?P<required>-?\d+(?:\.\d+)?)$"
+)
+RAW_VALUE_BELOW_REQUIRED_PATTERN = re.compile(
+	r"^(?P<code>\S+) raw value (?P<actual>-?\d+(?:\.\d+)?) is below required (?P<required>-?\d+(?:\.\d+)?)$"
+)
+RAW_VALUE_ABOVE_ALLOWED_PATTERN = re.compile(
+	r"^(?P<code>\S+) raw value (?P<actual>-?\d+(?:\.\d+)?) is above allowed (?P<allowed>-?\d+(?:\.\d+)?)$"
 )
 
 
@@ -312,12 +323,12 @@ def _format_gate_messages_for_display(messages, items, criteria_by_name):
 			continue
 
 		if message.startswith(MANDATORY_MISSING_PREFIX):
-			display_messages.append(f"{MANDATORY_MISSING_PREFIX}{display_name}")
+			display_messages.append(
+				_("Missing mandatory value for {0}").format(display_name)
+			)
 			continue
 
-		parts = message.split(" ", 1)
-		suffix = parts[1] if len(parts) > 1 else ""
-		display_messages.append(f"{display_name} {suffix}".rstrip())
+		display_messages.append(_localize_gate_message(message, display_name))
 
 	return display_messages
 
@@ -344,6 +355,36 @@ def _criterion_code_from_gate_message(message):
 
 	parts = message.split(" ", 1)
 	return parts[0] if parts else None
+
+
+def _localize_gate_message(message, display_name):
+	normalized_match = NORMALIZED_SCORE_BELOW_REQUIRED_PATTERN.match(message)
+	if normalized_match:
+		return _("{0} normalized score {1} is below required {2}").format(
+			display_name,
+			normalized_match.group("actual"),
+			normalized_match.group("required"),
+		)
+
+	raw_below_match = RAW_VALUE_BELOW_REQUIRED_PATTERN.match(message)
+	if raw_below_match:
+		return _("{0} raw value {1} is below required {2}").format(
+			display_name,
+			raw_below_match.group("actual"),
+			raw_below_match.group("required"),
+		)
+
+	raw_above_match = RAW_VALUE_ABOVE_ALLOWED_PATTERN.match(message)
+	if raw_above_match:
+		return _("{0} raw value {1} is above allowed {2}").format(
+			display_name,
+			raw_above_match.group("actual"),
+			raw_above_match.group("allowed"),
+		)
+
+	parts = message.split(" ", 1)
+	suffix = parts[1] if len(parts) > 1 else ""
+	return f"{display_name} {suffix}".rstrip()
 
 
 def _profile_snapshot(profile):

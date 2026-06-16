@@ -1,6 +1,7 @@
 frappe.provide("dinext_project_evaluation.project_scoring_report");
 
 const PROJECT_SCORING_REPORT_NAME = "Project Scoring Report";
+const PROJECT_SCORING_REPORT_TRANSLATION_CONTEXT = "Dinext.ProjectScoringReport";
 const PROJECT_SCORECARD_DOCTYPE = "Project Scorecard";
 const PROJECT_DOCTYPE = "Project";
 const PROJECT_SCORING_EMPTY_CONFIG = {
@@ -36,6 +37,19 @@ const PROJECT_SCORING_METRIC_CONTROLS = [
 	},
 ];
 
+function reportText(value) {
+	return __(value, null, PROJECT_SCORING_REPORT_TRANSLATION_CONTEXT);
+}
+
+function buildProjectStatusFilterOptions() {
+	return [
+		{ value: "", label: "" },
+		{ value: "Open", label: reportText("Open") },
+		{ value: "Completed", label: reportText("Completed") },
+		{ value: "Cancelled", label: reportText("Cancelled") },
+	];
+}
+
 frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 	filters: [
 		{
@@ -60,9 +74,9 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 		},
 		{
 			fieldname: "project_status",
-			label: __("Status"),
+			label: reportText("Status"),
 			fieldtype: "Select",
-			options: "\nOpen\nCompleted\nCancelled",
+			options: buildProjectStatusFilterOptions(),
 		},
 		{
 			fieldname: "governance_model",
@@ -96,7 +110,7 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 		},
 		{
 			fieldname: "gate_pass",
-			label: __("Gate Pass"),
+			label: reportText("Gate Pass"),
 			fieldtype: "Select",
 			options: "\n1\n0",
 		},
@@ -318,8 +332,8 @@ dinext_project_evaluation.project_scoring_report.removeSetChartToolbarButtons = 
 	report.add_to_dashboard_button?.remove?.();
 	report.add_to_dashboard_button = null;
 	if (report.page?.remove_inner_button) {
-		report.page.remove_inner_button(__("Set Chart"), __("Actions"));
-		report.page.remove_inner_button(__("Add Chart to Dashboard"), __("Actions"));
+		report.page.remove_inner_button(reportText("Set Chart"), reportText("Actions"));
+		report.page.remove_inner_button(reportText("Add Chart to Dashboard"), reportText("Actions"));
 	}
 };
 
@@ -692,7 +706,7 @@ dinext_project_evaluation.project_scoring_report.renderLegend = function (dom, l
 			const color = dinext_project_evaluation.project_scoring_report.resolveColor(item, colorMap);
 			const isHidden = hiddenSet.has(colorKey);
 			const hiddenClass = isHidden ? " is-hidden" : "";
-			return `<button type="button" class="project-scoring-report-legend-item${hiddenClass}" data-color-key="${frappe.utils.escape_html(colorKey)}" aria-pressed="${isHidden ? "false" : "true"}"><span class="project-scoring-report-legend-swatch" style="background:${color};"></span>${frappe.utils.escape_html(item.label)}</button>`;
+			return `<button type="button" class="project-scoring-report-legend-item${hiddenClass}" data-color-key="${frappe.utils.escape_html(colorKey)}" aria-pressed="${isHidden ? "false" : "true"}"><span class="project-scoring-report-legend-swatch" style="--project-scoring-report-legend-color:${frappe.utils.escape_html(color)};"></span>${frappe.utils.escape_html(item.label)}</button>`;
 		})
 		.join("");
 };
@@ -1108,12 +1122,12 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 					`<strong>${frappe.utils.escape_html(point.label || "")}</strong>`,
 					point.portfolio ? `${__("Portfolio")}: ${frappe.utils.escape_html(point.portfolio)}` : "",
 					point.project_stage
-						? `${__("Current Stage")}: ${frappe.utils.escape_html(point.project_stage)}`
+						? `${__("Current Stage", null, "Dinext.StageGateModel")}: ${frappe.utils.escape_html(point.project_stage)}`
 						: "",
 					point.evaluated_stage
-						? `${__("Evaluated Stage")}: ${frappe.utils.escape_html(point.evaluated_stage)}`
+						? `${__("Evaluated Stage", null, "Dinext.StageGateModel")}: ${frappe.utils.escape_html(point.evaluated_stage)}`
 						: "",
-					point.profile ? `${__("Profile")}: ${frappe.utils.escape_html(point.profile)}` : "",
+					point.profile ? `${reportText("Profile")}: ${frappe.utils.escape_html(point.profile)}` : "",
 					point.meta?.evaluation_date
 						? `${__("Evaluation Date")}: ${frappe.utils.escape_html(point.meta.evaluation_date)}`
 						: "",
@@ -1121,10 +1135,19 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 					point.y ? `${frappe.utils.escape_html(point.y.label)}: ${frappe.utils.escape_html(point.y.display)}` : "",
 					point.size ? `${frappe.utils.escape_html(point.size.label)}: ${frappe.utils.escape_html(point.size.display)}` : "",
 					point.color
-						? `${frappe.utils.escape_html(point.color.metric_label || __("Color"))}: ${frappe.utils.escape_html(point.color.display || point.color.label || "")}`
+						? `${frappe.utils.escape_html(point.color.metric_label || reportText("Color"))}: ${frappe.utils.escape_html(point.color.display || point.color.label || "")}`
 						: "",
 				].filter(Boolean);
-				return fields.join("<br>");
+				const uniqueFields = [];
+				const seenFields = new Set();
+				for (const field of fields) {
+					if (seenFields.has(field)) {
+						continue;
+					}
+					seenFields.add(field);
+					uniqueFields.push(field);
+				}
+				return uniqueFields.join("<br>");
 			},
 		},
 		xAxis: dinext_project_evaluation.project_scoring_report.buildAxisOption(xAxis, 32),
