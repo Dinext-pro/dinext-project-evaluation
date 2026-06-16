@@ -917,3 +917,253 @@ test("resolveColor honors semantic palette overrides", () => {
 	assert.equal(namespace.resolveColor("gate-fail"), "#c08b8b");
 });
 
+test("filterPointsByHiddenLegend excludes points with hidden color identities", () => {
+	const { namespace } = loadReportScript();
+	const report = {};
+	const points = [
+		{ color: { color_key: "gate-pass", token: "gate-pass" } },
+		{ color: { color_key: "gate-fail", token: "gate-fail" } },
+		{ color: { color_key: "gate-unknown", token: "gate-unknown" } },
+	];
+
+	namespace.toggleHiddenLegendColorKey(report, "gate-fail");
+
+	assert.equal(namespace.filterPointsByHiddenLegend(report, points).length, 2);
+	assert.equal(
+		namespace.filterPointsByHiddenLegend(report, points)[0].color.color_key,
+		"gate-pass"
+	);
+});
+
+test("toggleHiddenLegendColorKey toggles hidden state for legend identity", () => {
+	const { namespace } = loadReportScript();
+	const report = {};
+
+	namespace.toggleHiddenLegendColorKey(report, "project:priority:High");
+	assert.ok(namespace.getHiddenLegendColorKeys(report).has("project:priority:High"));
+
+	namespace.toggleHiddenLegendColorKey(report, "project:priority:High");
+	assert.equal(namespace.getHiddenLegendColorKeys(report).has("project:priority:High"), false);
+});
+
+test("resetHiddenLegendColorKeys clears hidden legend state", () => {
+	const { namespace } = loadReportScript();
+	const report = {};
+
+	namespace.toggleHiddenLegendColorKey(report, "gate-pass");
+	namespace.toggleHiddenLegendColorKey(report, "gate-fail");
+	namespace.resetHiddenLegendColorKeys(report);
+
+	assert.equal(namespace.getHiddenLegendColorKeys(report).size, 0);
+});
+
+test("renderLegend renders interactive legend items with color keys and hidden state", () => {
+	const { namespace } = loadReportScript();
+	const legendDom = { innerHTML: "" };
+	const colorMap = namespace.buildUniqueColorMap(["gate-pass", "gate-fail"]);
+	const hiddenKeys = new Set(["gate-fail"]);
+
+	namespace.renderLegend(
+		legendDom,
+		{
+			items: [
+				{ color_key: "gate-pass", token: "gate-pass", label: "Pass" },
+				{ color_key: "gate-fail", token: "gate-fail", label: "Fail" },
+			],
+		},
+		colorMap,
+		hiddenKeys
+	);
+
+	assert.match(legendDom.innerHTML, /data-color-key="gate-pass"/);
+	assert.match(legendDom.innerHTML, /data-color-key="gate-fail"/);
+	assert.match(legendDom.innerHTML, /project-scoring-report-legend-item is-hidden/);
+	assert.match(legendDom.innerHTML, /aria-pressed="false"/);
+	assert.match(legendDom.innerHTML, /<button type="button"/);
+});
+
+test("ensureLegendClickHandler toggles legend visibility through handleLegendItemClick", () => {
+	const { namespace } = loadReportScript();
+	const { mount, legendDom, chartDom, emptyDom } = createLegendToggleMount();
+	const report = {
+		page: {
+			main: {
+				find(selector) {
+					if (selector === ".project-scoring-report-shell") {
+						return mount;
+					}
+					return { length: 0 };
+				},
+			},
+		},
+		raw_data: {
+			message: {
+				summary: { notice: null },
+				bubble_chart: {
+					config: {},
+					axes: {
+						x: { axis_type: "value", label: "X" },
+						y: { axis_type: "value", label: "Y" },
+					},
+					legend: {
+						items: [
+							{ color_key: "gate-pass", token: "gate-pass", label: "Pass" },
+							{ color_key: "gate-fail", token: "gate-fail", label: "Fail" },
+						],
+					},
+					points: [
+						{
+							x: { label: "Risk", value: 0.4, display: "0.4" },
+							y: { label: "Score", value: 0.8, display: "0.8" },
+							size: { normalized: 18 },
+							color: { color_key: "gate-pass", token: "gate-pass", label: "Pass" },
+						},
+						{
+							x: { label: "Risk", value: 0.2, display: "0.2" },
+							y: { label: "Score", value: 0.5, display: "0.5" },
+							size: { normalized: 18 },
+							color: { color_key: "gate-fail", token: "gate-fail", label: "Fail" },
+						},
+					],
+				},
+			},
+		},
+	};
+	const setOptionCalls = [];
+	const chart = {
+		setOption(options, replace) {
+			setOptionCalls.push({ options, replace });
+		},
+		resize() {},
+	};
+	chartDom._dinextProjectScoringChart = chart;
+
+	namespace.ensureLegendClickHandler(report, legendDom);
+	namespace.renderLegend(
+		legendDom,
+		report.raw_data.message.bubble_chart.legend,
+		namespace.buildUniqueColorMap(["gate-pass", "gate-fail"]),
+		namespace.getHiddenLegendColorKeys(report)
+	);
+
+	const passButton = {
+		getAttribute(name) {
+			return name === "data-color-key" ? "gate-pass" : null;
+		},
+	};
+	namespace.handleLegendItemClick(report, passButton.getAttribute("data-color-key"));
+
+	assert.ok(namespace.getHiddenLegendColorKeys(report).has("gate-pass"));
+	assert.equal(setOptionCalls.length, 1);
+	assert.equal(setOptionCalls[0].options.series[0].data.length, 1);
+	assert.equal(setOptionCalls[0].options.series[0].data[0].point.color.color_key, "gate-fail");
+	assert.match(legendDom.innerHTML, /project-scoring-report-legend-item is-hidden/);
+	assert.equal(emptyDom.classList.contains("is-visible"), false);
+});
+
+test("updateLegendChartView shows empty state when all legend categories are hidden", () => {
+	const { namespace } = loadReportScript();
+	const report = {};
+	const message = {
+		summary: { notice: null },
+		bubble_chart: {
+			config: {},
+			axes: {
+				x: { axis_type: "value", label: "X" },
+				y: { axis_type: "value", label: "Y" },
+			},
+			legend: {
+				items: [{ color_key: "gate-pass", token: "gate-pass", label: "Pass" }],
+			},
+			points: [
+				{
+					x: { label: "Risk", value: 0.4, display: "0.4" },
+					y: { label: "Score", value: 0.8, display: "0.8" },
+					size: { normalized: 18 },
+					color: { color_key: "gate-pass", token: "gate-pass", label: "Pass" },
+				},
+			],
+		},
+	};
+	const { mount, chartDom, emptyDom } = createLegendToggleMount();
+	const disposeCalls = [];
+	chartDom._dinextProjectScoringChart = {
+		dispose() {
+			disposeCalls.push(true);
+		},
+	};
+
+	namespace.toggleHiddenLegendColorKey(report, "gate-pass");
+	namespace.updateLegendChartView(report, mount, message);
+
+	assert.equal(disposeCalls.length, 1);
+	assert.equal(emptyDom.textContent, "All legend categories are hidden.");
+	assert.equal(emptyDom.classList.contains("is-visible"), true);
+	assert.equal(chartDom.innerHTML, "");
+});
+
+test("wrapReportRefresh resets hidden legend state before render", async () => {
+	const { namespace } = loadReportScript();
+	const renderCalls = [];
+	const report = {
+		report_name: "Project Scoring Report",
+		refresh() {
+			return Promise.resolve();
+		},
+	};
+	namespace.wrapReportRefresh(report);
+	namespace.toggleHiddenLegendColorKey(report, "gate-pass");
+	namespace.render = async () => {
+		renderCalls.push(Array.from(namespace.getHiddenLegendColorKeys(report)));
+	};
+
+	await report.refresh();
+
+	assert.deepEqual(renderCalls, [[]]);
+});
+
+function createLegendToggleMount() {
+	const legendDom = {
+		innerHTML: "",
+		_dinextProjectScoringLegendBound: false,
+		addEventListener(event, handler) {
+			this._clickHandler = handler;
+		},
+	};
+	const chartDom = {
+		innerHTML: "chart",
+		_dinextProjectScoringChart: null,
+	};
+	const emptyDom = {
+		textContent: "",
+		classList: {
+			classes: new Set(),
+			add(name) {
+				this.classes.add(name);
+			},
+			remove(name) {
+				this.classes.delete(name);
+			},
+			contains(name) {
+				return this.classes.has(name);
+			},
+		},
+	};
+	const mount = {
+		length: 1,
+		find(selector) {
+			if (selector === ".project-scoring-report-legend") {
+				return { length: 1, get: jqueryGet([legendDom]) };
+			}
+			if (selector === ".project-scoring-report-chart") {
+				return { length: 1, get: jqueryGet([chartDom]) };
+			}
+			if (selector === ".project-scoring-report-empty-state") {
+				return { length: 1, get: jqueryGet([emptyDom]) };
+			}
+			return { length: 0, get: jqueryGet([]) };
+		},
+	};
+	return { mount, legendDom, chartDom, emptyDom };
+}
+

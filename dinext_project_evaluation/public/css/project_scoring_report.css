@@ -48,10 +48,34 @@
 
 .project-scoring-report-legend-item {
 	align-items: center;
+	background: transparent;
+	border: 0;
 	color: var(--text-color);
+	cursor: pointer;
 	display: inline-flex;
 	font-size: 12px;
 	gap: 6px;
+	padding: 0;
+}
+
+.project-scoring-report-legend-item:hover {
+	color: var(--text-color);
+	opacity: 0.92;
+}
+
+.project-scoring-report-legend-item:focus-visible {
+	border-radius: var(--border-radius-sm);
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+
+.project-scoring-report-legend-item.is-hidden {
+	color: var(--text-muted);
+	opacity: 0.55;
+}
+
+.project-scoring-report-legend-item.is-hidden .project-scoring-report-legend-swatch {
+	opacity: 0.35;
 }
 
 .project-scoring-report-legend-swatch {

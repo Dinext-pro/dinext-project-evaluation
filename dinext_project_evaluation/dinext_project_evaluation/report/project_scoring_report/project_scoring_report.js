@@ -159,6 +159,7 @@ dinext_project_evaluation.project_scoring_report.wrapReportRefresh = function (r
 				dinext_project_evaluation.project_scoring_report.teardownScoringSession(report);
 				return Promise.resolve();
 			}
+			dinext_project_evaluation.project_scoring_report.resetHiddenLegendColorKeys(report);
 			dinext_project_evaluation.project_scoring_report.normalizeReportPayload(report);
 			return Promise.resolve(dinext_project_evaluation.project_scoring_report.render(report));
 		};
@@ -308,7 +309,133 @@ dinext_project_evaluation.project_scoring_report.teardownScoringSession = functi
 	dinext_project_evaluation.project_scoring_report.teardownScoringMount(report);
 	if (report) {
 		report._dinextProjectScoringSkipNextDatatableRender = false;
+		dinext_project_evaluation.project_scoring_report.resetHiddenLegendColorKeys(report);
 	}
+};
+
+dinext_project_evaluation.project_scoring_report.resetHiddenLegendColorKeys = function (report) {
+	if (!report) {
+		return;
+	}
+	report._dinextProjectScoringHiddenColorKeys = new Set();
+};
+
+dinext_project_evaluation.project_scoring_report.getHiddenLegendColorKeys = function (report) {
+	if (!report) {
+		return new Set();
+	}
+	if (!report._dinextProjectScoringHiddenColorKeys) {
+		report._dinextProjectScoringHiddenColorKeys = new Set();
+	}
+	return report._dinextProjectScoringHiddenColorKeys;
+};
+
+dinext_project_evaluation.project_scoring_report.toggleHiddenLegendColorKey = function (report, colorKey) {
+	const key = String(colorKey || "").trim();
+	if (!key || !report) {
+		return;
+	}
+	const hiddenKeys = dinext_project_evaluation.project_scoring_report.getHiddenLegendColorKeys(report);
+	if (hiddenKeys.has(key)) {
+		hiddenKeys.delete(key);
+		return;
+	}
+	hiddenKeys.add(key);
+};
+
+dinext_project_evaluation.project_scoring_report.filterPointsByHiddenLegend = function (report, points) {
+	const hiddenKeys = dinext_project_evaluation.project_scoring_report.getHiddenLegendColorKeys(report);
+	if (!hiddenKeys.size) {
+		return Array.isArray(points) ? points : [];
+	}
+	return (Array.isArray(points) ? points : []).filter((point) => {
+		const identity = dinext_project_evaluation.project_scoring_report.getColorIdentity(point?.color);
+		return identity && !hiddenKeys.has(identity);
+	});
+};
+
+dinext_project_evaluation.project_scoring_report.getChartInstance = function (chartDom) {
+	return (
+		(typeof window.echarts?.getInstanceByDom === "function" && chartDom && window.echarts.getInstanceByDom(chartDom)) ||
+		chartDom?._dinextProjectScoringChart ||
+		null
+	);
+};
+
+dinext_project_evaluation.project_scoring_report.disposeChartInstance = function (chartDom) {
+	const chart = dinext_project_evaluation.project_scoring_report.getChartInstance(chartDom);
+	if (chart && typeof chart.dispose === "function") {
+		chart.dispose();
+	}
+	if (chartDom) {
+		chartDom.innerHTML = "";
+		delete chartDom._dinextProjectScoringChart;
+	}
+};
+
+dinext_project_evaluation.project_scoring_report.updateLegendChartView = function (report, mount, message) {
+	const namespace = dinext_project_evaluation.project_scoring_report;
+	if (!mount?.length) {
+		return;
+	}
+	const chartDom = mount.find(".project-scoring-report-chart").get(0);
+	const legendDom = mount.find(".project-scoring-report-legend").get(0);
+	const emptyDom = mount.find(".project-scoring-report-empty-state").get(0);
+	const bubbleChart = message?.bubble_chart || namespace.getEmptyPayload().bubble_chart;
+	const allPoints = Array.isArray(bubbleChart.points) ? bubbleChart.points : [];
+	const visiblePoints = namespace.filterPointsByHiddenLegend(report, allPoints);
+	const hiddenKeys = namespace.getHiddenLegendColorKeys(report);
+	const colorMap = namespace.buildUniqueColorMap(
+		namespace.collectColorIdentities(allPoints, bubbleChart.legend)
+	);
+
+	namespace.renderLegend(legendDom, bubbleChart.legend, colorMap, hiddenKeys);
+	namespace.ensureLegendClickHandler(report, legendDom);
+
+	if (!allPoints.length) {
+		namespace.disposeChartInstance(chartDom);
+		if (emptyDom) {
+			emptyDom.textContent = message?.summary?.notice || __("No projects match the selected filters.");
+			emptyDom.classList.add("is-visible");
+		}
+		return;
+	}
+
+	if (!visiblePoints.length) {
+		namespace.disposeChartInstance(chartDom);
+		if (emptyDom) {
+			emptyDom.textContent = __("All legend categories are hidden.");
+			emptyDom.classList.add("is-visible");
+		}
+		return;
+	}
+
+	if (emptyDom) {
+		emptyDom.textContent = "";
+		emptyDom.classList.remove("is-visible");
+	}
+
+	let chart = namespace.getChartInstance(chartDom);
+	if (!chart || typeof chart.setOption !== "function") {
+		namespace.disposeChartInstance(chartDom);
+		chart = window.echarts.init(chartDom, namespace.getThemeName());
+		chartDom._dinextProjectScoringChart = chart;
+		namespace.bindBubbleChartNavigation(chart);
+	}
+	chart.setOption(namespace.buildChartOptions(visiblePoints, bubbleChart, colorMap), true);
+	if (typeof chart.resize === "function") {
+		chart.resize();
+	}
+};
+
+dinext_project_evaluation.project_scoring_report.handleLegendItemClick = function (report, colorKey) {
+	if (!report || !colorKey) {
+		return;
+	}
+	dinext_project_evaluation.project_scoring_report.toggleHiddenLegendColorKey(report, colorKey);
+	const message = dinext_project_evaluation.project_scoring_report.normalizeReportPayload(report);
+	const mount = report.page?.main?.find?.(".project-scoring-report-shell");
+	dinext_project_evaluation.project_scoring_report.updateLegendChartView(report, mount, message);
 };
 
 dinext_project_evaluation.project_scoring_report.ensureThemeObserver = function (report) {
@@ -378,16 +505,8 @@ dinext_project_evaluation.project_scoring_report.render = async function (report
 	if (!mount?.length) {
 		return;
 	}
-	const chartDom = mount.find(".project-scoring-report-chart").get(0);
-	const legendDom = mount.find(".project-scoring-report-legend").get(0);
-	const emptyDom = mount.find(".project-scoring-report-empty-state").get(0);
 	const bubbleChart = message.bubble_chart || dinext_project_evaluation.project_scoring_report.getEmptyPayload().bubble_chart;
-	const points = Array.isArray(bubbleChart.points) ? bubbleChart.points : [];
 
-	const colorMap = dinext_project_evaluation.project_scoring_report.buildUniqueColorMap(
-		dinext_project_evaluation.project_scoring_report.collectColorIdentities(points, bubbleChart.legend)
-	);
-	dinext_project_evaluation.project_scoring_report.renderLegend(legendDom, bubbleChart.legend, colorMap);
 	dinext_project_evaluation.project_scoring_report.syncMetricFilterOptions(report, message.metric_catalog);
 	dinext_project_evaluation.project_scoring_report.renderMetricControls(
 		report,
@@ -396,27 +515,7 @@ dinext_project_evaluation.project_scoring_report.render = async function (report
 		bubbleChart.config
 	);
 
-	const existing =
-		(typeof window.echarts?.getInstanceByDom === "function" && chartDom && window.echarts.getInstanceByDom(chartDom)) ||
-		chartDom?._dinextProjectScoringChart ||
-		null;
-	if (existing && typeof existing.dispose === "function") {
-		existing.dispose();
-	}
-
-	if (!points.length) {
-		chartDom.innerHTML = "";
-		emptyDom.textContent = message.summary?.notice || __("No projects match the selected filters.");
-		emptyDom.classList.add("is-visible");
-		return;
-	}
-
-	emptyDom.textContent = "";
-	emptyDom.classList.remove("is-visible");
-	const chart = window.echarts.init(chartDom, dinext_project_evaluation.project_scoring_report.getThemeName());
-	chartDom._dinextProjectScoringChart = chart;
-	chart.setOption(dinext_project_evaluation.project_scoring_report.buildChartOptions(points, bubbleChart, colorMap));
-	dinext_project_evaluation.project_scoring_report.bindBubbleChartNavigation(chart);
+	dinext_project_evaluation.project_scoring_report.updateLegendChartView(report, mount, message);
 };
 
 dinext_project_evaluation.project_scoring_report.openScorecard = function (scorecardName) {
@@ -458,7 +557,7 @@ dinext_project_evaluation.project_scoring_report.bindBubbleChartNavigation = fun
 	});
 };
 
-dinext_project_evaluation.project_scoring_report.renderLegend = function (dom, legend, colorMap) {
+dinext_project_evaluation.project_scoring_report.renderLegend = function (dom, legend, colorMap, hiddenKeys) {
 	if (!dom) {
 		return;
 	}
@@ -467,12 +566,38 @@ dinext_project_evaluation.project_scoring_report.renderLegend = function (dom, l
 		dom.innerHTML = "";
 		return;
 	}
+	const hiddenSet =
+		hiddenKeys && typeof hiddenKeys.has === "function"
+			? hiddenKeys
+			: new Set(Array.isArray(hiddenKeys) ? hiddenKeys : []);
 	dom.innerHTML = items
 		.map((item) => {
+			const colorKey = dinext_project_evaluation.project_scoring_report.getColorIdentity(item);
 			const color = dinext_project_evaluation.project_scoring_report.resolveColor(item, colorMap);
-			return `<span class="project-scoring-report-legend-item"><span class="project-scoring-report-legend-swatch" style="background:${color};"></span>${frappe.utils.escape_html(item.label)}</span>`;
+			const isHidden = hiddenSet.has(colorKey);
+			const hiddenClass = isHidden ? " is-hidden" : "";
+			return `<button type="button" class="project-scoring-report-legend-item${hiddenClass}" data-color-key="${frappe.utils.escape_html(colorKey)}" aria-pressed="${isHidden ? "false" : "true"}"><span class="project-scoring-report-legend-swatch" style="background:${color};"></span>${frappe.utils.escape_html(item.label)}</button>`;
 		})
 		.join("");
+};
+
+dinext_project_evaluation.project_scoring_report.ensureLegendClickHandler = function (report, legendDom) {
+	if (!report || !legendDom || legendDom._dinextProjectScoringLegendBound) {
+		return;
+	}
+	legendDom._dinextProjectScoringLegendBound = true;
+	legendDom.addEventListener("click", (event) => {
+		const item = event.target.closest(".project-scoring-report-legend-item");
+		if (!item) {
+			return;
+		}
+		const colorKey = item.getAttribute("data-color-key");
+		if (!colorKey) {
+			return;
+		}
+		event.preventDefault();
+		dinext_project_evaluation.project_scoring_report.handleLegendItemClick(report, colorKey);
+	});
 };
 
 dinext_project_evaluation.project_scoring_report.syncMetricFilterOptions = function (report, catalog) {
