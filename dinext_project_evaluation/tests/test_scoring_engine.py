@@ -56,6 +56,14 @@ class TestScoringEngine(unittest.TestCase):
 
 		self.assertEqual([item.code for item in result], ["A", "B"])
 
+	def test_filter_applicable_criteria_prefers_stage_specific_over_global(self):
+		global_row = ProfileCriterion(code="MKT_SHARE", weight=1, stages=[])
+		stage_row = ProfileCriterion(code="MKT_SHARE", weight=2, stages=["S2"])
+
+		result = filter_applicable_criteria([global_row, stage_row], current_stage="S2")
+
+		self.assertEqual(result, [stage_row])
+
 	def test_calculate_scorecard_uses_weighted_average(self):
 		result = calculate_scorecard(
 			criteria=[

@@ -6,7 +6,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-from dinext_project_evaluation.scoring.profile_stages import get_applicable_stages
+from dinext_project_evaluation.scoring.profile_stages import resolve_stage_overridden_profile_rows
 from dinext_project_evaluation.scoring.workflow_constants import (
 	SCORECARD_AGREED_DOCSTATUS,
 	SCORECARD_CANCELED_DOCSTATUS,
@@ -69,11 +69,7 @@ def get_applicable_criteria_for_stage(project: str, profile: str, current_stage:
 	profile_doc = frappe.get_doc("Project Scoring Profile", profile)
 	rows = []
 
-	for profile_row in profile_doc.criteria:
-		stages = get_applicable_stages(profile_row)
-		if stages and current_stage not in stages:
-			continue
-
+	for profile_row in resolve_stage_overridden_profile_rows(profile_doc.criteria, current_stage):
 		criterion = frappe.get_doc("Project Scoring Criterion", profile_row.criterion)
 		scale_options = build_scale_options(criterion.scale_rows)
 		rows.append(
