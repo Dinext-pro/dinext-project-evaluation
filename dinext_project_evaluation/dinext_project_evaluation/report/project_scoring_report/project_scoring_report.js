@@ -117,6 +117,7 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 	],
 
 	onload(report) {
+		dinext_project_evaluation.project_scoring_report.suppressSetChartToolbarActions(report);
 		dinext_project_evaluation.project_scoring_report.wrapReportRefresh(report);
 		dinext_project_evaluation.project_scoring_report.ensureChartMount(report);
 		dinext_project_evaluation.project_scoring_report.ensureThemeObserver(report);
@@ -284,6 +285,55 @@ dinext_project_evaluation.project_scoring_report.hideBuiltInChart = function (re
 	}
 };
 
+dinext_project_evaluation.project_scoring_report.removeSetChartToolbarButtons = function (report) {
+	if (!report) {
+		return;
+	}
+	report.create_chart_button?.remove?.();
+	report.create_chart_button = null;
+	report.add_to_dashboard_button?.remove?.();
+	report.add_to_dashboard_button = null;
+	if (report.page?.remove_inner_button) {
+		report.page.remove_inner_button(__("Set Chart"), __("Actions"));
+		report.page.remove_inner_button(__("Add Chart to Dashboard"), __("Actions"));
+	}
+};
+
+dinext_project_evaluation.project_scoring_report.suppressSetChartToolbarActions = function (report) {
+	if (!dinext_project_evaluation.project_scoring_report.isScoringReport(report)) {
+		return;
+	}
+	if (report._dinextProjectScoringSetChartSuppressed) {
+		dinext_project_evaluation.project_scoring_report.removeSetChartToolbarButtons(report);
+		return;
+	}
+
+	const queryReportProto = frappe.views?.QueryReport?.prototype;
+	if (!queryReportProto || typeof queryReportProto.add_chart_buttons_to_toolbar !== "function") {
+		return;
+	}
+
+	report._dinextProjectScoringBaseAddChartButtons =
+		report._dinextProjectScoringBaseAddChartButtons ||
+		queryReportProto.add_chart_buttons_to_toolbar.bind(report);
+	report.add_chart_buttons_to_toolbar = function () {
+		dinext_project_evaluation.project_scoring_report.removeSetChartToolbarButtons(report);
+	};
+	report._dinextProjectScoringSetChartSuppressed = true;
+	dinext_project_evaluation.project_scoring_report.removeSetChartToolbarButtons(report);
+};
+
+dinext_project_evaluation.project_scoring_report.restoreSetChartToolbarActions = function (report) {
+	if (!report?._dinextProjectScoringSetChartSuppressed) {
+		return;
+	}
+	if (report._dinextProjectScoringBaseAddChartButtons) {
+		report.add_chart_buttons_to_toolbar = report._dinextProjectScoringBaseAddChartButtons;
+	}
+	delete report._dinextProjectScoringBaseAddChartButtons;
+	delete report._dinextProjectScoringSetChartSuppressed;
+};
+
 dinext_project_evaluation.project_scoring_report.teardownScoringMount = function (report) {
 	if (!report?.page?.main || typeof report.page.main.find !== "function") {
 		return;
@@ -307,6 +357,7 @@ dinext_project_evaluation.project_scoring_report.teardownScoringMount = function
 };
 
 dinext_project_evaluation.project_scoring_report.teardownScoringSession = function (report) {
+	dinext_project_evaluation.project_scoring_report.restoreSetChartToolbarActions(report);
 	dinext_project_evaluation.project_scoring_report.teardownScoringMount(report);
 	if (report) {
 		report._dinextProjectScoringSkipNextDatatableRender = false;
