@@ -53,10 +53,34 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 			},
 		},
 		{
+			fieldname: "project_type",
+			label: __("Project Type"),
+			fieldtype: "Link",
+			options: "Project Type",
+		},
+		{
+			fieldname: "project_status",
+			label: __("Status"),
+			fieldtype: "Select",
+			options: "\nOpen\nCompleted\nCancelled",
+		},
+		{
+			fieldname: "governance_model",
+			label: __("Governance Model"),
+			fieldtype: "Link",
+			options: "Project Governance Model",
+		},
+		{
 			fieldname: "profile",
-			label: __("Profile"),
+			label: __("Project Scoring Profile"),
 			fieldtype: "Link",
 			options: "Project Scoring Profile",
+		},
+		{
+			fieldname: "only_active_projects",
+			label: __("Only Active Projects"),
+			fieldtype: "Check",
+			default: 0,
 		},
 		{
 			fieldname: "project_stage",

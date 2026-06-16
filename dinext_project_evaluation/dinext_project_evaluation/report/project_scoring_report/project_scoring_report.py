@@ -14,6 +14,8 @@ from dinext_project_evaluation.scoring.workflow_constants import SCORECARD_AGREE
 PROJECT_LIMIT = 100
 SCORECARD_ITEM_LIMIT = 5000
 REPORT_FETCH_LIMIT = 5000
+PROJECT_SCORING_PROFILE_FIELD = "custom_project_scoring_profile"
+PROJECT_ACTIVE_VALUE = "Yes"
 
 RISK_CODES = ("RISK_IMP", "RISK_PROB")
 BENEFIT_CODES = ("STR_ALIGN", "BEN_FIN", "BEN_NONFIN", "MKT_SHARE", "SALES_POT")
@@ -206,16 +208,31 @@ def build_bubble_chart_payload(rows, filters, metric_catalog=None):
 	}
 
 
-def _get_projects(filters, dynamic_fields):
+def build_project_filters(filters):
 	project_filters = {}
 	if filters.get("project_portfolio"):
 		project_filters["custom_project_portfolio"] = filters["project_portfolio"]
 	if filters.get("project_stage"):
 		project_filters["current_stage"] = filters["project_stage"]
 	if filters.get("project"):
-		project_names = filters.project if isinstance(filters.project, list) else [filters.project]
+		project_value = filters.get("project")
+		project_names = project_value if isinstance(project_value, list) else [project_value]
 		project_filters["name"] = ["in", project_names]
+	if filters.get("project_type"):
+		project_filters["project_type"] = filters["project_type"]
+	if filters.get("project_status"):
+		project_filters["status"] = filters["project_status"]
+	if filters.get("governance_model"):
+		project_filters["governance_model"] = filters["governance_model"]
+	if filters.get("profile"):
+		project_filters[PROJECT_SCORING_PROFILE_FIELD] = filters["profile"]
+	if filters.get("only_active_projects") in (1, "1", True):
+		project_filters["is_active"] = PROJECT_ACTIVE_VALUE
+	return project_filters
 
+
+def _get_projects(filters, dynamic_fields):
+	project_filters = build_project_filters(filters)
 	fields = _unique(
 		["name", "project_name", "custom_project_portfolio", "current_stage", "modified"] + list(dynamic_fields or [])
 	)
@@ -264,8 +281,6 @@ def build_scorecard_filters(project_names, filters):
 		["project", "in", project_names],
 		["docstatus", "=", SCORECARD_AGREED_DOCSTATUS],
 	]
-	if filters.get("profile"):
-		scorecard_filters.append(["profile", "=", filters["profile"]])
 	if filters.get("evaluated_stage"):
 		scorecard_filters.append(["stage_at_evaluation", "=", filters["evaluated_stage"]])
 	if filters.get("gate_pass") in (0, 1, "0", "1"):
@@ -651,8 +666,7 @@ def _resolve_axis_metric_descriptor(descriptor, definition):
 
 def _requires_matching_scorecard(filters):
 	return bool(
-		filters.get("profile")
-		or filters.get("evaluated_stage")
+		filters.get("evaluated_stage")
 		or filters.get("from_date")
 		or filters.get("to_date")
 		or filters.get("gate_pass") in (0, 1, "0", "1")
