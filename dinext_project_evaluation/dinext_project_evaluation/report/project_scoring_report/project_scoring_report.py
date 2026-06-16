@@ -49,6 +49,15 @@ def get_columns():
 		{"fieldname": "project", "label": _("Project"), "fieldtype": "Link", "options": "Project", "width": 180},
 		{"fieldname": "project_name", "label": _("Project Name"), "fieldtype": "Data", "width": 220},
 		{"fieldname": "portfolio", "label": _("Portfolio"), "fieldtype": "Link", "options": "Project Portfolio", "width": 180},
+		{"fieldname": "project_type", "label": _("Project Type"), "fieldtype": "Link", "options": "Project Type", "width": 160},
+		{"fieldname": "project_status", "label": _("Status"), "fieldtype": "Data", "width": 120},
+		{
+			"fieldname": "governance_model",
+			"label": _("Governance Model"),
+			"fieldtype": "Link",
+			"options": "Project Governance Model",
+			"width": 180,
+		},
 		{
 			"fieldname": "project_stage",
 			"label": _("Current Stage", context="Dinext.StageGateModel"),
@@ -68,9 +77,6 @@ def get_columns():
 		{"fieldname": "evaluation_date", "label": _("Evaluation Date"), "fieldtype": "Datetime", "width": 170},
 		{"fieldname": "integral_score", "label": _("Integral Score"), "fieldtype": "Float", "width": 120},
 		{"fieldname": "gate_pass", "label": _("Gate Pass"), "fieldtype": "Check", "width": 90},
-		{"fieldname": "risk_score_norm", "label": _("Risk Score"), "fieldtype": "Float", "width": 110},
-		{"fieldname": "benefit_score_norm", "label": _("Benefit Score"), "fieldtype": "Float", "width": 110},
-		{"fieldname": "cost_score_norm", "label": _("Cost Score"), "fieldtype": "Float", "width": 110},
 	]
 
 
@@ -264,7 +270,17 @@ def build_project_filters(filters):
 def _get_projects(filters, dynamic_fields):
 	project_filters = build_project_filters(filters)
 	fields = _unique(
-		["name", "project_name", "custom_project_portfolio", "current_stage", "modified"] + list(dynamic_fields or [])
+		[
+			"name",
+			"project_name",
+			"custom_project_portfolio",
+			"project_type",
+			"status",
+			"governance_model",
+			"current_stage",
+			"modified",
+		]
+		+ list(dynamic_fields or [])
 	)
 	return frappe.db.get_all(
 		"Project",
@@ -372,6 +388,13 @@ def _build_row(project, scorecard, scorecard_metrics, metric_catalog):
 		"project_name": project.get("project_name"),
 		"portfolio": project.get("custom_project_portfolio"),
 		"portfolio_display": _get_link_display("Project Portfolio", project.get("custom_project_portfolio"), link_title_cache),
+		"project_type": project.get("project_type"),
+		"project_type_display": _get_link_display("Project Type", project.get("project_type"), link_title_cache),
+		"project_status": project.get("status"),
+		"governance_model": project.get("governance_model"),
+		"governance_model_display": _get_link_display(
+			"Project Governance Model", project.get("governance_model"), link_title_cache
+		),
 		"project_stage": project.get("current_stage"),
 		"project_stage_display": _get_link_display("Project Stage", project.get("current_stage"), link_title_cache),
 		"evaluated_stage": scorecard.get("stage_at_evaluation") if scorecard else None,

@@ -899,6 +899,52 @@ class TestProjectScoringFilterAssembly(unittest.TestCase):
 		self.assertIn(["evaluation_date", "<=", "2026-06-30 23:59:59"], filters)
 
 
+class TestProjectScoringReportColumns(unittest.TestCase):
+	ROW_LEVEL_FILTER_COLUMNS = (
+		"project",
+		"portfolio",
+		"project_type",
+		"project_status",
+		"governance_model",
+		"project_stage",
+		"evaluated_stage",
+		"profile",
+		"gate_pass",
+	)
+	REMOVED_AGGREGATE_COLUMNS = ("risk_score_norm", "benefit_score_norm", "cost_score_norm")
+
+	def test_get_columns_includes_row_level_filter_fields(self):
+		fieldnames = {column["fieldname"] for column in project_scoring_report.get_columns()}
+		for fieldname in self.ROW_LEVEL_FILTER_COLUMNS:
+			self.assertIn(fieldname, fieldnames)
+
+	def test_get_columns_excludes_aggregate_score_columns(self):
+		fieldnames = {column["fieldname"] for column in project_scoring_report.get_columns()}
+		for fieldname in self.REMOVED_AGGREGATE_COLUMNS:
+			self.assertNotIn(fieldname, fieldnames)
+
+	def test_build_row_includes_row_level_filter_values(self):
+		row = project_scoring_report._build_row(
+			{
+				"name": "PRJ-001",
+				"project_name": "Alpha",
+				"custom_project_portfolio": "PORT-001",
+				"project_type": "TYPE-001",
+				"status": "Open",
+				"governance_model": "GM-001",
+				"current_stage": "STAGE-001",
+				"modified": "2026-06-01",
+			},
+			None,
+			None,
+			{"axis": [], "size": [], "color": []},
+		)
+
+		self.assertEqual(row["project_type"], "TYPE-001")
+		self.assertEqual(row["project_status"], "Open")
+		self.assertEqual(row["governance_model"], "GM-001")
+
+
 class TestProjectScoringReportSummary(unittest.TestCase):
 	def test_build_report_summary_replaces_plotted_projects_with_scorecard_counts(self):
 		rows = [
