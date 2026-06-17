@@ -1102,6 +1102,35 @@ dinext_project_evaluation.project_scorecard.render_row_editor = function (frm, c
 };
 
 dinext_project_evaluation.project_scorecard.KPI_TRANSLATION_CONTEXT = "Project Scorecard.KPI";
+dinext_project_evaluation.project_scorecard.legacy_gate_message_patterns = [
+	{
+		pattern: /^(.*) normalized score (-?\d+(?:\.\d+)?) is below required (-?\d+(?:\.\d+)?)$/,
+		translate(criterion, actual, required) {
+			return __(
+				"{0} normalized score {1} is below required {2}",
+				[criterion, actual, required]
+			);
+		},
+	},
+	{
+		pattern: /^(.*) raw value (-?\d+(?:\.\d+)?) is below required (-?\d+(?:\.\d+)?)$/,
+		translate(criterion, actual, required) {
+			return __("{0} raw value {1} is below required {2}", [criterion, actual, required]);
+		},
+	},
+	{
+		pattern: /^(.*) raw value (-?\d+(?:\.\d+)?) is above allowed (-?\d+(?:\.\d+)?)$/,
+		translate(criterion, actual, allowed) {
+			return __("{0} raw value {1} is above allowed {2}", [criterion, actual, allowed]);
+		},
+	},
+	{
+		pattern: /^Missing mandatory value for (.*)$/,
+		translate(criterion) {
+			return __("Missing mandatory value for {0}", [criterion]);
+		},
+	},
+];
 
 dinext_project_evaluation.project_scorecard.ensure_dashboard_styles = function () {
 	if (dinext_project_evaluation.project_scorecard._dashboard_styles_loaded) {
@@ -1206,7 +1235,21 @@ dinext_project_evaluation.project_scorecard.parse_gate_messages = function (gate
 	return String(gate_messages)
 		.split("\n")
 		.map((line) => line.trim())
+		.map((line) => dinext_project_evaluation.project_scorecard.localize_gate_message(line))
 		.filter(Boolean);
+};
+
+dinext_project_evaluation.project_scorecard.localize_gate_message = function (message) {
+	if (!message) {
+		return "";
+	}
+	for (const entry of dinext_project_evaluation.project_scorecard.legacy_gate_message_patterns) {
+		const match = message.match(entry.pattern);
+		if (match) {
+			return entry.translate(...match.slice(1));
+		}
+	}
+	return message;
 };
 
 dinext_project_evaluation.project_scorecard.get_gate_kpi_state = function (doc) {

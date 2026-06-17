@@ -86,6 +86,19 @@ test("format_gate_warning falls back to translated threshold warning for failed 
 	assert.equal(message, "Scorecard gate thresholds were not met.");
 });
 
+test("parse_gate_messages localizes legacy english gate warnings", () => {
+	const { namespace } = loadCheckpointScript();
+	const messages = Array.from(
+		namespace.parse_gate_messages(
+			"Вероятность успешного завершения работ raw value 45.0000 is below required 50.0000"
+		)
+	);
+
+	assert.deepEqual(messages, [
+		"Вероятность успешного завершения работ: исходное значение 45.0000 ниже требуемого значения 50.0000.",
+	]);
+});
+
 test("build_scorecard_widget_html includes linked scorecard navigation label", () => {
 	const { namespace } = loadCheckpointScript();
 	const html = namespace.build_scorecard_widget_html({

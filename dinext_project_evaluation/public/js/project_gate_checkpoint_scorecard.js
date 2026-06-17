@@ -13,6 +13,32 @@ const CHECKPOINT_SCORECARD_WIDGET_MOUNT_CLASS = "dpe-checkpoint-scorecard-widget
 const CHECKPOINT_SCORECARD_SECTION_CLASS = "dpe-checkpoint-scorecard-section";
 const CHECKPOINT_SCORECARD_KPI_CONTEXT = "Project Gate Checkpoint.StageScorecard";
 const SCORECARD_DOCTYPE = "Project Scorecard";
+const LEGACY_GATE_MESSAGE_PATTERNS = [
+	{
+		pattern: /^(.*) normalized score (-?\d+(?:\.\d+)?) is below required (-?\d+(?:\.\d+)?)$/,
+		translate(criterion, actual, required) {
+			return __("{0} normalized score {1} is below required {2}", [criterion, actual, required]);
+		},
+	},
+	{
+		pattern: /^(.*) raw value (-?\d+(?:\.\d+)?) is below required (-?\d+(?:\.\d+)?)$/,
+		translate(criterion, actual, required) {
+			return __("{0} raw value {1} is below required {2}", [criterion, actual, required]);
+		},
+	},
+	{
+		pattern: /^(.*) raw value (-?\d+(?:\.\d+)?) is above allowed (-?\d+(?:\.\d+)?)$/,
+		translate(criterion, actual, allowed) {
+			return __("{0} raw value {1} is above allowed {2}", [criterion, actual, allowed]);
+		},
+	},
+	{
+		pattern: /^Missing mandatory value for (.*)$/,
+		translate(criterion) {
+			return __("Missing mandatory value for {0}", [criterion]);
+		},
+	},
+];
 
 dinext_project_evaluation.stage_gate_checkpoint.get_widget_mount = function (frm) {
 	const field = frm.get_field("stage_scorecard_widget_mount");
@@ -144,7 +170,21 @@ dinext_project_evaluation.stage_gate_checkpoint.parse_gate_messages = function (
 	return String(gate_warning)
 		.split("\n")
 		.map((line) => line.trim())
+		.map((line) => dinext_project_evaluation.stage_gate_checkpoint.localize_gate_message(line))
 		.filter(Boolean);
+};
+
+dinext_project_evaluation.stage_gate_checkpoint.localize_gate_message = function (message) {
+	if (!message) {
+		return "";
+	}
+	for (const entry of LEGACY_GATE_MESSAGE_PATTERNS) {
+		const match = message.match(entry.pattern);
+		if (match) {
+			return entry.translate(...match.slice(1));
+		}
+	}
+	return message;
 };
 
 dinext_project_evaluation.stage_gate_checkpoint.format_gate_warning = function (frm) {
