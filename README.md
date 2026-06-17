@@ -18,6 +18,7 @@
 - **Каталог по умолчанию из fixtures** — типовые критерии (стратегическое соответствие, финансовая выгода и др.) и `Default Project Scoring Profile` согласно [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
 - **Чистый scoring engine** — модуль расчёта без зависимости от Frappe ORM и unit-тесты нормализации, взвешивания и gate-логики.
 - **Интеграция со Stage Gate** — флаг **Require Agreed Stage Scorecard** на `Stage Gate Template`; при включении checkpoint нельзя отправить в **In Review** без submitted scorecard (`docstatus = 1`) для той же `Project Stage Instance`. На форме `Project Gate Checkpoint` в секции **Stage Scorecard** (после `decision_comment`) — кликабельный KPI-виджет в стиле scorecard с переходом к связанной карточке; непройденные gate-пороги — **мягкое** предупреждение, не блокирует review. Подробнее — [Интеграция Stage Gate и scorecard](#интеграция-stage-gate-и-scorecard).
+- **Workspace «Скоринг проектов»** — публичная рабочая область Desk с KPI number cards по статусам scorecard и покрытию профилем оценки, shortcuts к отчёту портфеля и операционным DocType, карточкой настройки каталога; доступ по ролям scorecard, `Dinext_Project_Manager` и `System Manager`. Подробнее — [Workspace «Скоринг проектов»](#workspace-скоринг-проектов).
 
 ## 🚀 Установка
 
@@ -209,11 +210,69 @@ Form script [`public/js/project_gate_checkpoint_scorecard.js`](dinext_project_ev
 
 Сводка scorecard на checkpoint синхронизируется при сохранении checkpoint, при `after_insert` scorecard и при изменениях расчётных полей scorecard. Для уже созданных checkpoint без snapshot выполняется patch `migrate_checkpoint_scorecard_summary_backfill`.
 
+## Workspace «Скоринг проектов»
+
+Публичный Frappe Workspace модуля **Dinext Project Evaluation** — единая точка входа для PMO и менеджеров проектов. Метаданные versioned в репозитории и подтягиваются на сайт при `install-app` / `migrate` (стандартный импорт module JSON, не через `fixtures` в `hooks.py`).
+
+**Путь в репозитории:** `dinext_project_evaluation/dinext_project_evaluation/workspace/скоринг_проектов/скоринг_проектов.json`  
+**Number Card fixtures:** `dinext_project_evaluation/dinext_project_evaluation/number_card/`
+
+В Desk: боковое меню → **Скоринг проектов** (иконка `activity`, модуль Dinext Project Evaluation).
+
+### Доступ
+
+Workspace виден пользователям с любой из ролей:
+
+| Роль | Назначение |
+|------|------------|
+| **Project Scorecard Author** | Авторы scorecard |
+| **Project Scorecard Reviewer** | Ревьюеры |
+| **Project Scorecard Approver** | Утверждающие |
+| **Project Scorecard Admin** | Администраторы scorecard |
+| **Dinext_Project_Manager** | Менеджеры проектов Dinext |
+| **System Manager** | Полный доступ Desk |
+
+### Разделы и навигация
+
+| Раздел на workspace | Содержимое |
+|---------------------|------------|
+| **Сводка оценки проектов** | Шесть KPI number cards (см. таблицу ниже) |
+| **Аналитика портфеля** | Shortcut **Отчёт: оценка проектов** → **Project Scoring Report** |
+| **Работа с карточками оценки** | Shortcuts: **Карточки оценки проектов**, **Проекты**, **Портфели проектов** |
+| **Профили и критерии** | Card-ссылки: **Project Scoring Profile**, **Project Scoring Criterion**, **Project Scoring Criterion Group**, **Project Scorecard** |
+
+### KPI number cards
+
+На workspace отображаются пользовательские подписи; в репозитории каждая карточка — отдельный standard **Number Card** (`is_standard = 1`, `is_public = 1`, `function = Count`).
+
+| Подпись на workspace | Имя Number Card | DocType | Фильтр |
+|----------------------|-----------------|---------|--------|
+| **Оценки в работе** | Карточки в работе | Project Scorecard | `status` in Draft, Rejected |
+| **Оценки на согласовании** | Карточки на согласовании | Project Scorecard | `status` in Submitted for Review, Reviewed |
+| **Согласованные оценки** | Согласованные карточки | Project Scorecard | `status` = Approved |
+| **Оценки с непрохождением ворот** | Карточки с непрохождением gate | Project Scorecard | `status` = Approved и `gate_pass` = 0 |
+| **Проекты с профилем оценки** | Проекты с профилем оценки | Project | `custom_project_scoring_profile` is set |
+| **Проекты без профиля оценки** | Проекты без профиля оценки | Project | `custom_project_scoring_profile` is not set |
+
+Карточки по scorecard используют бизнес-поле **`status`** (как в workflow), а не `docstatus` — для согласованных оценок фильтр **Approved** совпадает с submitted lifecycle (`docstatus = 1` после Approve).
+
+### Разработка метаданных workspace
+
+По политике Dinext: workspace и number cards создаются или правятся в Desk (или через MCP), затем экспортируются в module JSON:
+
+```bash
+bench --site <site> export-doc "Workspace" "Скоринг проектов"
+bench --site <site> export-doc "Number Card" "Карточки в работе"
+# … для остальных number cards
+```
+
+Либо скопируйте обновлённые JSON из `sites/<site>/…` в каталоги `workspace/` и `number_card/` модуля. Regression-тесты структуры: `tests/test_project_scoring_workspace.py`.
+
 ## 🛠️ Использование
 
 ### В интерфейсе Desk
 
-1. Откройте **Project Scoring Criterion** и **Project Scoring Profile** — просмотр или расширение каталога (либо используйте каталог по умолчанию из fixtures).
+1. Откройте workspace **Скоринг проектов** для сводки KPI и быстрых переходов, либо напрямую **Project Scoring Criterion** и **Project Scoring Profile** — просмотр или расширение каталога (либо используйте каталог по умолчанию из fixtures).
 2. В **Project Scoring Profile** для каждой строки критерия задайте вес, обязательность и при необходимости пороги gate:
    - **Desired** — пороговые поля скрыты; gate не проверяется.
    - **Mandatory + шкала/да-нет** — доступен только **Minimum Normalized Score** (0…1).
@@ -394,6 +453,8 @@ node --test \
   tests/test_project_gate_checkpoint_scorecard.test.js \
   tests/test_project_portfolio_scoring_navigation.test.js
 
+python3 -m unittest tests.test_project_scoring_workspace
+
 bench --site <site> run-tests \
   --module dinext_project_evaluation.tests.test_api \
   --module dinext_project_evaluation.tests.test_gate_fields \
@@ -442,6 +503,8 @@ GitHub Actions в репозитории гоняет Semgrep и JS regression t
 | `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_profile/project_scoring_profile.js` | Условная видимость порогов gate в форме профиля |
 | `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js` | Grid ввода значений критериев, валидация mandatory при уходе из Draft, подсветка ячеек, **dashboard KPI**, ручной пересчёт |
 | `dinext_project_evaluation/translations/ru.csv` | Русские переводы |
+| `dinext_project_evaluation/dinext_project_evaluation/workspace/скоринг_проектов/` | Workspace **Скоринг проектов**: layout, shortcuts, roles |
+| `dinext_project_evaluation/dinext_project_evaluation/number_card/` | Standard Number Card KPI для workspace (фильтры по status scorecard и профилю на Project) |
 
 Fixtures из `hooks.py` экспортируют:
 
@@ -505,7 +568,8 @@ pre-commit install
 
 | Commit | Кратко |
 |--------|--------|
-| *(текущая ветка)* | **Project Scoring Report:** фильтры тип проекта, статус, Governance Model, Project Scoring Profile (`custom_project_scoring_profile`), только активные проекты; project-фильтры через `build_project_filters`, profile больше не фильтрует scorecard |
+| *(текущая ветка)* | **Workspace «Скоринг проектов»:** KPI number cards, shortcuts к отчёту и DocType, card настройки каталога; role-based доступ; regression `tests/test_project_scoring_workspace.py` |
+| *(предыдущая)* | **Project Scoring Report:** фильтры тип проекта, статус, Governance Model, Project Scoring Profile (`custom_project_scoring_profile`), только активные проекты; project-фильтры через `build_project_filters`, profile больше не фильтрует scorecard |
 | *(предыдущая)* | **Project Scoring Report:** динамические метрики X/Y/size/color из runtime meta; dataset-aware dropdown; auto-refresh при смене метрики; категория **Не задано** на категориальных осях; минимальный bubble при пустом size; disambiguation `Project - …` / `Project Evaluation - …` в Select; исключение hidden DocFields из каталога |
 | *(предыдущая)* | Виджет **Stage Scorecard** в исходной секции формы Project Gate Checkpoint (`stage_scorecard_widget_mount`); скрытые snapshot-поля; reuse CSS `project_scorecard_dashboard.css`; API fallback `get_checkpoint_scorecard_summary` |
 | *(предыдущая)* | Dashboard KPI на форме Project Scorecard: Integral Score и Gate Pass в `frm.dashboard`; видимость после расчёта (`evaluation_date` + `integral_score`); CSS `project_scorecard_dashboard.css` |
@@ -563,6 +627,8 @@ dinext_project_evaluation/
     ├── translations/ru.csv
     └── dinext_project_evaluation/
         ├── doctype/                   # DocTypes скоринга + Project Scorecard
+        ├── workspace/скоринг_проектов/ # Workspace «Скоринг проектов»
+        ├── number_card/               # KPI cards для workspace
         └── report/
             └── project_scoring_report/  # Script Report: metric_registry + bubble payload + ECharts UI
 ```
@@ -590,12 +656,16 @@ dinext_project_evaluation/
 | `tests/test_project_scoring_report.py` | Regression: catalog, bubble payload, Not Set, size normalization |
 | `tests/test_project_scoring_report.test.js` | Regression: metric controls, label disambiguation, refresh |
 | `fixtures/` | Версионируемые метаданные и каталог по умолчанию для migrate/install |
+| `workspace/скоринг_проектов/` | Публичный Desk workspace: KPI, shortcuts, card профилей и критериев |
+| `number_card/` | Count-фильтры по status scorecard и `custom_project_scoring_profile` на Project |
+| `tests/test_project_scoring_workspace.py` | Regression: структура workspace, соответствие number cards, фильтры |
 
 ## 🔗 Схема потоков
 
 ```mermaid
 flowchart TB
   subgraph UI["Интерфейс Desk"]
+    WS[Workspace Скоринг проектов]
     P[Форма Project]
     SCUI[Форма Project Scorecard]
     CPUI[Форма Project Gate Checkpoint]
@@ -620,6 +690,10 @@ flowchart TB
     ENG[engine]
   end
 
+  WS -->|shortcuts KPI| SC
+  WS -->|shortcut| R
+  WS -->|shortcuts| P
+  WS -->|shortcut| PP
   P -->|Client Script| A
   P -->|save profile on_update| SC
   SCUI -->|dashboard KPI| SC
