@@ -39,12 +39,7 @@ bench --site <site> migrate
 bench --site <site> export-fixtures
 ```
 
-При `migrate` подтягиваются fixtures, в том числе workflow **Dinext Project Scorecard Approval**, роли scorecard-согласования и `Default Project Scoring Profile`. Патчи:
-
-- `migrate_scorecard_calculated_status` — устаревший статус `Calculated` → `Reviewed`;
-- `migrate_scorecard_submittable` — backfill `docstatus` для существующих scorecard (`Approved` → submitted, `Canceled` → cancelled);
-- `migrate_checkpoint_require_agreed_scorecard_snapshot` — backfill snapshot-флага `require_agreed_stage_scorecard` на существующие checkpoint из текущих шаблонов;
-- `migrate_checkpoint_scorecard_summary_backfill` — пересинхронизация `linked_stage_scorecard` и summary-полей на существующих checkpoint.
+При `migrate` подтягиваются fixtures, в том числе workflow **Dinext Project Scorecard Approval**, роли scorecard-согласования и `Default Project Scoring Profile`. Одноразовые data-migration патчи в приложении не используются: актуальная схема и поведение обеспечиваются DocType JSON, fixtures и runtime hooks.
 
 ## Workflow согласования Project Scorecard
 
@@ -153,8 +148,6 @@ bench --site <site> export-fixtures
 
 **Согласованная** оценка определяется только `docstatus`, а не бизнес-статусом `status`. Бизнес-статус scorecard (`status`) показывается в dashboard-виджете checkpoint для контекста оператора.
 
-При миграции существующие checkpoint получают snapshot-значение из текущего шаблона один раз (patch `migrate_checkpoint_require_agreed_scorecard_snapshot`).
-
 ### Поведение на форме Project Gate Checkpoint
 
 При каждом сохранении checkpoint сервер синхронизирует скрытые read-only поля сводки scorecard (denormalized snapshot):
@@ -208,7 +201,7 @@ Form script [`public/js/project_gate_checkpoint_scorecard.js`](dinext_project_ev
 
 `dinext_project_evaluation.api.get_checkpoint_scorecard_summary(checkpoint)` — нормализованная сводка для обновления формы; форма checkpoint вызывает этот API как fallback, если snapshot-поля ещё пустые.
 
-Сводка scorecard на checkpoint синхронизируется при сохранении checkpoint, при `after_insert` scorecard и при изменениях расчётных полей scorecard. Для уже созданных checkpoint без snapshot выполняется patch `migrate_checkpoint_scorecard_summary_backfill`.
+Сводка scorecard на checkpoint синхронизируется при сохранении checkpoint, при `after_insert` scorecard и при изменениях расчётных полей scorecard.
 
 ## Workspace «Скоринг проектов»
 
@@ -604,11 +597,6 @@ dinext_project_evaluation/
     │   ├── workflow.py                # workflow-переходы calculate / approve / cancel
     │   ├── stage_gate_integration.py  # checkpoint ↔ scorecard sync, hard-gate validate
     │   └── stage_gate_checkpoint_hooks.py  # doc_events checkpoint и scorecard
-    ├── patches/
-    │   ├── migrate_scorecard_calculated_status.py
-    │   ├── migrate_scorecard_submittable.py
-    │   ├── migrate_checkpoint_require_agreed_scorecard_snapshot.py
-    │   └── migrate_checkpoint_scorecard_summary_backfill.py
     ├── tests/
     │   ├── test_project_scoring_report.py      # unit-тесты metric registry и bubble payload
     │   ├── test_project_scoring_report.test.js # unit-тесты client report (Select метрик, refresh)
