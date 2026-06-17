@@ -5,6 +5,7 @@ from unittest.mock import patch
 from dinext_project_evaluation.scoring.workflow_constants import (
 	SCORECARD_AGREED_DOCSTATUS,
 	SCORECARD_CANCELED_DOCSTATUS,
+	get_scorecard_status_label,
 	is_agreed_scorecard,
 	is_canceled_scorecard,
 	is_terminal_scorecard,
@@ -57,6 +58,20 @@ class TestWorkflowConstants(unittest.TestCase):
 	def test_workflow_state_targets_docstatus(self, _get_value):
 		self.assertTrue(workflow_state_targets_docstatus("Согласовано", SCORECARD_AGREED_DOCSTATUS))
 		self.assertFalse(workflow_state_targets_docstatus(None, SCORECARD_AGREED_DOCSTATUS))
+
+	@patch(
+		"dinext_project_evaluation.scoring.workflow_constants._",
+		side_effect=lambda status: {
+			"Reviewed": "Проверено",
+			"Submitted for Review": "На проверке",
+		}.get(status, status),
+	)
+	def test_get_scorecard_status_label_uses_translation_lookup(self, _translate):
+		self.assertEqual(get_scorecard_status_label("Reviewed"), "Проверено")
+		self.assertEqual(get_scorecard_status_label("Submitted for Review"), "На проверке")
+		self.assertEqual(get_scorecard_status_label("Unknown"), "Unknown")
+		self.assertEqual(get_scorecard_status_label(None), "")
+		self.assertEqual(get_scorecard_status_label(""), "")
 
 
 if __name__ == "__main__":

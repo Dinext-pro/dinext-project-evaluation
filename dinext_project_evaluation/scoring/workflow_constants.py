@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import frappe
+from frappe import _
 from frappe.utils import cint
 
 WORKFLOW_NAME = "Dinext Project Scorecard Approval"
@@ -142,3 +143,10 @@ LEGACY_ROLE_TO_SCORECARD = {
 	"Dinext_Project_Manager": ROLE_AUTHOR,
 	"Project Governance Admin": ROLE_ADMIN,
 }
+
+
+def get_scorecard_status_label(status: str | None) -> str:
+	"""Return a user-facing localized label for a Project Scorecard workflow status."""
+	if not status:
+		return ""
+	return _(status)

@@ -972,6 +972,86 @@ test("buildChartOptions series label uses theme text color in dark theme", () =>
 	assert.equal(options.series[0].label.color, "#e4e4e7");
 });
 
+function sampleChartPoints() {
+	return [
+		{
+			x: { label: "Risk", value: 0.4, display: "0.4" },
+			y: { label: "Score", value: 0.8, display: "0.8" },
+			size: { normalized: 18 },
+			color: { token: "gate-pass" },
+		},
+	];
+}
+
+test("buildChartOptions tooltip uses light-theme fallback colors when CSS vars are unavailable", () => {
+	const { namespace } = loadReportScript();
+	const options = namespace.buildChartOptions(sampleChartPoints(), { config: {} });
+
+	assert.equal(options.tooltip.backgroundColor, "#ffffff");
+	assert.equal(options.tooltip.borderColor, "#6a7d92");
+	assert.equal(options.tooltip.borderWidth, 1);
+	assert.equal(options.tooltip.textStyle.color, "#6a7d92");
+});
+
+test("buildChartOptions tooltip uses theme CSS variables in dark theme", () => {
+	const { context, namespace } = loadReportScript();
+	context.document.documentElement.getAttribute = () => "dark";
+	context.getComputedStyle = () => ({
+		getPropertyValue(name) {
+			if (name === "--card-bg") {
+				return "#1b1c1f";
+			}
+			if (name === "--border-color") {
+				return "#38393b";
+			}
+			if (name === "--text-color") {
+				return "#e4e4e7";
+			}
+			return "";
+		},
+	});
+
+	const options = namespace.buildChartOptions(sampleChartPoints(), { config: {} });
+
+	assert.equal(options.tooltip.backgroundColor, "#1b1c1f");
+	assert.equal(options.tooltip.borderColor, "#38393b");
+	assert.equal(options.tooltip.textStyle.color, "#e4e4e7");
+});
+
+test("buildChartOptions tooltip options recompute from CSS variables on theme change", () => {
+	const { context, namespace } = loadReportScript();
+	const cssVarsByTheme = {
+		light: {
+			"--card-bg": "#ffffff",
+			"--border-color": "#d1d8dd",
+			"--text-color": "#171717",
+		},
+		dark: {
+			"--card-bg": "#1b1c1f",
+			"--border-color": "#38393b",
+			"--text-color": "#e4e4e7",
+		},
+	};
+	let activeTheme = "light";
+	context.document.documentElement.getAttribute = (name) =>
+		name === "data-theme" ? activeTheme : null;
+	context.getComputedStyle = () => ({
+		getPropertyValue(name) {
+			return cssVarsByTheme[activeTheme][name] || "";
+		},
+	});
+
+	const lightOptions = namespace.buildChartOptions(sampleChartPoints(), { config: {} });
+	activeTheme = "dark";
+	const darkOptions = namespace.buildChartOptions(sampleChartPoints(), { config: {} });
+
+	assert.equal(lightOptions.tooltip.backgroundColor, "#ffffff");
+	assert.equal(lightOptions.tooltip.textStyle.color, "#171717");
+	assert.equal(darkOptions.tooltip.backgroundColor, "#1b1c1f");
+	assert.equal(darkOptions.tooltip.textStyle.color, "#e4e4e7");
+	assert.notEqual(lightOptions.tooltip.backgroundColor, darkOptions.tooltip.backgroundColor);
+});
+
 test("normalizeReportPayload initializes empty custom message payload when none is provided", () => {
 	const { namespace } = loadReportScript();
 	const report = {

@@ -9,12 +9,25 @@ const SCRIPT_PATH =
 function loadProjectScorecardScript() {
 	const script = fs.readFileSync(SCRIPT_PATH, "utf8");
 	const state = { handlers: {} };
+	const translations = {
+		"{0} normalized score {1} is below required {2}":
+			"{0}: нормализованный балл {1} ниже требуемого значения {2}.",
+		"{0} raw value {1} is below required {2}":
+			"{0}: исходное значение {1} ниже требуемого значения {2}.",
+		"{0} raw value {1} is above allowed {2}":
+			"{0}: исходное значение {1} выше допустимого значения {2}.",
+		"Missing mandatory value for {0}": "Отсутствует обязательное значение для {0}.",
+	};
 	const context = {
 		__(value, args = []) {
+			const template = translations[value] || value;
 			if (!Array.isArray(args)) {
-				return value;
+				return template;
 			}
-			return args.reduce((result, arg, index) => result.replace(`{${index}}`, arg), value);
+			return args.reduce(
+				(result, arg, index) => result.replace(`{${index}}`, arg),
+				template
+			);
 		},
 		cint(value) {
 			return Number.parseInt(value, 10) || 0;
@@ -61,6 +74,9 @@ function loadProjectScorecardScript() {
 			show_alert() {},
 			ui: {
 				form: {
+					check_mandatory() {
+						return true;
+					},
 					on(doctype, handlers) {
 						state.handlers[doctype] = handlers;
 					},
