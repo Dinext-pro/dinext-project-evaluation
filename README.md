@@ -15,7 +15,7 @@
 - **UI карточки Project** — form script (`project_scoring_evaluation.js`): выбор профиля оценки (только при заданной Governance Model), кнопки **Open Scorecards** / **Open Scoring Report** в меню Evaluation, переход к отчёту портфеля; сброс профиля при смене/очистке модели управления.
 - **UI Project Portfolio** — переход к отчёту скоринга и пузырьковой диаграмме для выбранного портфеля.
 - **Project Scoring Report** — фильтры по портфелю, проекту, типу проекта, статусу, модели управления, **Project Scoring Profile** (`custom_project_scoring_profile`), только активным проектам (`is_active = Yes`), текущей и оценённой стадии, gate pass и диапазону дат оценки; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и пузырьковая диаграмма (ECharts) на клиенте; **клик по bubble** открывает связанную карточку **Project Scorecard**, а при её отсутствии — форму **Project**. Оси X/Y, размер и цвет bubble настраиваются **динамическими метриками** из runtime meta (**Project**, **Project Scorecard**, критерии профиля); списки метрик учитывают текущую выборку данных и скрытые поля DocType; см. [Project Scoring Report: динамические метрики](#project-scoring-report-динамические-метрики-и-bubble-chart).
-- **Каталог по умолчанию из fixtures** — типовые критерии (стратегическое соответствие, финансовая выгода и др.) и `Default Project Scoring Profile` согласно [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
+- **Каталог по умолчанию из fixtures** — 10 групп критериев, 21 критерий и активный профиль **Базовый профиль оценки проектов** (`Default Project Scoring Profile`) с русскими display-именами, предметными шкалами 0–5, реалистичными диапазонами числовых показателей и stage-aware строками для стадий stage-gate (Идея, Инициирование, Реализация, Завершение). Системные ключи (`name`, `group_code`, `criterion_code`) остаются на английском для совместимости с `hooks.py` и отчётами.
 - **Чистый scoring engine** — модуль расчёта без зависимости от Frappe ORM и unit-тесты нормализации, взвешивания и gate-логики.
 - **Интеграция со Stage Gate** — флаг **Require Agreed Stage Scorecard** на `Stage Gate Template`; при включении checkpoint нельзя отправить в **In Review** без submitted scorecard (`docstatus = 1`) для той же `Project Stage Instance`. На форме `Project Gate Checkpoint` в секции **Stage Scorecard** (после `decision_comment`) — кликабельный KPI-виджет в стиле scorecard с переходом к связанной карточке; непройденные gate-пороги — **мягкое** предупреждение, не блокирует review. Подробнее — [Интеграция Stage Gate и scorecard](#интеграция-stage-gate-и-scorecard).
 - **Workspace «Скоринг проектов»** — публичная рабочая область Desk с KPI number cards по статусам scorecard и покрытию профилем оценки, shortcuts к отчёту портфеля и операционным DocType, карточкой настройки каталога; доступ по ролям scorecard, `Dinext_Project_Manager` и `System Manager`. Подробнее — [Workspace «Скоринг проектов»](#workspace-скоринг-проектов).
@@ -40,6 +40,58 @@ bench --site <site> export-fixtures
 ```
 
 При `migrate` подтягиваются fixtures, в том числе workflow **Dinext Project Scorecard Approval**, роли scorecard-согласования и `Default Project Scoring Profile`. Одноразовые data-migration патчи в приложении не используются: актуальная схема и поведение обеспечиваются DocType JSON, fixtures и runtime hooks.
+
+### Стартовый каталог скоринга (demo fixtures)
+
+После `install-app` / `migrate` на сайт импортируется versioned demo-каталог из `dinext_project_evaluation/fixtures/`. Источник истины — записи на bench-сайте и `bench export-fixtures`, а не ручное редактирование JSON в репозитории.
+
+**Граница локализации:**
+
+| Слой | Язык | Примеры |
+|------|------|---------|
+| Системные ключи и ссылки | Английский | `Strategy`, `STR_ALIGN`, `Default Project Scoring Profile` |
+| Display-поля demo-данных | Русский | `group_name`, `criterion_name`, `scale_label`, `key_phrases`, `profile_name`, `description` |
+| UI DocType / workflow | Русский через `translations/ru.csv` | подписи полей, кнопки workflow |
+
+**Группы критериев** (`project_scoring_criterion_group.json`) — 10 записей с русскими `group_name` и стабильными `name` / `group_code`: Стратегическое соответствие, Выгоды, Рынок и клиенты, Финансовая эффективность, Риски, Ресурсная обеспеченность, Нормативные ограничения, Приоритет и срочность, Инновационный потенциал, Среда и зависимости.
+
+**Критерии** (`project_scoring_criterion.json`) — 21 критерий с русскими названиями, описаниями и предметными шкалами Likert 0–5 (вместо шаблонных «очень низко / низко / …»). Числовые критерии имеют реалистичные диапазоны, согласованные с `influence_direction`:
+
+| Код | Тип | Диапазон / шкала |
+|-----|-----|------------------|
+| `STR_ALIGN`, `BEN_FIN`, `MKT_SHARE`, … | Scale 0–5 | Предметные формулировки по смыслу критерия |
+| `COST`, `RD_COST`, `MFG_COST` | Currency | 0 … 200–500 млн руб. (`lower_is_better`) |
+| `NPV`, `ECV` | Currency | −200 … +1000 млн / −50 … +500 млн руб. |
+| `IRR`, `TECH_SUCCESS` | Percent | 0 … 60% / 0 … 100% |
+| `PP` | Number (мес.) | 0 … 84 (`lower_is_better`) |
+| `PI` | Number | 0 … 3 |
+| `SALES_POT` | Boolean | Подтверждённый потенциал сбыта |
+
+**Профиль по умолчанию** (`project_scoring_profile.json`) — одна запись `Default Project Scoring Profile`:
+
+- **profile_name:** «Базовый профиль оценки проектов»
+- **status:** Active
+- **21 глобальная строка** — все критерии каталога с весами 1–3 и уровнем **Desired**
+- **15 stage-specific строк** — усиление требований и порогов gate на стадиях stage-gate (имена стадий — как в `Project Stage` приложения `dinext_project_stage_gate`):
+
+| Стадия | Примеры усиления |
+|--------|------------------|
+| **Идея** | `BEN_FIN`, `MKT_SHARE` — Mandatory, min normalized 0.4 |
+| **Инициирование** | `STR_ALIGN` — Mandatory, min normalized 0.6; риски и ресурсы — Mandatory |
+| **Реализация** | `TECH_SUCCESS` — Mandatory, raw 65…100%; `SALES_POT` — Mandatory (boolean gate) |
+| **Завершение** | `REG` — min normalized 0.8; `NPV` — min raw 50 млн; `IRR` — 18…60%; `PP` — max 36 мес. |
+
+Stage-specific строки **переопределяют** глобальные для той же пары «критерий + стадия» при расчёте scorecard (`resolve_stage_overridden_profile_rows`).
+
+**Обновление demo-каталога на сайте:**
+
+```bash
+# 1. Изменить группы / критерии / профиль в Desk или через bench execute
+# 2. Экспортировать fixtures обратно в репозиторий
+bench --site <site> export-fixtures --app dinext_project_evaluation
+```
+
+Regression-тест целостности fixtures: `tests/test_scoring_demo_catalog.py`.
 
 ## Workflow согласования Project Scorecard
 
@@ -446,7 +498,7 @@ node --test \
   tests/test_project_gate_checkpoint_scorecard.test.js \
   tests/test_project_portfolio_scoring_navigation.test.js
 
-python3 -m unittest tests.test_project_scoring_workspace
+python3 -m unittest tests.test_project_scoring_workspace tests.test_scoring_demo_catalog
 
 bench --site <site> run-tests \
   --module dinext_project_evaluation.tests.test_api \
@@ -487,7 +539,7 @@ GitHub Actions в репозитории гоняет Semgrep и JS regression t
 | `dinext_project_evaluation/scoring/stage_gate_checkpoint_hooks.py` | `doc_events` на Project Gate Checkpoint и Project Scorecard для sync summary |
 | `dinext_project_evaluation/scoring/project_hooks.py` | Validate / before_save / on_update: сброс профиля, отмена scorecard, автосоздание Draft scorecard |
 | `dinext_project_evaluation/scoring/scorecard_provision.py` | `on_update` на Project Stage Instance: Draft scorecard при переходе стадии в Active |
-| `dinext_project_evaluation/fixtures/` | Экспорт Client Scripts, Custom Fields, workflow, report и fixture-backed каталога критериев/профилей |
+| `dinext_project_evaluation/fixtures/` | Экспорт Client Scripts, Custom Fields, workflow, report и fixture-backed demo-каталога: `project_scoring_criterion_group.json`, `project_scoring_criterion.json`, `project_scoring_profile.json` |
 | `dinext_project_evaluation/scoring/criterion_config.py` | Валидация конфигурации критериев и введённых значений scorecard |
 | `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_criterion/project_scoring_criterion.js` | Условная видимость полей критерия по `input_type` |
 | `dinext_project_evaluation/scoring/workflow_constants.py` | Статусы, роли, действия workflow; `SCORECARD_AGREED_DOCSTATUS`, `SCORECARD_CANCEL_ROLES` |
@@ -561,7 +613,8 @@ pre-commit install
 
 | Commit | Кратко |
 |--------|--------|
-| *(текущая ветка)* | **Workspace «Скоринг проектов»:** KPI number cards, shortcuts к отчёту и DocType, card настройки каталога; role-based доступ; regression `tests/test_project_scoring_workspace.py` |
+| *(текущая ветка)* | **Demo-каталог скоринга:** русские display-имена групп и критериев, предметные шкалы и реалистичные диапазоны; заполнен `Default Project Scoring Profile` (36 строк, stage-aware пороги); regression `tests/test_scoring_demo_catalog.py` |
+| *(предыдущая)* | **Workspace «Скоринг проектов»:** KPI number cards, shortcuts к отчёту и DocType, card настройки каталога; role-based доступ; regression `tests/test_project_scoring_workspace.py` |
 | *(предыдущая)* | **Project Scoring Report:** фильтры тип проекта, статус, Governance Model, Project Scoring Profile (`custom_project_scoring_profile`), только активные проекты; project-фильтры через `build_project_filters`, profile больше не фильтрует scorecard |
 | *(предыдущая)* | **Project Scoring Report:** динамические метрики X/Y/size/color из runtime meta; dataset-aware dropdown; auto-refresh при смене метрики; категория **Не задано** на категориальных осях; минимальный bubble при пустом size; disambiguation `Project - …` / `Project Evaluation - …` в Select; исключение hidden DocFields из каталога |
 | *(предыдущая)* | Виджет **Stage Scorecard** в исходной секции формы Project Gate Checkpoint (`stage_scorecard_widget_mount`); скрытые snapshot-поля; reuse CSS `project_scorecard_dashboard.css`; API fallback `get_checkpoint_scorecard_summary` |
@@ -605,7 +658,8 @@ dinext_project_evaluation/
     │   ├── test_scorecard_service.py
     │   ├── test_scorecard_factory.py
     │   ├── test_scorecard_cancel.py
-    │   └── test_stage_gate_scorecard_integration.py
+    │   ├── test_stage_gate_scorecard_integration.py
+    │   └── test_scoring_demo_catalog.py       # regression: русский demo-каталог и default profile fixtures
     ├── fixtures/                      # вывод bench export-fixtures (+ workflow + default catalog)
     ├── public/
     │   ├── js/project_scoring_evaluation.js  # форма Project: профиль, governance reset, кнопки Evaluation
@@ -643,7 +697,8 @@ dinext_project_evaluation/
 | `report/project_scoring_report/project_scoring_report.js` | UI метрик, ECharts, клик bubble → форма **Project Scorecard** или **Project** |
 | `tests/test_project_scoring_report.py` | Regression: catalog, bubble payload, Not Set, size normalization |
 | `tests/test_project_scoring_report.test.js` | Regression: metric controls, label disambiguation, refresh |
-| `fixtures/` | Версионируемые метаданные и каталог по умолчанию для migrate/install |
+| `fixtures/` | Версионируемые метаданные и русифицированный demo-каталог (группы, 21 критерий, default profile) для migrate/install |
+| `tests/test_scoring_demo_catalog.py` | Regression: русские `group_name`, шкалы, диапазоны, stage-aware default profile |
 | `workspace/скоринг_проектов/` | Публичный Desk workspace: KPI, shortcuts, card профилей и критериев |
 | `number_card/` | Count-фильтры по status scorecard и `custom_project_scoring_profile` на Project |
 | `tests/test_project_scoring_workspace.py` | Regression: структура workspace, соответствие number cards, фильтры |

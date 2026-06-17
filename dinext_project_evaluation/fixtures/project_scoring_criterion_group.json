@@ -4,8 +4,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Strategy",
-  "group_name": "Strategy",
-  "modified": "2026-06-02 22:56:27.914360",
+  "group_name": "Стратегическое соответствие",
+  "modified": "2026-06-18 02:47:16.562302",
   "name": "Strategy"
  },
  {
@@ -13,8 +13,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Benefits",
-  "group_name": "Benefits",
-  "modified": "2026-06-02 22:56:27.933145",
+  "group_name": "Выгоды",
+  "modified": "2026-06-18 02:47:16.679646",
   "name": "Benefits"
  },
  {
@@ -22,8 +22,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Market",
-  "group_name": "Market",
-  "modified": "2026-06-02 22:56:27.951350",
+  "group_name": "Рынок и клиенты",
+  "modified": "2026-06-18 02:47:16.683371",
   "name": "Market"
  },
  {
@@ -31,8 +31,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Finance",
-  "group_name": "Finance",
-  "modified": "2026-06-02 22:56:27.972112",
+  "group_name": "Финансовая эффективность",
+  "modified": "2026-06-18 02:47:16.687187",
   "name": "Finance"
  },
  {
@@ -40,8 +40,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Risks",
-  "group_name": "Risks",
-  "modified": "2026-06-02 22:56:27.990472",
+  "group_name": "Риски",
+  "modified": "2026-06-18 02:47:16.690641",
   "name": "Risks"
  },
  {
@@ -49,8 +49,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Resources",
-  "group_name": "Resources",
-  "modified": "2026-06-02 22:56:28.009441",
+  "group_name": "Ресурсная обеспеченность",
+  "modified": "2026-06-18 02:47:16.693966",
   "name": "Resources"
  },
  {
@@ -58,8 +58,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Regulatory",
-  "group_name": "Regulatory",
-  "modified": "2026-06-02 22:56:28.023420",
+  "group_name": "Нормативные ограничения",
+  "modified": "2026-06-18 02:47:16.697255",
   "name": "Regulatory"
  },
  {
@@ -67,8 +67,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Priority",
-  "group_name": "Priority",
-  "modified": "2026-06-02 22:56:28.034525",
+  "group_name": "Приоритет и срочность",
+  "modified": "2026-06-18 02:47:16.700658",
   "name": "Priority"
  },
  {
@@ -76,8 +76,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Innovation",
-  "group_name": "Innovation",
-  "modified": "2026-06-02 22:56:28.045266",
+  "group_name": "Инновационный потенциал",
+  "modified": "2026-06-18 02:47:16.704005",
   "name": "Innovation"
  },
  {
@@ -85,8 +85,8 @@
   "doctype": "Project Scoring Criterion Group",
   "enabled": 1,
   "group_code": "Environment",
-  "group_name": "Environment",
-  "modified": "2026-06-02 22:56:28.056881",
+  "group_name": "Среда и зависимости",
+  "modified": "2026-06-18 02:47:16.707343",
   "name": "Environment"
  }
 ]
