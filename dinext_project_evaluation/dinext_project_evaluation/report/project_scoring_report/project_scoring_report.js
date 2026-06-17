@@ -1078,10 +1078,11 @@ dinext_project_evaluation.project_scoring_report.getBubbleSizeLabel = function (
 dinext_project_evaluation.project_scoring_report.buildChartOptions = function (points, bubbleChart, colorMap) {
 	const xAxis = bubbleChart?.axes?.x || { axis_type: "value", label: __("X Axis") };
 	const yAxis = bubbleChart?.axes?.y || { axis_type: "value", label: __("Y Axis") };
-	const labelColor = dinext_project_evaluation.project_scoring_report.getThemeVariableColor(
-		"--text-color",
-		dinext_project_evaluation.project_scoring_report.getFallbackColor()
-	);
+	const namespace = dinext_project_evaluation.project_scoring_report;
+	const labelColor = namespace.getThemeVariableColor("--text-color", namespace.getFallbackColor());
+	const tooltipBackgroundColor = namespace.getThemeVariableColor("--card-bg", "#ffffff");
+	const tooltipBorderColor = namespace.getThemeVariableColor("--border-color", namespace.getFallbackColor());
+	const tooltipTextColor = labelColor;
 	return {
 		animation: false,
 		backgroundColor: "transparent",
@@ -1116,6 +1117,12 @@ dinext_project_evaluation.project_scoring_report.buildChartOptions = function (p
 		tooltip: {
 			trigger: "item",
 			confine: true,
+			backgroundColor: tooltipBackgroundColor,
+			borderColor: tooltipBorderColor,
+			borderWidth: 1,
+			textStyle: {
+				color: tooltipTextColor,
+			},
 			formatter(params) {
 				const point = params.data?.point || {};
 				const fields = [

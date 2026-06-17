@@ -10,6 +10,7 @@ from dinext_project_evaluation.scoring.workflow_constants import (
 	ACTION_APPROVE,
 	ACTION_MARK_REVIEWED,
 	ACTION_SUBMIT_FOR_REVIEW,
+	get_scorecard_status_label,
 	is_agreed_scorecard,
 	is_canceled_scorecard,
 	STATUS_DRAFT,
@@ -46,7 +47,7 @@ def mark_scorecard_reviewed(scorecard: str) -> frappe.Document:
 		return doc
 	frappe.throw(
 		_("Project Scorecard must be in Draft or Submitted for Review to calculate. Current status: {0}").format(
-			doc.status
+			get_scorecard_status_label(doc.status)
 		)
 	)
 
@@ -58,7 +59,9 @@ def approve_scorecard_via_workflow(scorecard: str) -> frappe.Document:
 	if is_agreed_scorecard(doc):
 		return doc
 	frappe.throw(
-		_("Project Scorecard must be in Reviewed status to approve. Current status: {0}").format(doc.status)
+		_("Project Scorecard must be in Reviewed status to approve. Current status: {0}").format(
+			get_scorecard_status_label(doc.status)
+		)
 	)
 
 
