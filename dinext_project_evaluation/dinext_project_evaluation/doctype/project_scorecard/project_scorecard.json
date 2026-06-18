@@ -137,7 +137,7 @@
   {
    "fieldname": "items",
    "fieldtype": "Table",
-   "label": "Items",
+   "label": "Criteria",
    "options": "Project Scorecard Item"
   },
   {
