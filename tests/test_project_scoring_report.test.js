@@ -239,13 +239,25 @@ test("project scoring report table columns align with row-level filters", () => 
 	}
 });
 
-test("project scoring report uses roadmap-safe namespace and onload hook", () => {
+test("project scoring report defines onload hook and report helpers", () => {
 	const { report, namespace } = loadReportScript();
 
 	assert.equal(typeof report.onload, "function");
 	assert.ok(namespace);
 	assert.equal(typeof namespace.isScoringReport, "function");
 	assert.equal(typeof namespace.wrapReportRefresh, "function");
+});
+
+test("ensureAssets loads stylesheet when echarts is already present", async () => {
+	const { context, namespace, state } = loadReportScript();
+	context.window.echarts = {};
+
+	await namespace.ensureAssets();
+
+	assert.ok(
+		state.requiredAssets.includes("/assets/dinext_project_evaluation/css/project_scoring_report.css")
+	);
+	assert.ok(!state.requiredAssets.includes("/assets/dinext_common/js/echarts.min.js"));
 });
 
 test("after_datatable_render renders against frappe.query_report instead of datatable argument", () => {

@@ -277,29 +277,34 @@ dinext_project_evaluation.project_scoring_report.buildLegacyLegend = function (p
 };
 
 dinext_project_evaluation.project_scoring_report.ensureAssets = function () {
-	if (dinext_project_evaluation.project_scoring_report._assetsPromise) {
-		return dinext_project_evaluation.project_scoring_report._assetsPromise;
+	const namespace = dinext_project_evaluation.project_scoring_report;
+	if (namespace._assetsPromise) {
+		return namespace._assetsPromise;
 	}
-	dinext_project_evaluation.project_scoring_report._assetsPromise = new Promise((resolve, reject) => {
-		if (window.echarts) {
-			resolve();
-			return;
-		}
+	const cssPromise = new Promise((resolve, reject) => {
 		frappe.require(
-			[
-				"/assets/dinext_common/js/echarts.min.js",
-				"/assets/dinext_project_evaluation/css/project_scoring_report.css",
-			],
-			() => {
-				if (window.echarts) {
-					resolve();
-					return;
-				}
-				reject(new Error("Failed to load ECharts"));
-			}
+			["/assets/dinext_project_evaluation/css/project_scoring_report.css"],
+			resolve,
+			reject
 		);
 	});
-	return dinext_project_evaluation.project_scoring_report._assetsPromise;
+	const echartsPromise = window.echarts
+		? Promise.resolve()
+		: new Promise((resolve, reject) => {
+				frappe.require(
+					["/assets/dinext_common/js/echarts.min.js"],
+					() => {
+						if (window.echarts) {
+							resolve();
+							return;
+						}
+						reject(new Error("Failed to load ECharts"));
+					},
+					reject
+				);
+		  });
+	namespace._assetsPromise = Promise.all([cssPromise, echartsPromise]);
+	return namespace._assetsPromise;
 };
 
 dinext_project_evaluation.project_scoring_report.ensureChartMount = function (report) {
