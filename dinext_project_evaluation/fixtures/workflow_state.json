@@ -1,0 +1,56 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "remove",
+  "modified": "2023-02-21 18:24:43.335944",
+  "name": "Rejected",
+  "style": "Danger",
+  "workflow_state_name": "Rejected"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-04-19 00:54:21.044680",
+  "name": "Canceled",
+  "style": "Warning",
+  "workflow_state_name": "Canceled"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-06-04 02:21:06.964883",
+  "name": "Submitted for Review",
+  "style": "Warning",
+  "workflow_state_name": "Submitted for Review"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-06-04 02:21:08.048100",
+  "name": "Reviewed",
+  "style": "Info",
+  "workflow_state_name": "Reviewed"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "ok-sign",
+  "modified": "2023-02-21 18:24:43.333321",
+  "name": "Approved",
+  "style": "Success",
+  "workflow_state_name": "Approved"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-05-28 02:44:20.961763",
+  "name": "Draft",
+  "style": "Info",
+  "workflow_state_name": "Draft"
+ }
+]

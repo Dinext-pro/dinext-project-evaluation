@@ -1,0 +1,26 @@
+name: Tests
+
+on:
+  pull_request: {}
+
+jobs:
+  javascript-regressions:
+    name: JavaScript Regression Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run node regression tests
+        run: >-
+          node --test
+          tests/test_project_scoring_report.test.js
+          tests/test_project_scoring_evaluation.test.js
+          tests/test_project_scoring_profile.test.js
+          tests/test_project_gate_checkpoint_scorecard.test.js
+          tests/test_project_portfolio_scoring_navigation.test.js
