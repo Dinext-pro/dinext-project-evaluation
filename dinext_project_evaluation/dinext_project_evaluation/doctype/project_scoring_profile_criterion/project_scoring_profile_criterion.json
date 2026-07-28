@@ -1,0 +1,83 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-30 01:03:06.823794",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "criterion",
+  "stage",
+  "weight",
+  "requirement_level",
+  "minimum_normalized_score",
+  "minimum_raw_value",
+  "maximum_raw_value"
+ ],
+ "fields": [
+  {
+   "fieldname": "criterion",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Criterion",
+   "options": "Project Scoring Criterion",
+   "reqd": 1
+  },
+  {
+   "fieldname": "stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Stage",
+   "options": "Project Stage"
+  },
+  {
+   "default": "1",
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Weight",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "default": "Desired",
+   "fieldname": "requirement_level",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Requirement Level",
+   "options": "Mandatory\nDesired",
+   "reqd": 1
+  },
+  {
+   "fieldname": "minimum_normalized_score",
+   "fieldtype": "Data",
+   "label": "Minimum Normalized Score"
+  },
+  {
+   "fieldname": "minimum_raw_value",
+   "fieldtype": "Data",
+   "label": "Minimum Raw Value"
+  },
+  {
+   "fieldname": "maximum_raw_value",
+   "fieldtype": "Data",
+   "label": "Maximum Raw Value"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-02 23:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Dinext Project Evaluation",
+ "name": "Project Scoring Profile Criterion",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

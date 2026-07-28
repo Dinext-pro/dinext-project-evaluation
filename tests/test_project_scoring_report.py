@@ -1,0 +1,1158 @@
+import sys
+import types
+import unittest
+from types import SimpleNamespace
+
+try:
+	import frappe  # noqa: F401
+except ModuleNotFoundError:
+	_frappe_stub = types.ModuleType("frappe")
+	_frappe_stub._ = lambda value, *args, **kwargs: value
+	_frappe_stub.get_all = lambda *args, **kwargs: []
+	_frappe_stub.get_meta = lambda doctype: None
+	_frappe_stub.db = SimpleNamespace(
+		get_all=lambda *args, **kwargs: [],
+		has_column=lambda doctype, column: True,
+		table_exists=lambda doctype: True,
+	)
+	_frappe_stub._dict = lambda value=None: SimpleNamespace(**(value or {}))
+	_frappe_utils_stub = types.ModuleType("frappe.utils")
+	_frappe_utils_stub.cint = int
+	_frappe_stub.utils = _frappe_utils_stub
+	sys.modules["frappe"] = _frappe_stub
+	sys.modules["frappe.utils"] = _frappe_utils_stub
+
+import frappe  # noqa: E402
+
+from dinext_project_evaluation.dinext_project_evaluation.report.project_scoring_report import (  # noqa: E402
+	project_scoring_report,
+)
+from dinext_project_evaluation.dinext_project_evaluation.report.project_scoring_report import (  # noqa: E402
+	metric_registry,
+)
+from dinext_project_evaluation.scoring.workflow_constants import (  # noqa: E402
+	SCORECARD_AGREED_DOCSTATUS,
+	SCORECARD_CANCELED_DOCSTATUS,
+)
+
+
+def field(fieldname, label, fieldtype, options=None, hidden=0):
+	return SimpleNamespace(
+		fieldname=fieldname,
+		label=label,
+		fieldtype=fieldtype,
+		options=options,
+		hidden=hidden,
+	)
+
+
+def meta(fields, title_field=None):
+	default_fields = [
+		field("name", "ID", "Data"),
+		field("creation", "Created On", "Datetime"),
+		field("modified", "Last Updated On", "Datetime"),
+	]
+	return SimpleNamespace(fields=fields, default_fields=default_fields, title_field=title_field)
+
+
+def metric_value(value, display=None, sort_value=None, label=None):
+	return {
+		"value": value,
+		"display": display if display is not None else ("" if value is None else str(value)),
+		"sort_value": sort_value if sort_value is not None else value,
+		"label": label or "",
+	}
+
+
+class TestProjectScoringMetricRegistry(unittest.TestCase):
+	def setUp(self):
+		self.original_get_meta = frappe.get_meta
+		self.original_db_get_all = frappe.db.get_all
+		self.metas = {
+			"Project": meta(
+				[
+					field("project_name", "Project Name", "Data"),
+					field("estimated_costing", "Estimated Cost", "Currency"),
+					field("current_stage", "Current Stage", "Link", "Project Stage"),
+					field("department", "Department", "Link", "Department"),
+					field("custom_budget", "Budget", "Currency"),
+					field("expected_start_date", "Expected Start Date", "Date"),
+					field("priority", "Priority", "Select"),
+					field("custom_project_portfolio", "Project Portfolio", "Link", "Project Portfolio"),
+					field("percent_complete", "% Completed", "Percent"),
+					field("is_active", "Is Active", "Check"),
+					field("notes", "Notes", "Long Text"),
+				],
+				title_field="project_name",
+			),
+			"Project Scorecard": meta(
+				[
+					field("profile", "Profile", "Link", "Project Scoring Profile"),
+					field("integral_score", "Integral Score", "Float"),
+					field("evaluation_date", "Evaluation Date", "Datetime"),
+					field("status", "Status", "Select"),
+					field("scorecard_title", "Scorecard Title", "Data"),
+					field("gate_pass", "Gate Pass", "Check"),
+					field("gate_messages", "Gate Messages", "Long Text"),
+				],
+				title_field="scorecard_title",
+			),
+			"Project Portfolio": meta([field("portfolio_name", "Portfolio Name", "Data")], title_field="portfolio_name"),
+			"Project Scoring Profile": meta([field("profile_name", "Profile Name", "Data")], title_field="profile_name"),
+		}
+		self.queryable_fields = {
+			"Project": {
+				"name",
+				"creation",
+				"modified",
+				"project_name",
+				"estimated_costing",
+				"current_stage",
+				"department",
+				"custom_budget",
+				"expected_start_date",
+				"priority",
+				"custom_project_portfolio",
+				"percent_complete",
+			},
+			"Project Scorecard": {
+				"name",
+				"creation",
+				"modified",
+				"profile",
+				"integral_score",
+				"evaluation_date",
+				"status",
+				"scorecard_title",
+			},
+		}
+		frappe.get_meta = lambda doctype: self.metas[doctype]
+		frappe.db.get_all = self.fake_db_get_all
+		self.original_db_has_column = getattr(frappe.db, "has_column", None)
+		self.original_db_table_exists = getattr(frappe.db, "table_exists", None)
+		frappe.db.has_column = lambda doctype, column: column in self.queryable_fields.get(doctype, set())
+		frappe.db.table_exists = lambda doctype: doctype in self.queryable_fields
+
+	def tearDown(self):
+		frappe.get_meta = self.original_get_meta
+		frappe.db.get_all = self.original_db_get_all
+		if self.original_db_has_column is not None:
+			frappe.db.has_column = self.original_db_has_column
+		if self.original_db_table_exists is not None:
+			frappe.db.table_exists = self.original_db_table_exists
+
+	def fake_db_get_all(self, doctype, filters=None, fields=None, **kwargs):
+		if doctype != "Project Scoring Criterion":
+			return []
+		return [
+			{
+				"criterion_code": "FIN_VALUE",
+				"criterion_name": "Financial Value",
+				"input_type": "Currency",
+			},
+			{
+				"criterion_code": "MATURITY",
+				"criterion_name": "Maturity",
+				"input_type": "Scale",
+			},
+		]
+
+	def test_metric_catalog_uses_runtime_meta_for_axis_size_and_color_groups(self):
+		catalog = metric_registry.get_metric_catalog()
+
+		self.assertIn("axis", catalog)
+		self.assertIn("size", catalog)
+		self.assertIn("color", catalog)
+		self.assertIn("defaults", catalog)
+
+		axis_ids = {entry["id"] for entry in catalog["axis"]}
+		size_ids = {entry["id"] for entry in catalog["size"]}
+		color_ids = {entry["id"] for entry in catalog["color"]}
+
+		self.assertIn("project:expected_start_date", axis_ids)
+		self.assertIn("project:name", axis_ids)
+		self.assertIn("project:priority", axis_ids)
+		self.assertIn("scorecard:integral_score", axis_ids)
+		self.assertIn("scorecard:creation", axis_ids)
+		self.assertNotIn("project:is_active", axis_ids)
+		self.assertNotIn("scorecard:gate_messages", axis_ids)
+
+		self.assertIn("project:custom_budget", size_ids)
+		self.assertIn("scorecard:integral_score", size_ids)
+		self.assertIn("criterion:number:raw:FIN_VALUE", size_ids)
+		self.assertIn("criterion:number:normalized:FIN_VALUE", size_ids)
+		self.assertNotIn("project:priority", size_ids)
+
+		self.assertIn("project:priority", color_ids)
+		self.assertIn("project:custom_budget", color_ids)
+		self.assertIn("scorecard:status", color_ids)
+		self.assertIn("criterion:scale:MATURITY", color_ids)
+		self.assertNotIn("project:is_active", color_ids)
+
+	def test_metric_catalog_includes_check_fields_in_color_only(self):
+		self.queryable_fields["Project"].add("is_active")
+		self.queryable_fields["Project Scorecard"].add("gate_pass")
+
+		catalog = metric_registry.get_metric_catalog()
+		axis_ids = {entry["id"] for entry in catalog["axis"]}
+		size_ids = {entry["id"] for entry in catalog["size"]}
+		color_ids = {entry["id"] for entry in catalog["color"]}
+
+		self.assertIn("scorecard:gate_pass", color_ids)
+		self.assertIn("project:is_active", color_ids)
+		self.assertNotIn("scorecard:gate_pass", axis_ids)
+		self.assertNotIn("scorecard:gate_pass", size_ids)
+		self.assertNotIn("project:is_active", axis_ids)
+		self.assertNotIn("project:is_active", size_ids)
+
+	def test_format_metric_value_renders_check_as_yes_no(self):
+		self.assertEqual(project_scoring_report._format_metric_value(1, "check"), "Yes")
+		self.assertEqual(project_scoring_report._format_metric_value(0, "check"), "No")
+
+	def test_metric_catalog_excludes_meta_fields_missing_db_column(self):
+		self.metas["Project"].fields.append(field("custom_команда", "Команда", "Link", "Team"))
+		catalog = metric_registry.get_metric_catalog()
+		metric_ids = {
+			entry["id"]
+			for group in ("axis", "size", "color")
+			for entry in catalog[group]
+		}
+		self.assertNotIn("project:custom_команда", metric_ids)
+		fieldnames = metric_registry.get_field_metric_fieldnames(catalog, "Project")
+		self.assertNotIn("custom_команда", fieldnames)
+
+	def test_metric_catalog_excludes_hidden_docfields(self):
+		self.metas["Project Scorecard"].fields.extend(
+			[
+				field("portfolio", "Portfolio", "Link", "Project Portfolio", hidden=1),
+				field("stage_at_evaluation", "Stage at Evaluation", "Link", "Project Stage", hidden=1),
+			]
+		)
+		self.metas["Project"].fields.append(
+			field("confirm_scoring_profile_reset", "Confirm Reset", "Check", hidden=1)
+		)
+		self.queryable_fields["Project Scorecard"].update({"portfolio", "stage_at_evaluation"})
+		self.queryable_fields["Project"].add("confirm_scoring_profile_reset")
+
+		catalog = metric_registry.get_metric_catalog()
+		metric_ids = {
+			entry["id"]
+			for group in ("axis", "size", "color")
+			for entry in catalog[group]
+		}
+
+		self.assertNotIn("scorecard:portfolio", metric_ids)
+		self.assertNotIn("scorecard:stage_at_evaluation", metric_ids)
+		self.assertNotIn("project:confirm_scoring_profile_reset", metric_ids)
+		self.assertIn("scorecard:status", metric_ids)
+		self.assertIn("project:priority", metric_ids)
+
+	def test_metric_catalog_defaults_are_selected_from_dynamic_runtime_catalog(self):
+		catalog = metric_registry.get_metric_catalog()
+		defaults = catalog["defaults"]
+		axis_ids = {entry["id"] for entry in catalog["axis"]}
+		size_ids = {entry["id"] for entry in catalog["size"]}
+		color_ids = {entry["id"] for entry in catalog["color"]}
+
+		self.assertEqual(defaults["x_axis"], "project:estimated_costing")
+		self.assertEqual(defaults["y_axis"], "project:current_stage")
+		self.assertEqual(defaults["size_metric"], "scorecard:integral_score")
+		self.assertEqual(defaults["color_metric"], "project:department")
+		self.assertIn(defaults["x_axis"], axis_ids)
+		self.assertIn(defaults["y_axis"], axis_ids)
+		self.assertIn(defaults["size_metric"], size_ids)
+		self.assertIn(defaults["color_metric"], color_ids)
+		self.assertNotEqual(defaults["x_axis"], defaults["y_axis"])
+
+	def test_metric_catalog_defaults_fall_back_when_preferred_metrics_are_unavailable(self):
+		catalog = metric_registry.get_metric_catalog()
+		available = {
+			entry["id"]
+			for entry in catalog["axis"] + catalog["size"] + catalog["color"]
+			if entry["id"] not in {
+				"project:estimated_costing",
+				"project:current_stage",
+				"project:department",
+			}
+		}
+		filtered = metric_registry.filter_catalog_by_available_ids(catalog, available)
+		defaults = filtered["defaults"]
+		axis_ids = {entry["id"] for entry in filtered["axis"]}
+		size_ids = {entry["id"] for entry in filtered["size"]}
+		color_ids = {entry["id"] for entry in filtered["color"]}
+
+		self.assertNotIn("project:estimated_costing", axis_ids)
+		self.assertNotIn("project:current_stage", axis_ids)
+		self.assertNotIn("project:department", color_ids)
+		self.assertIn(defaults["x_axis"], axis_ids)
+		self.assertIn(defaults["y_axis"], axis_ids)
+		self.assertIn(defaults["size_metric"], size_ids)
+		self.assertIn(defaults["color_metric"], color_ids)
+		self.assertNotEqual(defaults["x_axis"], defaults["y_axis"])
+
+
+class TestProjectScoringBubblePayload(unittest.TestCase):
+	def setUp(self):
+		self.metric_catalog = {
+			"axis": [
+				{
+					"id": "project:expected_start_date",
+					"label": "Expected Start Date",
+					"value_type": "date",
+					"axis_type": "time",
+					"format": "date",
+				},
+				{
+					"id": "project:priority",
+					"label": "Priority",
+					"value_type": "categorical",
+					"axis_type": "category",
+					"format": "text",
+				},
+				{
+					"id": "scorecard:integral_score",
+					"label": "Integral Score",
+					"value_type": "numeric",
+					"axis_type": "value",
+					"format": "float_2",
+				},
+			],
+			"size": [
+				{
+					"id": "criterion:number:raw:FIN_VALUE",
+					"label": "Financial Value (Raw)",
+					"value_type": "numeric",
+					"format": "currency",
+				},
+				{
+					"id": "criterion:number:normalized:FIN_VALUE",
+					"label": "Financial Value (Normalized)",
+					"value_type": "numeric",
+					"format": "float_2",
+				},
+			],
+			"color": [
+				{
+					"id": "project:custom_project_portfolio",
+					"label": "Project Portfolio",
+					"value_type": "categorical",
+					"format": "link",
+				},
+				{
+					"id": "criterion:scale:MATURITY",
+					"label": "Maturity",
+					"value_type": "categorical",
+					"format": "text",
+				},
+			],
+			"defaults": {
+				"x_axis": "project:expected_start_date",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+		}
+
+	def test_build_bubble_chart_payload_builds_time_axis_and_category_legend(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"scorecard": "PSC-001",
+				"evaluation_date": "2026-06-08 00:00:00",
+				"dynamic_metric_values": {
+					"project:expected_start_date": metric_value(
+						"2026-06-01",
+						display="2026-06-01",
+						sort_value=1717200000000,
+						label="Expected Start Date",
+					),
+					"scorecard:integral_score": metric_value(0.81, display="0.81", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+			{
+				"project": "PRJ-002",
+				"project_name": "Beta",
+				"scorecard": "PSC-002",
+				"evaluation_date": "2026-06-09 00:00:00",
+				"dynamic_metric_values": {
+					"project:expected_start_date": metric_value(
+						"2026-06-11",
+						display="2026-06-11",
+						sort_value=1718064000000,
+						label="Expected Start Date",
+					),
+					"scorecard:integral_score": metric_value(0.62, display="0.62", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						50000,
+						display="50000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("2", display="Medium", label="Maturity"),
+				},
+			}
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:expected_start_date",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["axes"]["x"]["axis_type"], "time")
+		self.assertEqual(payload["axes"]["y"]["axis_type"], "value")
+		self.assertLess(payload["axes"]["x"]["min"], 1717200000000)
+		self.assertGreater(payload["axes"]["x"]["max"], 1718064000000)
+		self.assertEqual(payload["legend"]["items"][0]["label"], "High")
+		self.assertEqual(payload["legend"]["items"][0]["color_key"], "criterion:scale:MATURITY:4")
+		self.assertEqual(payload["points"][0]["color"]["color_key"], "criterion:scale:MATURITY:4")
+		self.assertEqual(payload["points"][0]["x"]["value"], "2026-06-01")
+		self.assertEqual(payload["points"][0]["y"]["value"], 0.81)
+		self.assertEqual(payload["points"][0]["size"]["value"], 150000)
+		self.assertEqual(payload["points"][0]["color"]["label"], "High")
+		self.assertEqual(payload["points"][0]["meta"]["evaluation_date"], "2026-06-08 00:00:00")
+
+	def test_build_color_descriptor_uses_raw_value_for_collision_safe_identity(self):
+		row = {
+			"dynamic_metric_values": {
+				"project:customer": metric_value(
+					"CUST-SEVER",
+					display="СеверЭнерго",
+					label="Customer",
+				),
+			}
+		}
+		definition = {"id": "project:customer", "label": "Customer"}
+
+		color = project_scoring_report._build_color_descriptor(row, "project:customer", definition)
+
+		self.assertEqual(color["value"], "CUST-SEVER")
+		self.assertEqual(color["display"], "СеверЭнерго")
+		self.assertEqual(color["color_key"], "project:customer:CUST-SEVER")
+		self.assertEqual(color["token"], "project:customer:CUST-SEVER")
+
+	def test_build_color_descriptor_keeps_distinct_keys_for_similar_display_values(self):
+		rows = [
+			{
+				"dynamic_metric_values": {
+					"project:customer": metric_value("CUST-001", display="БалтХим", label="Customer"),
+				}
+			},
+			{
+				"dynamic_metric_values": {
+					"project:customer": metric_value("CUST-002", display="МедТех-Сервис", label="Customer"),
+				}
+			},
+		]
+		definition = {"id": "project:customer", "label": "Customer"}
+		keys = {
+			project_scoring_report._build_color_descriptor(row, "project:customer", definition)["color_key"]
+			for row in rows
+		}
+
+		self.assertEqual(
+			keys,
+			{"project:customer:CUST-001", "project:customer:CUST-002"},
+		)
+
+	def test_build_bubble_chart_payload_builds_category_axis_and_link_title_legend(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"scorecard": "PSC-001",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"scorecard:integral_score": metric_value(0.81, display="0.81", label="Integral Score"),
+					"criterion:number:normalized:FIN_VALUE": metric_value(
+						0.75,
+						display="0.75",
+						label="Financial Value (Normalized)",
+					),
+					"project:custom_project_portfolio": metric_value(
+						"PORT-001",
+						display="Growth Portfolio",
+						label="Project Portfolio",
+					),
+				},
+			}
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:priority",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:normalized:FIN_VALUE",
+				"color_metric": "project:custom_project_portfolio",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["axes"]["x"]["axis_type"], "category")
+		self.assertEqual(payload["axes"]["x"]["categories"], ["High"])
+		self.assertEqual(payload["legend"]["items"][0]["label"], "Growth Portfolio")
+		self.assertEqual(payload["points"][0]["size"]["value"], 0.75)
+		self.assertEqual(payload["points"][0]["color"]["display"], "Growth Portfolio")
+
+	def test_build_bubble_chart_payload_skips_rows_without_selected_axis_values(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:expected_start_date": metric_value(
+						None,
+						display="N/A",
+						sort_value=None,
+						label="Expected Start Date",
+					),
+					"scorecard:integral_score": metric_value(0.81, display="0.81", label="Integral Score"),
+				},
+			}
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:expected_start_date",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["points"], [])
+
+	def test_build_bubble_chart_payload_includes_not_set_for_missing_category_x(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"scorecard:integral_score": metric_value(0.81, display="0.81", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+			{
+				"project": "PRJ-002",
+				"project_name": "Beta",
+				"dynamic_metric_values": {
+					"project:priority": metric_value(None, display="N/A", label="Priority"),
+					"scorecard:integral_score": metric_value(0.62, display="0.62", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						50000,
+						display="50000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("2", display="Medium", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:priority",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["axes"]["x"]["categories"], ["High", "Not Set"])
+		self.assertEqual(len(payload["points"]), 2)
+		not_set_point = next(point for point in payload["points"] if point["project"] == "PRJ-002")
+		self.assertEqual(not_set_point["x"]["display"], "Not Set")
+		self.assertEqual(not_set_point["x"]["value"], project_scoring_report.CATEGORY_MISSING_VALUE)
+
+	def test_build_bubble_chart_payload_includes_not_set_for_missing_category_y(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:expected_start_date": metric_value(
+						"2026-06-01",
+						display="2026-06-01",
+						sort_value=1717200000000,
+						label="Expected Start Date",
+					),
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+			{
+				"project": "PRJ-002",
+				"project_name": "Beta",
+				"dynamic_metric_values": {
+					"project:expected_start_date": metric_value(
+						"2026-06-11",
+						display="2026-06-11",
+						sort_value=1718064000000,
+						label="Expected Start Date",
+					),
+					"project:priority": metric_value(None, display="N/A", label="Priority"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						50000,
+						display="50000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("2", display="Medium", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:expected_start_date",
+				"y_axis": "project:priority",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["axes"]["y"]["categories"], ["High", "Not Set"])
+		not_set_point = next(point for point in payload["points"] if point["project"] == "PRJ-002")
+		self.assertEqual(not_set_point["y"]["display"], "Not Set")
+		self.assertEqual(not_set_point["y"]["value"], project_scoring_report.CATEGORY_MISSING_VALUE)
+
+	def test_build_bubble_chart_payload_omits_not_set_when_category_axis_has_no_missing_values(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"scorecard:integral_score": metric_value(0.81, display="0.81", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:priority",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["axes"]["x"]["categories"], ["High"])
+		self.assertNotIn("Not Set", payload["axes"]["x"]["categories"])
+
+	def test_build_bubble_chart_payload_skips_rows_with_missing_numeric_y_axis(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"scorecard:integral_score": metric_value(None, display="N/A", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			{
+				"x_axis": "project:priority",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			self.metric_catalog,
+		)
+
+		self.assertEqual(payload["points"], [])
+
+
+class TestNormalizeBubbleSizes(unittest.TestCase):
+	def test_normalize_bubble_sizes_uses_minimum_for_missing_in_mixed_range(self):
+		result = project_scoring_report._normalize_bubble_sizes([100, 200, None])
+
+		self.assertEqual(result[0], project_scoring_report.MIN_SCORED_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[2], project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE)
+		self.assertGreater(result[1], result[0])
+		self.assertGreater(result[0], result[2])
+
+	def test_normalize_bubble_sizes_uses_minimum_when_all_missing(self):
+		result = project_scoring_report._normalize_bubble_sizes([None, None])
+
+		self.assertEqual(
+			result,
+			[
+				project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE,
+				project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE,
+			],
+		)
+
+	def test_normalize_bubble_sizes_uses_minimum_for_missing_with_uniform_present_values(self):
+		result = project_scoring_report._normalize_bubble_sizes([50, 50, None])
+
+		self.assertEqual(result[0], project_scoring_report.DEFAULT_SCORED_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[1], project_scoring_report.DEFAULT_SCORED_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[2], project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE)
+
+	def test_normalize_bubble_sizes_scales_present_values_without_change(self):
+		result = project_scoring_report._normalize_bubble_sizes([100, 200])
+
+		self.assertEqual(result[0], project_scoring_report.MIN_SCORED_BUBBLE_SYMBOL_SIZE)
+		self.assertEqual(result[1], project_scoring_report.MAX_SCORED_BUBBLE_SYMBOL_SIZE)
+
+	def test_normalize_bubble_sizes_never_maps_scored_values_to_missing_size(self):
+		cases = [
+			[100, 200, None],
+			[50, 50, None],
+			[100, 200],
+			[0.615, 0.742, None],
+		]
+		for values in cases:
+			result = project_scoring_report._normalize_bubble_sizes(values)
+			for value, normalized in zip(values, result):
+				if value is not None:
+					self.assertNotEqual(
+						normalized,
+						project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE,
+						msg=f"scored value {value!r} must not normalize to missing size",
+					)
+
+	def test_build_bubble_chart_payload_keeps_missing_size_rows_as_minimum_points(self):
+		metric_catalog = {
+			"axis": [
+				{
+					"id": "project:priority",
+					"label": "Priority",
+					"value_type": "categorical",
+					"axis_type": "category",
+					"format": "text",
+				},
+				{
+					"id": "scorecard:integral_score",
+					"label": "Integral Score",
+					"value_type": "numeric",
+					"axis_type": "value",
+					"format": "float_2",
+				},
+			],
+			"size": [
+				{
+					"id": "criterion:number:raw:FIN_VALUE",
+					"label": "Financial Value (Raw)",
+					"value_type": "numeric",
+					"format": "currency",
+				},
+			],
+			"color": [
+				{
+					"id": "criterion:scale:MATURITY",
+					"label": "Maturity",
+					"value_type": "categorical",
+					"format": "text",
+				},
+			],
+			"defaults": {
+				"x_axis": "project:priority",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+		}
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("High", display="High", label="Priority"),
+					"scorecard:integral_score": metric_value(0.81, display="0.81", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						150000,
+						display="150000.00",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("4", display="High", label="Maturity"),
+				},
+			},
+			{
+				"project": "PRJ-002",
+				"project_name": "Beta",
+				"dynamic_metric_values": {
+					"project:priority": metric_value("Medium", display="Medium", label="Priority"),
+					"scorecard:integral_score": metric_value(0.62, display="0.62", label="Integral Score"),
+					"criterion:number:raw:FIN_VALUE": metric_value(
+						None,
+						display="N/A",
+						label="Financial Value (Raw)",
+					),
+					"criterion:scale:MATURITY": metric_value("2", display="Medium", label="Maturity"),
+				},
+			},
+		]
+
+		payload = project_scoring_report.build_bubble_chart_payload(
+			rows,
+			metric_catalog["defaults"],
+			metric_catalog,
+		)
+
+		missing_size_point = next(point for point in payload["points"] if point["project"] == "PRJ-002")
+		sized_point = next(point for point in payload["points"] if point["project"] == "PRJ-001")
+
+		self.assertEqual(missing_size_point["size"]["display"], "N/A")
+		self.assertEqual(
+			missing_size_point["size"]["normalized"],
+			project_scoring_report.MISSING_BUBBLE_SYMBOL_SIZE,
+		)
+		self.assertGreaterEqual(
+			sized_point["size"]["normalized"],
+			project_scoring_report.MIN_SCORED_BUBBLE_SYMBOL_SIZE,
+		)
+		self.assertGreater(sized_point["size"]["normalized"], missing_size_point["size"]["normalized"])
+
+
+class TestProjectScoringFilterAssembly(unittest.TestCase):
+	def test_scorecard_filters_keep_both_date_bounds(self):
+		filters = project_scoring_report.build_scorecard_filters(
+			["PRJ-001"],
+			{
+				"from_date": "2026-06-01",
+				"to_date": "2026-06-30",
+			},
+		)
+
+		self.assertIn(["evaluation_date", ">=", "2026-06-01 00:00:00"], filters)
+		self.assertIn(["evaluation_date", "<=", "2026-06-30 23:59:59"], filters)
+
+	def test_scorecard_filters_do_not_apply_project_scoring_profile(self):
+		filters = project_scoring_report.build_scorecard_filters(
+			["PRJ-001"],
+			{"profile": "PROFILE-001"},
+		)
+
+		self.assertNotIn(["profile", "=", "PROFILE-001"], filters)
+
+	def test_build_project_filters_maps_new_report_filters_to_project_fields(self):
+		filters = project_scoring_report.build_project_filters(
+			{
+				"project_portfolio": "PORT-001",
+				"project_stage": "STAGE-001",
+				"project": ["PRJ-001", "PRJ-002"],
+				"project_type": "TYPE-001",
+				"project_status": "Open",
+				"governance_model": "GM-001",
+				"profile": "PROFILE-001",
+				"only_active_projects": 1,
+			}
+		)
+
+		self.assertEqual(filters["custom_project_portfolio"], "PORT-001")
+		self.assertEqual(filters["current_stage"], "STAGE-001")
+		self.assertEqual(filters["name"], ["in", ["PRJ-001", "PRJ-002"]])
+		self.assertEqual(filters["project_type"], "TYPE-001")
+		self.assertEqual(filters["status"], "Open")
+		self.assertEqual(filters["governance_model"], "GM-001")
+		self.assertEqual(
+			filters[project_scoring_report.PROJECT_SCORING_PROFILE_FIELD],
+			"PROFILE-001",
+		)
+		self.assertEqual(filters["is_active"], project_scoring_report.PROJECT_ACTIVE_VALUE)
+
+	def test_build_project_filters_skips_active_filter_when_unchecked(self):
+		filters = project_scoring_report.build_project_filters({"only_active_projects": 0})
+		self.assertNotIn("is_active", filters)
+
+	def test_build_scorecard_filters_excludes_canceled_for_total_counts(self):
+		filters = project_scoring_report.build_scorecard_filters(
+			["PRJ-001"],
+			{},
+			agreed_only=False,
+		)
+
+		self.assertIn(["docstatus", "!=", SCORECARD_CANCELED_DOCSTATUS], filters)
+		self.assertNotIn(["docstatus", "=", SCORECARD_AGREED_DOCSTATUS], filters)
+
+	def test_build_scorecard_filters_keeps_agreed_docstatus_for_latest_scorecard_lookup(self):
+		filters = project_scoring_report.build_scorecard_filters(["PRJ-001"], {})
+
+		self.assertIn(["docstatus", "=", SCORECARD_AGREED_DOCSTATUS], filters)
+
+	def test_build_scorecard_filters_apply_evaluated_stage_gate_pass_and_dates(self):
+		filters = project_scoring_report.build_scorecard_filters(
+			["PRJ-001", "PRJ-002"],
+			{
+				"evaluated_stage": "STAGE-001",
+				"gate_pass": 1,
+				"from_date": "2026-06-01",
+				"to_date": "2026-06-30",
+			},
+			agreed_only=False,
+		)
+
+		self.assertIn(["project", "in", ["PRJ-001", "PRJ-002"]], filters)
+		self.assertIn(["stage_at_evaluation", "=", "STAGE-001"], filters)
+		self.assertIn(["gate_pass", "=", 1], filters)
+		self.assertIn(["evaluation_date", ">=", "2026-06-01 00:00:00"], filters)
+		self.assertIn(["evaluation_date", "<=", "2026-06-30 23:59:59"], filters)
+
+
+class TestProjectScoringReportColumns(unittest.TestCase):
+	ROW_LEVEL_FILTER_COLUMNS = (
+		"project",
+		"portfolio",
+		"project_type",
+		"project_status",
+		"governance_model",
+		"project_stage",
+		"evaluated_stage",
+		"profile",
+		"gate_pass",
+	)
+	REMOVED_AGGREGATE_COLUMNS = ("risk_score_norm", "benefit_score_norm", "cost_score_norm")
+
+	def test_get_columns_includes_row_level_filter_fields(self):
+		fieldnames = {column["fieldname"] for column in project_scoring_report.get_columns()}
+		for fieldname in self.ROW_LEVEL_FILTER_COLUMNS:
+			self.assertIn(fieldname, fieldnames)
+
+	def test_get_columns_excludes_aggregate_score_columns(self):
+		fieldnames = {column["fieldname"] for column in project_scoring_report.get_columns()}
+		for fieldname in self.REMOVED_AGGREGATE_COLUMNS:
+			self.assertNotIn(fieldname, fieldnames)
+
+	def test_build_row_includes_row_level_filter_values(self):
+		row = project_scoring_report._build_row(
+			{
+				"name": "PRJ-001",
+				"project_name": "Alpha",
+				"custom_project_portfolio": "PORT-001",
+				"project_type": "TYPE-001",
+				"status": "Open",
+				"governance_model": "GM-001",
+				"current_stage": "STAGE-001",
+				"modified": "2026-06-01",
+			},
+			None,
+			None,
+			{"axis": [], "size": [], "color": []},
+		)
+
+		self.assertEqual(row["project_type"], "TYPE-001")
+		self.assertEqual(row["project_status"], "Open")
+		self.assertEqual(row["governance_model"], "GM-001")
+
+
+class TestProjectScoringReportSummary(unittest.TestCase):
+	def test_build_report_summary_replaces_plotted_projects_with_scorecard_counts(self):
+		rows = [
+			{"project": "PRJ-001", "scorecard": "PSC-001"},
+			{"project": "PRJ-002", "scorecard": None},
+		]
+		summary = project_scoring_report.build_report_summary(
+			rows,
+			2,
+			{"total_scorecards": 7, "agreed_scorecards": 5},
+		)
+
+		self.assertEqual(
+			[(item["label"], item["value"]) for item in summary],
+			[
+				("Projects", 2),
+				("Scored Projects", 1),
+				("Project Scorecards", 7),
+				("Agreed Project Scorecards", 5),
+			],
+		)
+		self.assertNotIn("Plotted Projects", {item["label"] for item in summary})
+
+	def test_get_scorecard_summary_counts_returns_zero_for_empty_project_set(self):
+		counts = project_scoring_report.get_scorecard_summary_counts([], {})
+		self.assertEqual(counts, {"total_scorecards": 0, "agreed_scorecards": 0})
+
+	def test_count_scorecards_uses_filter_scope_and_docstatus_mode(self):
+		calls = []
+
+		def fake_count(doctype, filters=None, **kwargs):
+			calls.append((doctype, filters))
+			return len(filters or [])
+
+		original_count = getattr(frappe.db, "count", None)
+		frappe.db.count = fake_count
+		try:
+			total = project_scoring_report.count_scorecards(
+				["PRJ-001"],
+				{"evaluated_stage": "STAGE-001"},
+				agreed_only=False,
+			)
+			agreed = project_scoring_report.count_scorecards(
+				["PRJ-001"],
+				{"evaluated_stage": "STAGE-001"},
+				agreed_only=True,
+			)
+		finally:
+			if original_count is None:
+				del frappe.db.count
+			else:
+				frappe.db.count = original_count
+
+		self.assertEqual(calls[0][0], "Project Scorecard")
+		self.assertEqual(calls[1][0], "Project Scorecard")
+		self.assertIn(["project", "in", ["PRJ-001"]], calls[0][1])
+		self.assertIn(["stage_at_evaluation", "=", "STAGE-001"], calls[0][1])
+		self.assertIn(["docstatus", "!=", SCORECARD_CANCELED_DOCSTATUS], calls[0][1])
+		self.assertIn(["docstatus", "=", SCORECARD_AGREED_DOCSTATUS], calls[1][1])
+
+
+class TestProjectScoringDatasetAwareCatalog(unittest.TestCase):
+	def setUp(self):
+		self.full_catalog = {
+			"axis": [
+				{"id": "project:expected_start_date", "label": "Expected Start Date", "value_type": "date"},
+				{"id": "project:priority", "label": "Priority", "value_type": "categorical"},
+				{"id": "scorecard:integral_score", "label": "Integral Score", "value_type": "numeric"},
+			],
+			"size": [
+				{"id": "scorecard:integral_score", "label": "Integral Score", "value_type": "numeric"},
+				{"id": "criterion:number:raw:FIN_VALUE", "label": "Financial Value (Raw)", "value_type": "numeric"},
+			],
+			"color": [
+				{"id": "project:priority", "label": "Priority", "value_type": "categorical"},
+				{"id": "criterion:scale:MATURITY", "label": "Maturity", "value_type": "categorical"},
+			],
+			"defaults": {
+				"x_axis": "project:expected_start_date",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "scorecard:integral_score",
+				"color_metric": "project:priority",
+			},
+		}
+
+	def test_collect_available_metric_ids_treats_zero_as_present(self):
+		rows = [
+			{
+				"dynamic_metric_values": {
+					"scorecard:integral_score": metric_value(0, display="0.00", label="Integral Score"),
+					"project:priority": metric_value(None, display="N/A", label="Priority"),
+				}
+			}
+		]
+		available = project_scoring_report.collect_available_metric_ids(rows)
+		self.assertIn("scorecard:integral_score", available)
+		self.assertNotIn("project:priority", available)
+
+	def test_filter_catalog_by_available_ids_removes_empty_metrics(self):
+		filtered = metric_registry.filter_catalog_by_available_ids(
+			self.full_catalog,
+			{"project:expected_start_date", "scorecard:integral_score"},
+		)
+		axis_ids = {entry["id"] for entry in filtered["axis"]}
+		size_ids = {entry["id"] for entry in filtered["size"]}
+		color_ids = {entry["id"] for entry in filtered["color"]}
+
+		self.assertEqual(axis_ids, {"project:expected_start_date", "scorecard:integral_score"})
+		self.assertEqual(size_ids, {"scorecard:integral_score"})
+		self.assertEqual(color_ids, set())
+		self.assertIn(filtered["defaults"]["x_axis"], axis_ids)
+		self.assertIn(filtered["defaults"]["y_axis"], axis_ids)
+
+	def test_collect_available_metric_ids_scans_beyond_display_slice(self):
+		rows = [{"dynamic_metric_values": {}} for _ in range(project_scoring_report.PROJECT_LIMIT)]
+		rows.append(
+			{
+				"dynamic_metric_values": {
+					"criterion:number:raw:FIN_VALUE": metric_value(1000, display="1000.00"),
+				}
+			}
+		)
+		available = project_scoring_report.collect_available_metric_ids(rows)
+		self.assertIn("criterion:number:raw:FIN_VALUE", available)
+
+	def test_resolve_metric_config_falls_back_when_selection_not_in_filtered_catalog(self):
+		filtered = metric_registry.filter_catalog_by_available_ids(
+			self.full_catalog,
+			{"scorecard:integral_score", "project:priority"},
+		)
+		config = metric_registry.resolve_metric_config(
+			{
+				"x_axis": "project:expected_start_date",
+				"y_axis": "scorecard:integral_score",
+				"size_metric": "criterion:number:raw:FIN_VALUE",
+				"color_metric": "criterion:scale:MATURITY",
+			},
+			filtered,
+		)
+		axis_ids = {entry["id"] for entry in filtered["axis"]}
+		size_ids = {entry["id"] for entry in filtered["size"]}
+		color_ids = {entry["id"] for entry in filtered["color"]}
+
+		self.assertIn(config["x_axis"], axis_ids)
+		self.assertEqual(config["y_axis"], "scorecard:integral_score")
+		self.assertIn(config["size_metric"], size_ids)
+		self.assertIn(config["color_metric"], color_ids)
+
+	def test_build_report_message_returns_filtered_catalog(self):
+		rows = [
+			{
+				"project": "PRJ-001",
+				"project_name": "Alpha",
+				"scorecard": "PSC-001",
+				"dynamic_metric_values": {
+					"project:expected_start_date": metric_value(
+						"2026-06-01",
+						display="2026-06-01",
+						sort_value=1717200000000,
+					),
+					"scorecard:integral_score": metric_value(0.81, display="0.81"),
+				},
+			}
+		]
+		available = project_scoring_report.collect_available_metric_ids(rows)
+		filtered_catalog = metric_registry.filter_catalog_by_available_ids(self.full_catalog, available)
+		metric_config = metric_registry.resolve_metric_config({}, filtered_catalog)
+		message = project_scoring_report.build_report_message(rows, {}, 1, metric_config, filtered_catalog)
+
+		payload_axis_ids = {entry["id"] for entry in message["metric_catalog"]["axis"]}
+		self.assertIn("project:expected_start_date", payload_axis_ids)
+		self.assertIn("scorecard:integral_score", payload_axis_ids)
+		self.assertNotIn("project:priority", payload_axis_ids)
+		self.assertNotIn("criterion:number:raw:FIN_VALUE", {entry["id"] for entry in message["metric_catalog"]["size"]})
+

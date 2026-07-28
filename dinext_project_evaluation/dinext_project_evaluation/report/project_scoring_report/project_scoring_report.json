@@ -1,0 +1,43 @@
+{
+ "add_total_row": 0,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2026-04-30 01:22:15.001315",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "idx": 0,
+ "is_standard": "Yes",
+ "letter_head": null,
+ "modified": "2026-04-30 01:22:15.001315",
+ "modified_by": "Administrator",
+ "module": "Dinext Project Evaluation",
+ "name": "Project Scoring Report",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "Project",
+ "report_name": "Project Scoring Report",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "Project Governance Admin"
+  },
+  {
+   "role": "Stage Gate Owner"
+  },
+  {
+   "role": "Stage Gate Reviewer"
+  },
+  {
+   "role": "Stage Gate Approver"
+  },
+  {
+   "role": "Dinext_Project_Manager"
+  },
+  {
+   "role": "Dinext_Projects_Admin"
+  }
+ ],
+ "timeout": 0
+}
