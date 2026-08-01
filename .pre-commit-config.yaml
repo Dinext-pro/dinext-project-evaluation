@@ -63,6 +63,15 @@ repos:
                 dinext_project_evaluation/public/js/lib/.*
             )$
 
+  - repo: local
+    hooks:
+      - id: node-regression-tests
+        name: Run node regression tests
+        entry: node --test tests/test_project_scoring_report.test.js tests/test_project_scoring_evaluation.test.js tests/test_project_scoring_profile.test.js tests/test_project_gate_checkpoint_scorecard.test.js tests/test_project_portfolio_scoring_navigation.test.js
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
 ci:
     autoupdate_schedule: weekly
     skip: []

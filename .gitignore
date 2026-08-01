@@ -5,3 +5,7 @@
 tags
 node_modules
 __pycache__
+
+# Local research / source materials (not for GitLab)
+docs/
+sources/
