@@ -1,0 +1,92 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Strategy",
+  "group_name": "Стратегическое соответствие",
+  "modified": "2026-06-18 02:47:16.562302",
+  "name": "Strategy"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Benefits",
+  "group_name": "Выгоды",
+  "modified": "2026-06-18 02:47:16.679646",
+  "name": "Benefits"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Market",
+  "group_name": "Рынок и клиенты",
+  "modified": "2026-06-18 02:47:16.683371",
+  "name": "Market"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Finance",
+  "group_name": "Финансовая эффективность",
+  "modified": "2026-06-18 02:47:16.687187",
+  "name": "Finance"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Risks",
+  "group_name": "Риски",
+  "modified": "2026-06-18 02:47:16.690641",
+  "name": "Risks"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Resources",
+  "group_name": "Ресурсная обеспеченность",
+  "modified": "2026-06-18 02:47:16.693966",
+  "name": "Resources"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Regulatory",
+  "group_name": "Нормативные ограничения",
+  "modified": "2026-06-18 02:47:16.697255",
+  "name": "Regulatory"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Priority",
+  "group_name": "Приоритет и срочность",
+  "modified": "2026-06-18 02:47:16.700658",
+  "name": "Priority"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Innovation",
+  "group_name": "Инновационный потенциал",
+  "modified": "2026-06-18 02:47:16.704005",
+  "name": "Innovation"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scoring Criterion Group",
+  "enabled": 1,
+  "group_code": "Environment",
+  "group_name": "Среда и зависимости",
+  "modified": "2026-06-18 02:47:16.707343",
+  "name": "Environment"
+ }
+]

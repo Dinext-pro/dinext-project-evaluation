@@ -1,0 +1,281 @@
+.dpe-project-scorecard-form .grid-row.dpe-project-scorecard-mandatory-row {
+	border-radius: var(--border-radius-md, 8px);
+	box-shadow: inset 0 0 0 1px var(--red-500, #dc2626);
+}
+
+.dpe-project-scorecard-form .grid-form .dpe-scale-key-phrases-hint {
+	font-size: var(--text-xs, 11px);
+	color: var(--text-muted, #6b7280);
+	margin-top: 4px;
+	line-height: 1.35;
+	white-space: normal;
+}
+
+.dpe-project-scorecard-form .dpe-criterion-description-hint {
+	margin-left: 4px;
+	color: var(--text-muted, #6b7280);
+	cursor: help;
+	vertical-align: middle;
+}
+
+.dpe-scorecard-kpi-dashboard .section-body {
+	padding: 0;
+}
+
+.dpe-scorecard-dashboard-kpis {
+	padding: 4px 0 8px;
+}
+
+.dpe-scorecard-kpi-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+}
+
+@media (max-width: 767px) {
+	.dpe-scorecard-kpi-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 575px) {
+	.dpe-scorecard-kpi-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+.dpe-scorecard-kpi-card {
+	border: 1px solid var(--border-color, #d1d5db);
+	border-radius: var(--border-radius-md, 8px);
+	background: var(--card-bg, var(--bg-color, #fff));
+	padding: 14px 16px;
+	min-height: 88px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 6px;
+}
+
+.dpe-scorecard-kpi-label {
+	font-size: var(--text-xs, 11px);
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--text-muted, #6b7280);
+}
+
+.dpe-scorecard-kpi-value {
+	font-size: 1.75rem;
+	font-weight: 700;
+	line-height: 1.1;
+	color: var(--text-color, #111827);
+	font-variant-numeric: tabular-nums;
+}
+
+.dpe-scorecard-kpi-value--datetime {
+	font-size: var(--text-base, 1rem);
+	font-weight: 600;
+	line-height: 1.35;
+	white-space: normal;
+	word-break: break-word;
+}
+
+.dpe-scorecard-kpi-value--pending {
+	font-size: var(--text-lg, 1.125rem);
+	font-weight: 600;
+	color: var(--text-muted, #6b7280);
+}
+
+.dpe-scorecard-kpi-status {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.dpe-scorecard-kpi-indicator {
+	width: 12px;
+	height: 12px;
+	border-radius: 999px;
+	flex-shrink: 0;
+	background: var(--text-muted, #9ca3af);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-muted, #9ca3af) 18%, transparent);
+}
+
+.dpe-scorecard-kpi-card--gate-pass .dpe-scorecard-kpi-indicator {
+	background: var(--green-500, #22c55e);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--green-500, #22c55e) 20%, transparent);
+}
+
+.dpe-scorecard-kpi-card--gate-fail .dpe-scorecard-kpi-indicator {
+	background: var(--red-500, #ef4444);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--red-500, #ef4444) 20%, transparent);
+}
+
+.dpe-scorecard-kpi-card--gate-pending .dpe-scorecard-kpi-indicator {
+	background: var(--text-muted, #9ca3af);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-muted, #9ca3af) 18%, transparent);
+}
+
+.dpe-scorecard-kpi-status-text {
+	font-size: 1.25rem;
+	font-weight: 700;
+	line-height: 1.2;
+	color: var(--text-color, #111827);
+}
+
+.dpe-scorecard-kpi-card--gate-pass .dpe-scorecard-kpi-status-text {
+	color: var(--green-600, var(--green-500, #16a34a));
+}
+
+.dpe-scorecard-kpi-card--gate-fail .dpe-scorecard-kpi-status-text {
+	color: var(--red-600, var(--red-500, #dc2626));
+}
+
+.dpe-scorecard-kpi-card--gate-pending .dpe-scorecard-kpi-status-text {
+	font-size: var(--text-base, 1rem);
+	font-weight: 600;
+	color: var(--text-muted, #6b7280);
+}
+
+.dpe-scorecard-kpi-status-pill {
+	display: flex;
+	align-items: flex-start;
+	flex-wrap: wrap;
+}
+
+.dpe-scorecard-kpi-status-pill .indicator-pill {
+	max-width: 100%;
+	height: auto;
+	min-height: 20px;
+	white-space: normal;
+	word-break: break-word;
+	line-height: 1.35;
+}
+
+.dpe-scorecard-gate-messages {
+	margin-top: 12px;
+	padding: 10px 12px;
+	border-radius: var(--border-radius-md, 8px);
+	border: 1px solid color-mix(in srgb, var(--red-500, #ef4444) 28%, var(--border-color, #d1d5db));
+	background: color-mix(in srgb, var(--red-500, #ef4444) 8%, var(--card-bg, var(--bg-color, #fff)));
+}
+
+.dpe-scorecard-gate-messages-title {
+	font-size: var(--text-xs, 11px);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--red-600, var(--red-500, #dc2626));
+	margin-bottom: 6px;
+}
+
+.dpe-scorecard-gate-messages-list {
+	margin: 0;
+	padding-left: 18px;
+	color: var(--text-color, #111827);
+	font-size: var(--text-sm, 13px);
+	line-height: 1.45;
+}
+
+.dpe-scorecard-gate-messages-list li + li {
+	margin-top: 4px;
+}
+
+.dpe-checkpoint-scorecard-section .section-body {
+	width: 100%;
+}
+
+.dpe-checkpoint-scorecard-section .form-column:first-child {
+	flex: 0 0 100%;
+	max-width: 100%;
+	width: 100%;
+}
+
+.dpe-checkpoint-scorecard-section .form-column:not(:first-child) {
+	display: none !important;
+}
+
+.dpe-checkpoint-scorecard-widget-mount {
+	padding: 0;
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.dpe-checkpoint-scorecard-widget-mount .control-label,
+.dpe-checkpoint-scorecard-widget-mount .like-disabled-input {
+	display: none;
+}
+
+.dpe-checkpoint-scorecard-section .dpe-checkpoint-scorecard-dashboard-kpis {
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.dpe-checkpoint-scorecard-dashboard-kpis {
+	cursor: pointer;
+	border: 1px solid var(--border-color, #d1d5db);
+	border-radius: var(--border-radius-md, 8px);
+	background: var(--card-bg, var(--bg-color, #fff));
+	padding: 14px 16px;
+	transition:
+		border-color 0.15s ease,
+		box-shadow 0.15s ease,
+		background-color 0.15s ease;
+}
+
+.dpe-checkpoint-scorecard-dashboard-kpis:hover,
+.dpe-checkpoint-scorecard-dashboard-kpis:focus {
+	outline: none;
+	border-color: color-mix(in srgb, var(--primary, #2490ef) 45%, var(--border-color, #d1d5db));
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2490ef) 12%, transparent);
+}
+
+.dpe-checkpoint-scorecard-widget-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.dpe-checkpoint-scorecard-widget-title {
+	font-size: var(--text-base, 1rem);
+	font-weight: 600;
+	line-height: 1.35;
+	color: var(--text-color, #111827);
+}
+
+.dpe-checkpoint-scorecard-widget-action {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+.dpe-checkpoint-scorecard-widget-name {
+	font-size: var(--text-xs, 11px);
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	color: var(--text-muted, #6b7280);
+}
+
+.dpe-checkpoint-scorecard-widget-open {
+	font-size: var(--text-sm, 13px);
+	font-weight: 600;
+	color: var(--primary, #2490ef);
+}
+
+@media (max-width: 767px) {
+	.dpe-checkpoint-scorecard-widget-header {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.dpe-checkpoint-scorecard-widget-action {
+		align-items: flex-start;
+	}
+}

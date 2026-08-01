@@ -1,0 +1,108 @@
+.project-scoring-report-shell {
+	margin: 0 0 16px 0;
+}
+
+.project-scoring-report-card {
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+}
+
+.project-scoring-report-card-body {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 16px;
+}
+
+.project-scoring-report-controls {
+	display: grid;
+	gap: 12px 16px;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.project-scoring-report-control {
+	min-width: 0;
+}
+
+.project-scoring-report-control .frappe-control {
+	margin-bottom: 0;
+}
+
+.project-scoring-report-control .control-label {
+	color: var(--text-muted);
+	font-size: 12px;
+	font-weight: 500;
+	margin-bottom: 4px;
+}
+
+.project-scoring-report-control .select-icon {
+	top: calc(50% + 6px);
+}
+
+.project-scoring-report-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.project-scoring-report-legend-item {
+	align-items: center;
+	background: transparent;
+	border: 0;
+	color: var(--text-color);
+	cursor: pointer;
+	display: inline-flex;
+	font-size: 12px;
+	gap: 6px;
+	padding: 0;
+}
+
+.project-scoring-report-legend-item:hover {
+	color: var(--text-color);
+	opacity: 0.92;
+}
+
+.project-scoring-report-legend-item:focus-visible {
+	border-radius: var(--border-radius-sm);
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+
+.project-scoring-report-legend-item.is-hidden {
+	color: var(--text-muted);
+	opacity: 0.55;
+}
+
+.project-scoring-report-legend-item.is-hidden .project-scoring-report-legend-swatch {
+	opacity: 0.35;
+}
+
+.project-scoring-report-legend-swatch {
+	background: var(--project-scoring-report-legend-color, var(--text-muted));
+	border: 1px solid var(--border-color);
+	border-radius: 999px;
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-color) 8%, transparent);
+	display: inline-block;
+	height: 10px;
+	width: 10px;
+}
+
+.project-scoring-report-chart {
+	background: transparent;
+	cursor: pointer;
+	height: 420px;
+	width: 100%;
+}
+
+.project-scoring-report-empty-state {
+	color: var(--text-muted);
+	display: none;
+	font-size: 13px;
+	padding: 24px 0;
+	text-align: center;
+}
+
+.project-scoring-report-empty-state.is-visible {
+	display: block;
+}

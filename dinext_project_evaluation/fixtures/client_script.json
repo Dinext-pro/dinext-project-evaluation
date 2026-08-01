@@ -1,0 +1,13 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Project Portfolio",
+  "enabled": 1,
+  "modified": "2026-04-30 01:23:40.914770",
+  "module": "Dinext Project Evaluation",
+  "name": "Project Portfolio Scoring Navigation",
+  "script": "frappe.ui.form.on('Project Portfolio', {\n\trefresh(frm) {\n\t\tif (frm.is_new()) return;\n\n\t\tfrm.add_custom_button(__('Project Scoring Report'), () => {\n\t\t\tfrappe.route_options = { project_portfolio: frm.doc.name };\n\t\t\tfrappe.set_route('query-report', 'Project Scoring Report');\n\t\t}, __('View'));\n\t}\n});",
+  "view": "Form"
+ }
+]

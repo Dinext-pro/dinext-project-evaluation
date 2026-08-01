@@ -8,7 +8,93 @@ app_license = "mit"
 # Apps
 # ------------------
 
-required_apps = ["erpnext"]
+required_apps = ["erpnext", "dinext_project_stage_gate"]
+from dinext_project_evaluation.scoring.workflow_constants import (
+	SCORECARD_WORKFLOW_ACTIONS,
+	SCORECARD_WORKFLOW_ROLES,
+	SCORECARD_WORKFLOW_STATES,
+	WORKFLOW_NAME,
+)
+
+_SCORING_GROUP_NAMES = [
+	"Strategy",
+	"Benefits",
+	"Market",
+	"Finance",
+	"Risks",
+	"Resources",
+	"Regulatory",
+	"Priority",
+	"Innovation",
+	"Environment",
+]
+_SCORING_CRITERION_NAMES = [
+	"STR_ALIGN",
+	"BEN_FIN",
+	"BEN_NONFIN",
+	"MKT_SHARE",
+	"COST",
+	"DEP_INT",
+	"RISK_IMP",
+	"RISK_PROB",
+	"REG",
+	"CAP_HUM_TECH",
+	"URGENCY",
+	"NPV",
+	"IRR",
+	"PP",
+	"PI",
+	"ECV",
+	"PATENT",
+	"RD_COST",
+	"MFG_COST",
+	"TECH_SUCCESS",
+	"SALES_POT",
+]
+_DEFAULT_PROFILE_NAME = "Default Project Scoring Profile"
+
+fixtures = [
+	{
+		"doctype": "Project Scoring Criterion Group",
+		"filters": [["name", "in", _SCORING_GROUP_NAMES]],
+	},
+	{
+		"doctype": "Project Scoring Criterion",
+		"filters": [["name", "in", _SCORING_CRITERION_NAMES]],
+	},
+	{
+		"doctype": "Project Scoring Profile",
+		"filters": [["name", "=", _DEFAULT_PROFILE_NAME]],
+	},
+	{
+		"doctype": "Client Script",
+		"filters": [["module", "=", "Dinext Project Evaluation"], ["enabled", "=", 1]],
+	},
+	{
+		"doctype": "Report",
+		"filters": [["module", "=", "Dinext Project Evaluation"]],
+	},
+	{
+		"doctype": "Custom Field",
+		"filters": [["module", "=", "Dinext Project Evaluation"]],
+	},
+	{
+		"doctype": "Role",
+		"filters": [["name", "in", list(SCORECARD_WORKFLOW_ROLES)], ["disabled", "=", 0]],
+	},
+	{
+		"doctype": "Workflow",
+		"filters": [["name", "in", [WORKFLOW_NAME]]],
+	},
+	{
+		"doctype": "Workflow State",
+		"filters": [["workflow_state_name", "in", list(SCORECARD_WORKFLOW_STATES)]],
+	},
+	{
+		"doctype": "Workflow Action Master",
+		"filters": [["workflow_action_name", "in", list(SCORECARD_WORKFLOW_ACTIONS)]],
+	},
+]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -43,7 +129,11 @@ required_apps = ["erpnext"]
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+	"Project": "public/js/project_scoring_evaluation.js",
+	"Project Scorecard": "dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js",
+	"Project Gate Checkpoint": "public/js/project_gate_checkpoint_scorecard.js",
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -83,7 +173,6 @@ required_apps = ["erpnext"]
 # ------------
 
 # before_install = "dinext_project_evaluation.install.before_install"
-# after_install = "dinext_project_evaluation.install.after_install"
 
 # Uninstallation
 # ------------
@@ -137,13 +226,27 @@ required_apps = ["erpnext"]
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Project": {
+		"validate": "dinext_project_evaluation.scoring.project_hooks.validate_project_scoring_profile_change",
+		"before_save": "dinext_project_evaluation.scoring.project_hooks.before_save_project_scoring_profile_reset",
+		"on_update": "dinext_project_evaluation.scoring.project_hooks.after_save_project_scoring_profile",
+	},
+	"Project Stage Instance": {
+		"on_update": "dinext_project_evaluation.scoring.scorecard_provision.on_stage_instance_update",
+	},
+	"Project Gate Checkpoint": {
+		"before_insert": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.before_insert_project_gate_checkpoint",
+		"after_insert": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.after_insert_project_gate_checkpoint",
+		"validate": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.validate_project_gate_checkpoint",
+	},
+	"Project Scorecard": {
+		"after_insert": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.on_scorecard_checkpoint_sync",
+		"on_submit": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.on_scorecard_checkpoint_sync",
+		"on_cancel": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.on_scorecard_checkpoint_sync",
+		"on_update": "dinext_project_evaluation.scoring.stage_gate_checkpoint_hooks.on_scorecard_checkpoint_sync",
+	},
+}
 
 # Scheduled Tasks
 # ---------------
