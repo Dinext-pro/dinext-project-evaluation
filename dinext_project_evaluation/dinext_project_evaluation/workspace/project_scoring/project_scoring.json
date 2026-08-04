@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"hdr-summary\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Сводка оценки проектов</b></span>\",\"col\":12}},{\"id\":\"nc-in-progress\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Оценки в работе\",\"col\":3}},{\"id\":\"nc-review\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Оценки на согласовании\",\"col\":3}},{\"id\":\"nc-approved\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Согласованные оценки\",\"col\":3}},{\"id\":\"nc-gate-failed\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Оценки с непрохождением ворот\",\"col\":3}},{\"id\":\"nc-profile-set\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Проекты с профилем оценки\",\"col\":6}},{\"id\":\"nc-profile-missing\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Проекты без профиля оценки\",\"col\":6}},{\"id\":\"sp-operations\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdr-analytics\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Аналитика портфеля</b></span>\",\"col\":12}},{\"id\":\"sc-report\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Отчет: оценка проектов\",\"col\":4}},{\"id\":\"sp-summary\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdr-operations\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Работа со картами оценки</b></span>\",\"col\":12}},{\"id\":\"sc-scorecards\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Карточки оценки проектов\",\"col\":4}},{\"id\":\"sc-projects\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Проекты\",\"col\":4}},{\"id\":\"sc-portfolios\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Портфели проектов\",\"col\":4}},{\"id\":\"sp-analytics\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdr-setup\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Профили и критерии</b></span>\",\"col\":12}},{\"id\":\"card-setup\",\"type\":\"card\",\"data\":{\"card_name\":\"Профили и критерии\",\"col\":4}}]",
+ "content": "[{\"id\":\"hdr-summary\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Project Scoring Summary</b></span>\",\"col\":12}},{\"id\":\"nc-in-progress\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Scorecards In Progress\",\"col\":3}},{\"id\":\"nc-review\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Scorecards Under Review\",\"col\":3}},{\"id\":\"nc-approved\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Agreed Scorecards\",\"col\":3}},{\"id\":\"nc-gate-failed\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Scorecards Failing Gate\",\"col\":3}},{\"id\":\"nc-profile-set\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Projects with Scoring Profile\",\"col\":6}},{\"id\":\"nc-profile-missing\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Projects without Scoring Profile\",\"col\":6}},{\"id\":\"sp-operations\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdr-analytics\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Portfolio Analytics</b></span>\",\"col\":12}},{\"id\":\"sc-report\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Report: Project Scoring\",\"col\":4}},{\"id\":\"sp-summary\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdr-operations\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Scorecard Operations</b></span>\",\"col\":12}},{\"id\":\"sc-scorecards\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Scorecards\",\"col\":4}},{\"id\":\"sc-projects\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Projects\",\"col\":4}},{\"id\":\"sc-portfolios\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Portfolios\",\"col\":4}},{\"id\":\"sp-analytics\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdr-setup\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Profiles and Criteria</b></span>\",\"col\":12}},{\"id\":\"card-setup\",\"type\":\"card\",\"data\":{\"card_name\":\"Profiles and Criteria\",\"col\":4}}]",
  "creation": "2026-06-18 02:30:00",
  "custom_blocks": [],
  "docstatus": 0,
@@ -16,7 +16,7 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Профили и критерии",
+   "label": "Profiles and Criteria",
    "link_count": 4,
    "link_type": "DocType",
    "onboard": 0,
@@ -73,27 +73,27 @@
  "name": "Project Scoring",
  "number_cards": [
   {
-   "label": "Оценки в работе",
+   "label": "Scorecards In Progress",
    "number_card_name": "Карточки в работе"
   },
   {
-   "label": "Оценки на согласовании",
+   "label": "Scorecards Under Review",
    "number_card_name": "Карточки на согласовании"
   },
   {
-   "label": "Согласованные оценки",
+   "label": "Agreed Scorecards",
    "number_card_name": "Согласованные карточки"
   },
   {
-   "label": "Оценки с непрохождением ворот",
+   "label": "Scorecards Failing Gate",
    "number_card_name": "Карточки с непрохождением gate"
   },
   {
-   "label": "Проекты с профилем оценки",
+   "label": "Projects with Scoring Profile",
    "number_card_name": "Проекты с профилем оценки"
   },
   {
-   "label": "Проекты без профиля оценки",
+   "label": "Projects without Scoring Profile",
    "number_card_name": "Проекты без профиля оценки"
   }
  ],
@@ -126,14 +126,14 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Карточки оценки проектов",
+   "label": "Project Scorecards",
    "link_to": "Project Scorecard",
    "type": "DocType"
   },
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Проекты",
+   "label": "Projects",
    "link_to": "Project",
    "stats_filter": "[]",
    "type": "DocType"
@@ -141,7 +141,7 @@
   {
    "color": "Blue",
    "doc_view": "List",
-   "label": "Отчет: оценка проектов",
+   "label": "Report: Project Scoring",
    "link_to": "Project Scoring Report",
    "report_ref_doctype": "Project",
    "type": "Report"
@@ -149,7 +149,7 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Портфели проектов",
+   "label": "Project Portfolios",
    "link_to": "Project Portfolio",
    "type": "DocType"
   }
