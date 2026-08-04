@@ -249,3 +249,4 @@
 "{0}: value must be numeric","{0}: значение должно быть числовым.",""
 "{0}: value must be one of the configured scale options","{0}: значение должно быть одним из настроенных вариантов шкалы.",""
 "{0}: value {1} is outside allowed range {2}..{3}","{0}: значение {1} вне допустимого диапазона {2}..{3}.",""
+"Project Scoring","Скоринг проектов",""

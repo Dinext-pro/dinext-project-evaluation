@@ -1,0 +1,158 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"hdr-summary\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Сводка оценки проектов</b></span>\",\"col\":12}},{\"id\":\"nc-in-progress\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Оценки в работе\",\"col\":3}},{\"id\":\"nc-review\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Оценки на согласовании\",\"col\":3}},{\"id\":\"nc-approved\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Согласованные оценки\",\"col\":3}},{\"id\":\"nc-gate-failed\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Оценки с непрохождением ворот\",\"col\":3}},{\"id\":\"nc-profile-set\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Проекты с профилем оценки\",\"col\":6}},{\"id\":\"nc-profile-missing\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Проекты без профиля оценки\",\"col\":6}},{\"id\":\"sp-operations\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdr-analytics\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Аналитика портфеля</b></span>\",\"col\":12}},{\"id\":\"sc-report\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Отчет: оценка проектов\",\"col\":4}},{\"id\":\"sp-summary\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdr-operations\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Работа со картами оценки</b></span>\",\"col\":12}},{\"id\":\"sc-scorecards\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Карточки оценки проектов\",\"col\":4}},{\"id\":\"sc-projects\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Проекты\",\"col\":4}},{\"id\":\"sc-portfolios\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Портфели проектов\",\"col\":4}},{\"id\":\"sp-analytics\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdr-setup\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b>Профили и критерии</b></span>\",\"col\":12}},{\"id\":\"card-setup\",\"type\":\"card\",\"data\":{\"card_name\":\"Профили и критерии\",\"col\":4}}]",
+ "creation": "2026-06-18 02:30:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "review",
+ "idx": 0,
+ "indicator_color": "",
+ "is_hidden": 0,
+ "label": "Project Scoring",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Профили и критерии",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project Scoring Profile",
+   "link_count": 0,
+   "link_to": "Project Scoring Profile",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project Scoring Criterion",
+   "link_count": 0,
+   "link_to": "Project Scoring Criterion",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project Scoring Criterion Group",
+   "link_count": 0,
+   "link_to": "Project Scoring Criterion Group",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project Scorecard",
+   "link_count": 0,
+   "link_to": "Project Scorecard",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-06-18 02:29:50.604333",
+ "modified_by": "Administrator",
+ "module": "Dinext Project Evaluation",
+ "name": "Project Scoring",
+ "number_cards": [
+  {
+   "label": "Оценки в работе",
+   "number_card_name": "Карточки в работе"
+  },
+  {
+   "label": "Оценки на согласовании",
+   "number_card_name": "Карточки на согласовании"
+  },
+  {
+   "label": "Согласованные оценки",
+   "number_card_name": "Согласованные карточки"
+  },
+  {
+   "label": "Оценки с непрохождением ворот",
+   "number_card_name": "Карточки с непрохождением gate"
+  },
+  {
+   "label": "Проекты с профилем оценки",
+   "number_card_name": "Проекты с профилем оценки"
+  },
+  {
+   "label": "Проекты без профиля оценки",
+   "number_card_name": "Проекты без профиля оценки"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Project Scorecard Author"
+  },
+  {
+   "role": "Project Scorecard Reviewer"
+  },
+  {
+   "role": "Project Scorecard Approver"
+  },
+  {
+   "role": "Project Scorecard Admin"
+  },
+  {
+   "role": "Dinext_Project_Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 49.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Карточки оценки проектов",
+   "link_to": "Project Scorecard",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Проекты",
+   "link_to": "Project",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Отчет: оценка проектов",
+   "link_to": "Project Scoring Report",
+   "report_ref_doctype": "Project",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Портфели проектов",
+   "link_to": "Project Portfolio",
+   "type": "DocType"
+  }
+ ],
+ "title": "Project Scoring"
+}
