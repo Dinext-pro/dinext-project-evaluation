@@ -173,6 +173,8 @@ doctype_js = {
 # ------------
 
 # before_install = "dinext_project_evaluation.install.before_install"
+after_install = "dinext_project_evaluation.install.after_install"
+after_migrate = "dinext_project_evaluation.install.after_migrate"
 
 # Uninstallation
 # ------------
