@@ -68,7 +68,7 @@ fixtures = [
 	},
 	{
 		"doctype": "Client Script",
-		"filters": [["module", "=", "Dinext Project Evaluation"], ["enabled", "=", 1]],
+		"filters": [["module", "=", "Dinext Project Evaluation"]],
 	},
 	{
 		"doctype": "Report",
