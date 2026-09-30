@@ -3,7 +3,7 @@ app_title = "Dinext Project Evaluation"
 app_publisher = "Dinext"
 app_description = "Dinext project evaluation."
 app_email = "info@dinext.ru"
-app_license = "mit"
+app_license = "GNU General Public License (v3)"
 
 # Apps
 # ------------------
@@ -68,7 +68,7 @@ fixtures = [
 	},
 	{
 		"doctype": "Client Script",
-		"filters": [["module", "=", "Dinext Project Evaluation"], ["enabled", "=", 1]],
+		"filters": [["module", "=", "Dinext Project Evaluation"]],
 	},
 	{
 		"doctype": "Report",
@@ -173,6 +173,8 @@ doctype_js = {
 # ------------
 
 # before_install = "dinext_project_evaluation.install.before_install"
+after_install = "dinext_project_evaluation.install.after_install"
+after_migrate = "dinext_project_evaluation.install.after_migrate"
 
 # Uninstallation
 # ------------
