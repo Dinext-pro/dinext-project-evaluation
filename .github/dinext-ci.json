@@ -1,0 +1,8 @@
+{
+  "app": "dinext_project_evaluation",
+  "package_dir": "dinext_project_evaluation",
+  "mode": "frappe-app",
+  "gitflow": true,
+  "frontend_tests": false,
+  "skip_test_records": true
+}
