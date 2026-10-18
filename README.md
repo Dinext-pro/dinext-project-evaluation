@@ -1,28 +1,30 @@
+[Русский](README.ru.md)
+
 # Dinext Project Evaluation
 
-## 📖 Обзор
+## 📖 Overview
 
-**Dinext Project Evaluation** — приложение Frappe/ERPNext для формализованного скоринга проектов, scorecard-документов и аналитики портфеля поверх стандартных ERPNext Projects. PMO и менеджеры проектов могут задавать критерии и профили оценки, заполнять scorecard по стадиям проекта, рассчитывать взвешенный интегральный балл с правилами «ворот» и сравнивать проекты в Script Report с пузырьковой диаграммой.
+**Dinext Project Evaluation** is a Frappe/ERPNext application for formal project scoring, scorecard documents, and portfolio analytics on top of standard ERPNext Projects. PMOs and project managers can define evaluation criteria and profiles, complete scorecards for project stages, calculate a weighted overall score with gate rules, and compare projects in a Script Report with a bubble chart.
 
-Приложение интегрируется с существующим управлением проектами Dinext (Project Portfolio, Project Stage, stage-gate) и не заменяет модуль stage-gate. При установке и `migrate` автоматически импортируются fixture-backed типовые критерии и стартовый профиль оценки.
+The application integrates with existing Dinext project management (Project Portfolio, Project Stage, stage-gate) and does not replace the stage-gate module. Fixture-backed standard criteria and a starter scoring profile are imported automatically during installation and `migrate`.
 
-## ✨ Возможности
+## ✨ Features
 
-- **Каталог критериев скоринга** — числовые, валютные, процентные, логические и качественные (шкала) значения с направлением влияния и опциональными шкалами Likert.
-- **Профили оценки** — веса, обязательность критериев, пороги gate по обязательным критериям (нормализованный балл и/или сырое число), применимость по стадиям; в UI показываются только релевантные пороговые поля.
-- **Project Scorecard** — submittable DocType с workflow **Dinext Project Scorecard Approval** (отдельные роли согласования, не stage-gate), снимок профиля, расчёт интегрального балла и gate; проверка mandatory-критериев при уходе из Draft. **Dashboard KPI** на форме scorecard: компактные блоки **Integral Score**, **Gate Pass** и **Last Recalculated** в `frm.dashboard` после расчёта (секция «Evaluation Summary»); ручной пересчёт через пункт меню **Recalculate Score**. **Согласованной** считается только submitted-оценка (`docstatus = 1`); поле `status` остаётся бизнес-индикатором для UI. Подробнее — раздел [Workflow согласования](#workflow-согласования-project-scorecard) и [Dashboard KPI на форме Project Scorecard](#dashboard-kpi-на-форме-project-scorecard).
-- **Автосоздание Draft scorecard** — при назначении профиля оценки проекту с активной стадией или при переходе **Project Stage Instance** в статус **Active** (если на проекте уже задан профиль); идемпотентно, без дубликатов на одну stage instance.
-- **UI карточки Project** — form script (`project_scoring_evaluation.js`): выбор профиля оценки (только при заданной Governance Model), кнопки **Open Scorecards** / **Open Scoring Report** в меню Evaluation, переход к отчёту портфеля; сброс профиля при смене/очистке модели управления.
-- **UI Project Portfolio** — переход к отчёту скоринга и пузырьковой диаграмме для выбранного портфеля.
-- **Project Scoring Report** — фильтры по портфелю, проекту, типу проекта, статусу, модели управления, **Project Scoring Profile** (`custom_project_scoring_profile`), только активным проектам (`is_active = Yes`), текущей и оценённой стадии, gate pass и диапазону дат оценки; в выборку попадают submitted scorecard (`docstatus = 1`); таблица данных, bubble payload на сервере и пузырьковая диаграмма (ECharts) на клиенте; **клик по bubble** открывает связанную карточку **Project Scorecard**, а при её отсутствии — форму **Project**. Оси X/Y, размер и цвет bubble настраиваются **динамическими метриками** из runtime meta (**Project**, **Project Scorecard**, критерии профиля); списки метрик учитывают текущую выборку данных и скрытые поля DocType; см. [Project Scoring Report: динамические метрики](#project-scoring-report-динамические-метрики-и-bubble-chart).
-- **Каталог по умолчанию из fixtures** — 10 групп критериев, 21 критерий и активный профиль **Базовый профиль оценки проектов** (`Default Project Scoring Profile`) с русскими display-именами, предметными шкалами 0–5, реалистичными диапазонами числовых показателей и stage-aware строками для стадий stage-gate (Идея, Инициирование, Реализация, Завершение). Системные ключи (`name`, `group_code`, `criterion_code`) остаются на английском для совместимости с `hooks.py` и отчётами.
-- **Чистый scoring engine** — модуль расчёта без зависимости от Frappe ORM и unit-тесты нормализации, взвешивания и gate-логики.
-- **Интеграция со Stage Gate** — флаг **Require Agreed Stage Scorecard** на `Stage Gate Template`; при включении checkpoint нельзя отправить в **In Review** без submitted scorecard (`docstatus = 1`) для той же `Project Stage Instance`. На форме `Project Gate Checkpoint` в секции **Stage Scorecard** (после `decision_comment`) — кликабельный KPI-виджет в стиле scorecard с переходом к связанной карточке; непройденные gate-пороги — **мягкое** предупреждение, не блокирует review. Подробнее — [Интеграция Stage Gate и scorecard](#интеграция-stage-gate-и-scorecard).
-- **Workspace «Скоринг проектов»** — публичная рабочая область Desk с KPI number cards по статусам scorecard и покрытию профилем оценки, shortcuts к отчёту портфеля и операционным DocType, карточкой настройки каталога; доступ по ролям scorecard, `Dinext_Project_Manager` и `System Manager`. Подробнее — [Workspace «Скоринг проектов»](#workspace-скоринг-проектов).
+- **Scoring criteria catalog** — numeric, currency, percentage, boolean, and qualitative (scale) values with an influence direction and optional Likert scales.
+- **Scoring profiles** — weights, mandatory criteria, gate thresholds for mandatory criteria (normalized score and/or raw number), and applicability by stage; the UI shows only relevant threshold fields.
+- **Project Scorecard** — a submittable DocType with the **Dinext Project Scorecard Approval** workflow (dedicated approval roles, separate from stage-gate), a profile snapshot, overall score and gate calculation, and mandatory-criteria validation when leaving Draft. **Dashboard KPIs** on the scorecard form: compact **Integral Score**, **Gate Pass**, and **Last Recalculated** blocks in `frm.dashboard` after calculation (the “Evaluation Summary” section); manual recalculation through the **Recalculate Score** menu item. Only a submitted scorecard (`docstatus = 1`) is considered **agreed**; the `status` field remains a business indicator for the UI. See [Approval workflow](#project-scorecard-approval-workflow) and [Dashboard KPIs on the Project Scorecard form](#dashboard-kpis-on-the-project-scorecard-form).
+- **Automatic Draft scorecard creation** — when a scoring profile is assigned to a project with an active stage, or when **Project Stage Instance** becomes **Active** (if a profile is already set on the project); idempotent, without duplicates for a stage instance.
+- **Project form UI** — form script (`project_scoring_evaluation.js`): scoring profile selection (only when a Governance Model is set), **Open Scorecards** / **Open Scoring Report** buttons in the Evaluation menu, navigation to the portfolio report, and profile reset when the governance model changes or is cleared.
+- **Project Portfolio UI** — navigation to the scoring report and bubble chart for the selected portfolio.
+- **Project Scoring Report** — filters by portfolio, project, project type, status, governance model, **Project Scoring Profile** (`custom_project_scoring_profile`), active projects only (`is_active = Yes`), current and evaluated stage, gate pass, and evaluation date range; includes submitted scorecards (`docstatus = 1`); a data table, server-side bubble payload, and client-side bubble chart (ECharts); **clicking a bubble** opens the associated **Project Scorecard**, or the **Project** form if no scorecard is available. The X/Y axes, bubble size, and color use **dynamic metrics** from runtime metadata (**Project**, **Project Scorecard**, and profile criteria); metric lists account for the current dataset and hidden DocType fields. See [Project Scoring Report: dynamic metrics](#project-scoring-report-dynamic-metrics-and-bubble-chart).
+- **Default fixture catalog** — 10 criteria groups, 21 criteria, and the active **Базовый профиль оценки проектов** (Base Project Scoring Profile, `Default Project Scoring Profile`) with Russian display names, domain-specific 0–5 scales, realistic numeric ranges, and stage-aware rows for stage-gate stages (Идея / Idea, Инициирование / Initiation, Реализация / Execution, Завершение / Closure). System keys (`name`, `group_code`, `criterion_code`) remain in English for compatibility with `hooks.py` and reports.
+- **Pure scoring engine** — a calculation module independent of the Frappe ORM, with unit tests for normalization, weighting, and gate logic.
+- **Stage Gate integration** — the **Require Agreed Stage Scorecard** flag on `Stage Gate Template`; when enabled, a checkpoint cannot enter **In Review** without a submitted scorecard (`docstatus = 1`) for the same `Project Stage Instance`. On the `Project Gate Checkpoint` form, the **Stage Scorecard** section (after `decision_comment`) contains a clickable KPI widget styled like the scorecard and linking to the associated document; failed gate thresholds produce a **soft** warning and do not block review. See [Stage Gate and scorecard integration](#stage-gate-and-scorecard-integration).
+- **“Скоринг проектов” (Project Scoring) workspace** — a public Desk workspace with KPI number cards for scorecard statuses and scoring profile coverage, shortcuts to the portfolio report and operational DocTypes, and a catalog setup card; accessible to scorecard roles, `Dinext_Project_Manager`, and `System Manager`. See [“Скоринг проектов” (Project Scoring) workspace](#скоринг-проектов-project-scoring-workspace).
 
-## 🚀 Установка
+## 🚀 Installation
 
-Установка через [bench](https://github.com/frappe/bench):
+Install with [bench](https://github.com/frappe/bench):
 
 ```bash
 cd $PATH_TO_YOUR_BENCH
@@ -31,127 +33,127 @@ bench --site <site> install-app dinext_project_evaluation
 bench --site <site> migrate
 ```
 
-Источник истины для стартового scoring catalog — versioned fixtures в `dinext_project_evaluation/fixtures/`. После `install-app` и `migrate` на сайт подтягиваются workflow, роли, report, custom fields и каталог по умолчанию.
+The source of truth for the starter scoring catalog is the versioned fixtures in `dinext_project_evaluation/fixtures/`. After `install-app` and `migrate`, the workflow, roles, report, custom fields, and default catalog are imported into the site.
 
-После изменений метаданных, workflow или fixture-backed master data экспортируйте fixtures в репозиторий (`dinext_project_evaluation/fixtures/`):
+After changing metadata, workflows, or fixture-backed master data, export the fixtures to the repository (`dinext_project_evaluation/fixtures/`):
 
 ```bash
 bench --site <site> export-fixtures
 ```
 
-При `migrate` подтягиваются fixtures, в том числе workflow **Dinext Project Scorecard Approval**, роли scorecard-согласования и `Default Project Scoring Profile`. Одноразовые data-migration патчи в приложении не используются: актуальная схема и поведение обеспечиваются DocType JSON, fixtures и runtime hooks.
+`migrate` imports fixtures, including the **Dinext Project Scorecard Approval** workflow, scorecard approval roles, and `Default Project Scoring Profile`. The application does not use one-off data migration patches: DocType JSON, fixtures, and runtime hooks provide the current schema and behavior.
 
-### Стартовый каталог скоринга (demo fixtures)
+### Starter scoring catalog (demo fixtures)
 
-После `install-app` / `migrate` на сайт импортируется versioned demo-каталог из `dinext_project_evaluation/fixtures/`. Источник истины — записи на bench-сайте и `bench export-fixtures`, а не ручное редактирование JSON в репозитории.
+After `install-app` / `migrate`, the versioned demo catalog from `dinext_project_evaluation/fixtures/` is imported into the site. Records on the bench site and `bench export-fixtures` are the source of truth; do not edit repository JSON manually.
 
-**Граница локализации:**
+**Localization boundary:**
 
-| Слой | Язык | Примеры |
+| Layer | Language | Examples |
 |------|------|---------|
-| Системные ключи и ссылки | Английский | `Strategy`, `STR_ALIGN`, `Default Project Scoring Profile` |
-| Display-поля demo-данных | Русский | `group_name`, `criterion_name`, `scale_label`, `key_phrases`, `profile_name`, `description` |
-| UI DocType / workflow | Русский через `translations/ru.csv` | подписи полей, кнопки workflow |
+| System keys and references | English | `Strategy`, `STR_ALIGN`, `Default Project Scoring Profile` |
+| Demo data display fields | Russian | `group_name`, `criterion_name`, `scale_label`, `key_phrases`, `profile_name`, `description` |
+| DocType / workflow UI | Russian through `translations/ru.csv` | Field labels, workflow buttons |
 
-**Группы критериев** (`project_scoring_criterion_group.json`) — 10 записей с русскими `group_name` и стабильными `name` / `group_code`: Стратегическое соответствие, Выгоды, Рынок и клиенты, Финансовая эффективность, Риски, Ресурсная обеспеченность, Нормативные ограничения, Приоритет и срочность, Инновационный потенциал, Среда и зависимости.
+**Criteria groups** (`project_scoring_criterion_group.json`) — 10 records with Russian `group_name` values and stable `name` / `group_code`: Стратегическое соответствие (Strategic alignment), Выгоды (Benefits), Рынок и клиенты (Market and customers), Финансовая эффективность (Financial performance), Риски (Risks), Ресурсная обеспеченность (Resource availability), Нормативные ограничения (Regulatory constraints), Приоритет и срочность (Priority and urgency), Инновационный потенциал (Innovation potential), Среда и зависимости (Environment and dependencies).
 
-**Критерии** (`project_scoring_criterion.json`) — 21 критерий с русскими названиями, описаниями и предметными шкалами Likert 0–5 (вместо шаблонных «очень низко / низко / …»). Числовые критерии имеют реалистичные диапазоны, согласованные с `influence_direction`:
+**Criteria** (`project_scoring_criterion.json`) — 21 criteria with Russian names, descriptions, and domain-specific Likert scales from 0 to 5 (instead of generic “very low / low / …” labels). Numeric criteria have realistic ranges consistent with `influence_direction`:
 
-| Код | Тип | Диапазон / шкала |
+| Code | Type | Range / scale |
 |-----|-----|------------------|
-| `STR_ALIGN`, `BEN_FIN`, `MKT_SHARE`, … | Scale 0–5 | Предметные формулировки по смыслу критерия |
-| `COST`, `RD_COST`, `MFG_COST` | Currency | 0 … 200–500 млн руб. (`lower_is_better`) |
-| `NPV`, `ECV` | Currency | −200 … +1000 млн / −50 … +500 млн руб. |
+| `STR_ALIGN`, `BEN_FIN`, `MKT_SHARE`, … | Scale 0–5 | Domain-specific wording appropriate to the criterion |
+| `COST`, `RD_COST`, `MFG_COST` | Currency | 0 … RUB 200–500 million (`lower_is_better`) |
+| `NPV`, `ECV` | Currency | −200 … +1000 million / −50 … +500 million RUB |
 | `IRR`, `TECH_SUCCESS` | Percent | 0 … 60% / 0 … 100% |
-| `PP` | Number (мес.) | 0 … 84 (`lower_is_better`) |
+| `PP` | Number (months) | 0 … 84 (`lower_is_better`) |
 | `PI` | Number | 0 … 3 |
-| `SALES_POT` | Boolean | Подтверждённый потенциал сбыта |
+| `SALES_POT` | Boolean | Confirmed sales potential |
 
-**Профиль по умолчанию** (`project_scoring_profile.json`) — одна запись `Default Project Scoring Profile`:
+**Default profile** (`project_scoring_profile.json`) — one `Default Project Scoring Profile` record:
 
-- **profile_name:** «Базовый профиль оценки проектов»
+- **profile_name:** “Базовый профиль оценки проектов” (Base Project Scoring Profile)
 - **status:** Active
-- **21 глобальная строка** — все критерии каталога с весами 1–3 и уровнем **Desired**
-- **15 stage-specific строк** — усиление требований и порогов gate на стадиях stage-gate (имена стадий — как в `Project Stage` приложения `dinext_project_stage_gate`):
+- **21 global rows** — all catalog criteria with weights of 1–3 and the **Desired** level
+- **15 stage-specific rows** — stronger requirements and gate thresholds at stage-gate stages (stage names match `Project Stage` in the `dinext_project_stage_gate` application):
 
-| Стадия | Примеры усиления |
+| Stage | Examples of stronger requirements |
 |--------|------------------|
-| **Идея** | `BEN_FIN`, `MKT_SHARE` — Mandatory, min normalized 0.4 |
-| **Инициирование** | `STR_ALIGN` — Mandatory, min normalized 0.6; риски и ресурсы — Mandatory |
-| **Реализация** | `TECH_SUCCESS` — Mandatory, raw 65…100%; `SALES_POT` — Mandatory (boolean gate) |
-| **Завершение** | `REG` — min normalized 0.8; `NPV` — min raw 50 млн; `IRR` — 18…60%; `PP` — max 36 мес. |
+| **Идея (Idea)** | `BEN_FIN`, `MKT_SHARE` — Mandatory, min normalized 0.4 |
+| **Инициирование (Initiation)** | `STR_ALIGN` — Mandatory, min normalized 0.6; risks and resources — Mandatory |
+| **Реализация (Execution)** | `TECH_SUCCESS` — Mandatory, raw 65…100%; `SALES_POT` — Mandatory (boolean gate) |
+| **Завершение (Closure)** | `REG` — min normalized 0.8; `NPV` — min raw 50 million; `IRR` — 18…60%; `PP` — max 36 months |
 
-Stage-specific строки **переопределяют** глобальные для той же пары «критерий + стадия» при расчёте scorecard (`resolve_stage_overridden_profile_rows`).
+Stage-specific rows **override** global rows for the same “criterion + stage” pair during scorecard calculation (`resolve_stage_overridden_profile_rows`).
 
-**Обновление demo-каталога на сайте:**
+**Updating the demo catalog on a site:**
 
 ```bash
-# 1. Изменить группы / критерии / профиль в Desk или через bench execute
-# 2. Экспортировать fixtures обратно в репозиторий
+# 1. Change groups / criteria / profile in Desk or through bench execute
+# 2. Export the fixtures back to the repository
 bench --site <site> export-fixtures --app dinext_project_evaluation
 ```
 
-Regression-тест целостности fixtures: `tests/test_scoring_demo_catalog.py`.
+Fixture integrity regression test: `tests/test_scoring_demo_catalog.py`.
 
-## Workflow согласования Project Scorecard
+## Project Scorecard approval workflow
 
-Жизненный цикл scorecard управляется **Frappe Workflow** с полем состояния **`status`** и стандартным **`docstatus`** submittable-документа. Статус на форме только для чтения; переходы — кнопками workflow на форме **Project Scorecard**.
+The scorecard lifecycle is managed by **Frappe Workflow**, using the **`status`** state field and the standard **`docstatus`** of a submittable document. The status is read-only on the form; transitions use workflow buttons on the **Project Scorecard** form.
 
 **Workflow:** `Dinext Project Scorecard Approval`  
-**Источник в репозитории:** `dinext_project_evaluation/fixtures/workflow.json`, `workflow_state.json`, `workflow_action_master.json`, `role.json`
+**Repository source:** `dinext_project_evaluation/fixtures/workflow.json`, `workflow_state.json`, `workflow_action_master.json`, `role.json`
 
-### Submittable lifecycle и «согласованная» оценка
+### Submittable lifecycle and an “agreed” scorecard
 
-| Понятие | Источник истины | Примечание |
+| Concept | Source of truth | Note |
 |---------|-----------------|------------|
-| Бизнес-статус (Draft, Reviewed, Approved…) | поле `status` | UI, роли редактирования, расчёт integral/gate |
-| Согласованная / финальная оценка | **`docstatus = 1`** | Отчёт портфеля, `custom_last_*` на Project, gate downstream |
-| Отменённая оценка | `status = Canceled` и **`docstatus = 2`** | Не блокирует новую карточку для стадии |
+| Business status (Draft, Reviewed, Approved…) | `status` field | UI, editing roles, integral/gate calculation |
+| Agreed / final scorecard | **`docstatus = 1`** | Portfolio report, `custom_last_*` on Project, downstream gates |
+| Canceled scorecard | `status = Canceled` and **`docstatus = 2`** | Does not block a new scorecard for the stage |
 
-Переход **Reviewed → Approved** через workflow вызывает `doc.submit()` (состояние Approved в workflow имеет `doc_status = 1`). Отмена submitted scorecard — через workflow **Cancel** (Approved → Canceled) или программный cancel для черновиков в промежуточных статусах.
+The **Reviewed → Approved** workflow transition calls `doc.submit()` (the Approved workflow state has `doc_status = 1`). A submitted scorecard is canceled through the **Cancel** workflow action (Approved → Canceled), or through programmatic cancellation for drafts in intermediate statuses.
 
-### Роли (отдельно от stage-gate)
+### Roles (separate from stage-gate)
 
-| Роль | Назначение |
+| Role | Purpose |
 |------|------------|
-| **Project Scorecard Author** | Создаёт scorecard, заполняет критерии в Draft, отправляет на проверку |
-| **Project Scorecard Reviewer** | Проверяет полноту, переводит в Reviewed или возвращает на доработку |
-| **Project Scorecard Approver** | Утверждает оценку (Reviewed → Approved), **отменяет** scorecard (Cancel) |
-| **Project Scorecard Admin** | Полный доступ к DocType; submit без права cancel |
+| **Project Scorecard Author** | Creates scorecards, enters criteria in Draft, and submits them for review |
+| **Project Scorecard Reviewer** | Checks completeness, moves to Reviewed, or returns for revision |
+| **Project Scorecard Approver** | Approves a scorecard (Reviewed → Approved) and **cancels** scorecards (Cancel) |
+| **Project Scorecard Admin** | Full DocType access; submit permission without cancel permission |
 
-Рекомендуемое соответствие существующим ролям Dinext (см. `scoring/workflow_constants.py`):
+Recommended mapping to existing Dinext roles (see `scoring/workflow_constants.py`):
 
-| Роль Dinext | Роль scorecard |
+| Dinext role | Scorecard role |
 |-------------|----------------|
 | `Dinext_Project_Manager` | Project Scorecard Author |
 | `Project Governance Admin` | Project Scorecard Admin |
 
-Пользователям нужно выдать соответствующие роли scorecard в **User** (помимо прав на Project / портфель). Stage-gate роли (`Stage Gate Owner`, `Reviewer`, `Approver`) в workflow scorecard **не** используются.
+Users must be assigned the appropriate scorecard roles in **User** (in addition to Project / portfolio permissions). Stage-gate roles (`Stage Gate Owner`, `Reviewer`, `Approver`) are **not** used in the scorecard workflow.
 
-### Статусы, docstatus и расчёт
+### Statuses, docstatus, and calculation
 
-| Статус (`status`) | `docstatus` | Смысл | Расчёт integral / gate | В отчёте портфеля |
+| Status (`status`) | `docstatus` | Meaning | Integral / gate calculation | Included in portfolio report |
 |-------------------|-------------|--------|------------------------|-------------------|
-| Draft | 0 | Черновик, ввод значений | Нет | Нет |
-| Submitted for Review | 0 | На проверке | Да (при save) | Нет |
-| Reviewed | 0 | Проверка пройдена | Да (при save, пересчёт) | Нет |
-| Approved | **1** | Утверждено (submitted) | Да (при save) | **Да** |
-| Rejected | 0 | Возврат на доработку | Нет | Нет |
-| Canceled | **2** | Процесс прекращён | Нет | Нет |
+| Draft | 0 | Draft, value entry | No | No |
+| Submitted for Review | 0 | Under review | Yes (on save) | No |
+| Reviewed | 0 | Review complete | Yes (on save, recalculation) | No |
+| Approved | **1** | Approved (submitted) | Yes (on save) | **Yes** |
+| Rejected | 0 | Returned for revision | No | No |
+| Canceled | **2** | Process terminated | No | No |
 
-Ручное редактирование значений критериев и комментариев допускается только в **Draft**; во всех остальных статусах разрешены workflow-переходы и системный пересчёт, но не правка содержимого. Утверждённые и отменённые scorecard нельзя переводить обратно в более ранние статусы.
+Criteria values and comments can be edited manually only in **Draft**; all other statuses allow workflow transitions and system recalculation, but no content editing. Approved and canceled scorecards cannot return to earlier statuses.
 
-### Уникальность и replacement после Cancel
+### Uniqueness and replacement after Cancel
 
-- На одну **`stage_instance_at_evaluation`** допускается **не более одного** scorecard со статусом, отличным от **Canceled** (включая Draft и Rejected — повторное создание не дублирует карточку, а переиспользует существующую).
-- После **Cancel** для стадии **немедленно** создаётся новый **Draft** с тем же проектом, профилем и `stage_instance_at_evaluation` (если стадия ещё **Active** и карточки для неё нет).
-- **Cancel** разрешён только пользователю с ролью **Project Scorecard Approver** и только пока связанная **Project Stage Instance** в статусе **Active**. Кнопка Cancel в UI скрывается workflow-условием на переходе Approved → Canceled; серверная проверка дублируется в `before_cancel()`.
+- Each **`stage_instance_at_evaluation`** may have **at most one** scorecard with a status other than **Canceled** (including Draft and Rejected — repeated creation reuses the existing scorecard instead of duplicating it).
+- After **Cancel**, a new **Draft** is created **immediately** for the stage, with the same project, profile, and `stage_instance_at_evaluation` (if the stage is still **Active** and has no scorecard).
+- **Cancel** is available only to a user with the **Project Scorecard Approver** role and only while the associated **Project Stage Instance** is **Active**. A workflow condition on the Approved → Canceled transition hides the Cancel button in the UI; `before_cancel()` repeats this validation on the server.
 
-### Переходы workflow
+### Workflow transitions
 
-| Из | Действие | В | Кто | Примечание |
+| From | Action | To | Who | Note |
 |----|----------|---|-----|------------|
-| Draft | Submit for Review | Submitted for Review | Author | Расчёт integral / gate |
+| Draft | Submit for Review | Submitted for Review | Author | Integral / gate calculation |
 | Submitted for Review | Return to Draft | Draft | Reviewer | |
 | Submitted for Review | Mark Reviewed | Reviewed | Reviewer | |
 | Submitted for Review | Reject | Rejected | Reviewer | |
@@ -159,9 +161,9 @@ Regression-тест целостности fixtures: `tests/test_scoring_demo_ca
 | Reviewed | Approve | Approved | Approver | `doc.submit()` |
 | Reviewed | Reject | Rejected | Approver | |
 | Rejected | Return to Draft | Draft | Author | |
-| Approved | Cancel | Canceled | Approver | Только если stage instance **Active**; `doc.cancel()` |
+| Approved | Cancel | Canceled | Approver | Only if the stage instance is **Active**; `doc.cancel()` |
 
-Отмена из **Draft / Submitted / Reviewed / Rejected** не оформлена workflow-переходом (ограничение Frappe: нельзя `docstatus 0 → 2` через workflow). Такие случаи обрабатывает `scoring/scorecard_cancel.py` (программный cancel + replacement draft).
+Cancellation from **Draft / Submitted / Reviewed / Rejected** is not a workflow transition (a Frappe limitation: workflows cannot perform `docstatus 0 → 2`). `scoring/scorecard_cancel.py` handles these cases (programmatic cancellation + replacement draft).
 
 ```mermaid
 flowchart LR
@@ -177,317 +179,317 @@ flowchart LR
   canceled -->|immediate| draft2[New Draft same stage]
 ```
 
-### Разработка метаданных workflow
+### Developing workflow metadata
 
-По политике Dinext: workflow, роли и состояния создаются в системе (MCP / Desk), затем выгружаются:
+Under Dinext policy, workflows, roles, and states are created in the system (MCP / Desk), then exported:
 
 ```bash
 bench --site <site> migrate
 bench --site <site> export-fixtures
 ```
 
-Не правьте `fixtures/workflow*.json` и `role.json` вручную — только через экспорт после изменений на сайте. Исключение: условие на переход **Cancel** (Approved → Canceled) задаёт проверку активной stage instance и должно совпадать с логикой `scoring/scorecard_cancel.py`.
+Do not edit `fixtures/workflow*.json` and `role.json` manually — export them after changing the site. Exception: the condition on the **Cancel** transition (Approved → Canceled) checks for an active stage instance and must match the logic in `scoring/scorecard_cancel.py`.
 
-## Интеграция Stage Gate и scorecard
+## Stage Gate and scorecard integration
 
-Расширения Stage Gate DocTypes поставляются из этого приложения через `fixtures/custom_field.json`, `doc_events` и `doctype_js`. Требуется установленное приложение **dinext_project_stage_gate** (`required_apps`).
+This application provides Stage Gate DocType extensions through `fixtures/custom_field.json`, `doc_events`, and `doctype_js`. The **dinext_project_stage_gate** application must be installed (`required_apps`).
 
-### Настройка шаблона checkpoint
+### Configuring a checkpoint template
 
-На **Stage Gate Template** доступен флаг **Require Agreed Stage Scorecard** (`require_agreed_stage_scorecard`). При создании **Project Gate Checkpoint** это значение копируется в одноимённое read-only поле checkpoint через `doc_events` этого приложения (`before_insert` / `after_insert`) и дальше используется как snapshot: последующие изменения шаблона не меняют уже созданные checkpoint. Stage Gate app не меняется.
+The **Require Agreed Stage Scorecard** flag (`require_agreed_stage_scorecard`) is available on **Stage Gate Template**. When a **Project Gate Checkpoint** is created, this application's `doc_events` (`before_insert` / `after_insert`) copy the value into the checkpoint's read-only field of the same name. It then acts as a snapshot: later template changes do not affect existing checkpoints. The Stage Gate app is unchanged.
 
-Если snapshot-флаг на checkpoint включён, документ нельзя перевести в **In Review**, пока для той же **Project Stage Instance** нет submitted **Project Scorecard** (`docstatus = 1`).
+If the snapshot flag is enabled on a checkpoint, the document cannot enter **In Review** until a submitted **Project Scorecard** (`docstatus = 1`) exists for the same **Project Stage Instance**.
 
-**Согласованная** оценка определяется только `docstatus`, а не бизнес-статусом `status`. Бизнес-статус scorecard (`status`) показывается в dashboard-виджете checkpoint для контекста оператора.
+An **agreed** scorecard is determined solely by `docstatus`, not the business `status`. The scorecard's business status (`status`) appears in the checkpoint dashboard widget for operator context.
 
-### Поведение на форме Project Gate Checkpoint
+### Behavior on the Project Gate Checkpoint form
 
-При каждом сохранении checkpoint сервер синхронизирует скрытые read-only поля сводки scorecard (denormalized snapshot):
+Whenever a checkpoint is saved, the server synchronizes hidden read-only scorecard summary fields (a denormalized snapshot):
 
-| Поле | Назначение |
+| Field | Purpose |
 |------|------------|
-| `linked_stage_scorecard` | Ссылка на актуальную (последнюю не отменённую) карточку для stage instance |
-| `scorecard_display_title` | Человекочитаемый заголовок (`scorecard_title`) |
-| `scorecard_status` | Бизнес-статус scorecard |
-| `scorecard_integral_score` | Интегральный балл |
-| `scorecard_gate_pass` | Результат gate из scorecard |
-| `scorecard_gate_warning` | Текст предупреждения из `gate_messages`, если gate не пройден |
+| `linked_stage_scorecard` | Link to the current (latest non-canceled) scorecard for the stage instance |
+| `scorecard_display_title` | Human-readable title (`scorecard_title`) |
+| `scorecard_status` | Scorecard business status |
+| `scorecard_integral_score` | Overall score |
+| `scorecard_gate_pass` | Gate result from the scorecard |
+| `scorecard_gate_warning` | Warning text from `gate_messages` when the gate is not passed |
 
-Поля сводки **скрыты в layout формы** и не редактируются пользователем — они нужны для server sync, API fallback и тестов. Визуализация для оператора — HTML mount-point `stage_scorecard_widget_mount` в секции **Stage Scorecard**.
+Summary fields are **hidden in the form layout** and cannot be edited by the user — they support server synchronization, API fallback, and tests. The operator-facing display uses the `stage_scorecard_widget_mount` HTML mount point in the **Stage Scorecard** section.
 
-Пороги gate не дублируются на шаблоне stage-gate — используются только рассчитанные поля scorecard (`gate_pass`, `gate_messages`) из профиля оценки.
+Gate thresholds are not duplicated on the stage-gate template — only the scorecard's calculated fields (`gate_pass`, `gate_messages`) from the scoring profile are used.
 
-### Виджет Stage Scorecard на форме Project Gate Checkpoint
+### Stage Scorecard widget on the Project Gate Checkpoint form
 
-Form script [`public/js/project_gate_checkpoint_scorecard.js`](dinext_project_evaluation/public/js/project_gate_checkpoint_scorecard.js) рендерит кликабельный KPI-виджет в **исходной секции формы** **Stage Scorecard** (после `decision_comment`) через HTML mount-point `stage_scorecard_widget_mount`. Визуальный стиль совпадает с **Evaluation Summary** на форме **Project Scorecard**, но размещение — в layout формы, а не в `frm.dashboard`.
+The form script [`public/js/project_gate_checkpoint_scorecard.js`](dinext_project_evaluation/public/js/project_gate_checkpoint_scorecard.js) renders a clickable KPI widget in the **original form section**, **Stage Scorecard** (after `decision_comment`), through the `stage_scorecard_widget_mount` HTML mount point. It matches the visual style of **Evaluation Summary** on the **Project Scorecard** form, but resides in the form layout rather than `frm.dashboard`.
 
-| KPI | Содержимое |
+| KPI | Content |
 |-----|------------|
-| **Integral Score** | `scorecard_integral_score` (формат `flt(..., 2)`; при отсутствии — «Not calculated») |
-| **Gate Pass** | Passed / Failed с цветовым индикатором по `scorecard_gate_pass` |
-| **Scorecard Status** | Бизнес-статус связанной scorecard (`scorecard_status`) |
+| **Integral Score** | `scorecard_integral_score` (formatted with `flt(..., 2)`; “Not calculated” if unavailable) |
+| **Gate Pass** | Passed / Failed, color-coded by `scorecard_gate_pass` |
+| **Scorecard Status** | Business status of the associated scorecard (`scorecard_status`) |
 
-В шапке виджета — заголовок связанной карточки (`scorecard_display_title` или `linked_stage_scorecard`), номер scorecard и подпись **Open scorecard**. При `gate_pass = 0` под карточками выводится список причин из `scorecard_gate_warning` (soft-warning: checkpoint может войти в review при наличии согласованной scorecard).
+The widget header contains the associated document's title (`scorecard_display_title` or `linked_stage_scorecard`), the scorecard number, and the **Open scorecard** label. When `gate_pass = 0`, reasons from `scorecard_gate_warning` appear below the cards (a soft warning: a checkpoint can enter review if an agreed scorecard exists).
 
-**Когда секция и виджет показываются:** секция видна при `require_agreed_stage_scorecard = 1`; виджет внутри секции — при наличии `linked_stage_scorecard` (после server sync или API fallback при открытии формы).
+**When the section and widget appear:** the section is visible when `require_agreed_stage_scorecard = 1`; the widget inside it appears when `linked_stage_scorecard` exists (after server synchronization or API fallback when opening the form).
 
-**Навигация:** клик по виджету (или Enter/Space при фокусе) открывает связанный **Project Scorecard** через `frappe.set_route`.
+**Navigation:** clicking the widget (or pressing Enter/Space while focused) opens the associated **Project Scorecard** through `frappe.set_route`.
 
-**Технические детали:**
+**Technical details:**
 
-- Стили: общий [`public/css/project_scorecard_dashboard.css`](dinext_project_evaluation/public/css/project_scorecard_dashboard.css) + классы `.dpe-checkpoint-scorecard-*`; lazy-load через `frappe.require`; CSS-переменные Desk для light/dark theme.
-- Идемпотентный refresh: очистка mount `.dpe-checkpoint-scorecard-widget-mount`, render-token против дублирования при async-загрузке CSS.
-- Переводы: контекст `Project Gate Checkpoint.StageScorecard` в [`translations/ru.csv`](dinext_project_evaluation/translations/ru.csv).
+- Styling: shared [`public/css/project_scorecard_dashboard.css`](dinext_project_evaluation/public/css/project_scorecard_dashboard.css) + `.dpe-checkpoint-scorecard-*` classes; lazy loading through `frappe.require`; Desk CSS variables for light/dark themes.
+- Idempotent refresh: clears the `.dpe-checkpoint-scorecard-widget-mount` mount point and uses a render token to prevent duplication during asynchronous CSS loading.
+- Translations: the `Project Gate Checkpoint.StageScorecard` context in [`translations/ru.csv`](dinext_project_evaluation/translations/ru.csv).
 
-### Синхронизация при изменении scorecard
+### Synchronization when a scorecard changes
 
-Сводка checkpoint обновляется при:
+The checkpoint summary is updated when:
 
-- сохранении checkpoint (validate);
-- submit / cancel / изменении расчётных полей scorecard;
-- `recalculate_in_place()` на scorecard (без смены workflow).
+- the checkpoint is saved (validate);
+- a scorecard is submitted / canceled / has its calculated fields changed;
+- `recalculate_in_place()` runs on a scorecard (without a workflow change).
 
-Сопоставление checkpoint ↔ scorecard выполняется по `stage_instance` = `stage_instance_at_evaluation`.
+Checkpoints and scorecards are matched by `stage_instance` = `stage_instance_at_evaluation`.
 
 ### API
 
-`dinext_project_evaluation.api.get_checkpoint_scorecard_summary(checkpoint)` — нормализованная сводка для обновления формы; форма checkpoint вызывает этот API как fallback, если snapshot-поля ещё пустые.
+`dinext_project_evaluation.api.get_checkpoint_scorecard_summary(checkpoint)` provides a normalized summary for form refresh; the checkpoint form calls this API as a fallback if the snapshot fields are still empty.
 
-Сводка scorecard на checkpoint синхронизируется при сохранении checkpoint, при `after_insert` scorecard и при изменениях расчётных полей scorecard.
+The scorecard summary on a checkpoint is synchronized when the checkpoint is saved, on scorecard `after_insert`, and when the scorecard's calculated fields change.
 
-## Workspace «Скоринг проектов»
+## “Скоринг проектов” (Project Scoring) workspace
 
-Публичный Frappe Workspace модуля **Dinext Project Evaluation** — единая точка входа для PMO и менеджеров проектов. Метаданные versioned в репозитории и подтягиваются на сайт при `install-app` / `migrate` (стандартный импорт module JSON, не через `fixtures` в `hooks.py`).
+The public Frappe Workspace in the **Dinext Project Evaluation** module is a single entry point for PMOs and project managers. Its metadata is versioned in the repository and imported into the site during `install-app` / `migrate` (standard module JSON import, not through `fixtures` in `hooks.py`).
 
-**Путь в репозитории:** `dinext_project_evaluation/dinext_project_evaluation/workspace/скоринг_проектов/скоринг_проектов.json`  
+**Repository path:** `dinext_project_evaluation/dinext_project_evaluation/workspace/скоринг_проектов/скоринг_проектов.json`  
 **Number Card fixtures:** `dinext_project_evaluation/dinext_project_evaluation/number_card/`
 
-В Desk: боковое меню → **Скоринг проектов** (иконка `activity`, модуль Dinext Project Evaluation).
+In Desk: sidebar → **Скоринг проектов** (Project Scoring; `activity` icon, Dinext Project Evaluation module).
 
-### Доступ
+### Access
 
-Workspace виден пользователям с любой из ролей:
+The workspace is visible to users with any of these roles:
 
-| Роль | Назначение |
+| Role | Purpose |
 |------|------------|
-| **Project Scorecard Author** | Авторы scorecard |
-| **Project Scorecard Reviewer** | Ревьюеры |
-| **Project Scorecard Approver** | Утверждающие |
-| **Project Scorecard Admin** | Администраторы scorecard |
-| **Dinext_Project_Manager** | Менеджеры проектов Dinext |
-| **System Manager** | Полный доступ Desk |
+| **Project Scorecard Author** | Scorecard authors |
+| **Project Scorecard Reviewer** | Reviewers |
+| **Project Scorecard Approver** | Approvers |
+| **Project Scorecard Admin** | Scorecard administrators |
+| **Dinext_Project_Manager** | Dinext project managers |
+| **System Manager** | Full Desk access |
 
-### Разделы и навигация
+### Sections and navigation
 
-| Раздел на workspace | Содержимое |
+| Workspace section | Content |
 |---------------------|------------|
-| **Сводка оценки проектов** | Шесть KPI number cards (см. таблицу ниже) |
-| **Аналитика портфеля** | Shortcut **Отчёт: оценка проектов** → **Project Scoring Report** |
-| **Работа с карточками оценки** | Shortcuts: **Карточки оценки проектов**, **Проекты**, **Портфели проектов** |
-| **Профили и критерии** | Card-ссылки: **Project Scoring Profile**, **Project Scoring Criterion**, **Project Scoring Criterion Group**, **Project Scorecard** |
+| **Сводка оценки проектов** (Project evaluation summary) | Six KPI number cards (see table below) |
+| **Аналитика портфеля** (Portfolio analytics) | **Отчёт: оценка проектов** (Project evaluation report) shortcut → **Project Scoring Report** |
+| **Работа с карточками оценки** (Working with scorecards) | Shortcuts: **Карточки оценки проектов** (Project scorecards), **Проекты** (Projects), **Портфели проектов** (Project portfolios) |
+| **Профили и критерии** (Profiles and criteria) | Card links: **Project Scoring Profile**, **Project Scoring Criterion**, **Project Scoring Criterion Group**, **Project Scorecard** |
 
 ### KPI number cards
 
-На workspace отображаются пользовательские подписи; в репозитории каждая карточка — отдельный standard **Number Card** (`is_standard = 1`, `is_public = 1`, `function = Count`).
+The workspace displays user-facing labels; each card in the repository is a separate standard **Number Card** (`is_standard = 1`, `is_public = 1`, `function = Count`).
 
-| Подпись на workspace | Имя Number Card | DocType | Фильтр |
+| Workspace label | Number Card name | DocType | Filter |
 |----------------------|-----------------|---------|--------|
-| **Оценки в работе** | Карточки в работе | Project Scorecard | `status` in Draft, Rejected |
-| **Оценки на согласовании** | Карточки на согласовании | Project Scorecard | `status` in Submitted for Review, Reviewed |
-| **Согласованные оценки** | Согласованные карточки | Project Scorecard | `status` = Approved |
-| **Оценки с непрохождением ворот** | Карточки с непрохождением gate | Project Scorecard | `status` = Approved и `gate_pass` = 0 |
-| **Проекты с профилем оценки** | Проекты с профилем оценки | Project | `custom_project_scoring_profile` is set |
-| **Проекты без профиля оценки** | Проекты без профиля оценки | Project | `custom_project_scoring_profile` is not set |
+| **Оценки в работе** (Evaluations in progress) | Карточки в работе (Scorecards in progress) | Project Scorecard | `status` in Draft, Rejected |
+| **Оценки на согласовании** (Evaluations awaiting approval) | Карточки на согласовании (Scorecards awaiting approval) | Project Scorecard | `status` in Submitted for Review, Reviewed |
+| **Согласованные оценки** (Agreed evaluations) | Согласованные карточки (Agreed scorecards) | Project Scorecard | `status` = Approved |
+| **Оценки с непрохождением ворот** (Evaluations failing gates) | Карточки с непрохождением gate (Scorecards failing gates) | Project Scorecard | `status` = Approved and `gate_pass` = 0 |
+| **Проекты с профилем оценки** (Projects with a scoring profile) | Проекты с профилем оценки (Projects with a scoring profile) | Project | `custom_project_scoring_profile` is set |
+| **Проекты без профиля оценки** (Projects without a scoring profile) | Проекты без профиля оценки (Projects without a scoring profile) | Project | `custom_project_scoring_profile` is not set |
 
-Карточки по scorecard используют бизнес-поле **`status`** (как в workflow), а не `docstatus` — для согласованных оценок фильтр **Approved** совпадает с submitted lifecycle (`docstatus = 1` после Approve).
+Scorecard cards use the business **`status`** field (as in the workflow), rather than `docstatus` — for agreed evaluations, the **Approved** filter matches the submitted lifecycle (`docstatus = 1` after Approve).
 
-### Разработка метаданных workspace
+### Developing workspace metadata
 
-По политике Dinext: workspace и number cards создаются или правятся в Desk (или через MCP), затем экспортируются в module JSON:
+Under Dinext policy, workspaces and number cards are created or edited in Desk (or through MCP), then exported to module JSON:
 
 ```bash
 bench --site <site> export-doc "Workspace" "Скоринг проектов"
 bench --site <site> export-doc "Number Card" "Карточки в работе"
-# … для остальных number cards
+# … for the other number cards
 ```
 
-Либо скопируйте обновлённые JSON из `sites/<site>/…` в каталоги `workspace/` и `number_card/` модуля. Regression-тесты структуры: `tests/test_project_scoring_workspace.py`.
+Alternatively, copy the updated JSON from `sites/<site>/…` into the module's `workspace/` and `number_card/` directories. Structural regression tests: `tests/test_project_scoring_workspace.py`.
 
-## 🛠️ Использование
+## 🛠️ Usage
 
-### В интерфейсе Desk
+### In the Desk interface
 
-1. Откройте workspace **Скоринг проектов** для сводки KPI и быстрых переходов, либо напрямую **Project Scoring Criterion** и **Project Scoring Profile** — просмотр или расширение каталога (либо используйте каталог по умолчанию из fixtures).
-2. В **Project Scoring Profile** для каждой строки критерия задайте вес, обязательность и при необходимости пороги gate:
-   - **Desired** — пороговые поля скрыты; gate не проверяется.
-   - **Mandatory + шкала/да-нет** — доступен только **Minimum Normalized Score** (0…1).
-   - **Mandatory + Number/Currency/Percent** — доступны normalized score и **Minimum/Maximum Raw Value**.
-   - Неактуальные пороги автоматически очищаются при изменении строки и при сохранении профиля; при открытии формы выполняется только скрытие/показ полей.
-3. На форме **Project** задайте **Governance Model** (из приложения stage-gate) — поле **Project Scoring Profile** (`custom_project_scoring_profile`) доступно только при заполненной модели управления. Фильтр link query учитывает портфель, компанию и тип проекта.
-4. Заполните **Project Scoring Profile** и сохраните проект. При **первом** назначении профиля на проект с уже активной стадией автоматически создаётся **Draft** scorecard для текущей **Project Stage Instance** (см. [Автоматическое создание Project Scorecard](#автоматическое-создание-project-scorecard)). При смене профиля или модели управления активные scorecard отменяются (см. [Сброс профиля и scorecard на Project](#сброс-профиля-и-scorecard-на-project)).
-5. Заполните строки scorecard в статусе **Draft** (или откройте автоматически созданный черновик через **Open Scorecards**). При переходе в любой другой статус (кроме **Canceled**) сервер и форма проверяют, что все **Mandatory**-критерии заполнены; незаполненные ячейки подсвечиваются в колонке **Value**.
-6. Переведите scorecard по workflow: **Submit for Review** (расчёт интегрального балла и gate) → **Mark Reviewed** (пересчёт при необходимости) → **Approve** (submit, `docstatus = 1`). После **Submit for Review** на форме scorecard в dashboard появляется секция **Evaluation Summary** с KPI **Integral Score** и **Gate Pass** (см. [Dashboard KPI](#dashboard-kpi-на-форме-project-scorecard)). Утверждённые submitted scorecard обновляют денормализованные поля Project.
-7. При необходимости **Cancel** (только **Approver**, только пока stage instance **Active**) — создаётся новый Draft для той же стадии.
-8. Из **Project Portfolio** откройте **Project Scoring Report** для сравнения проектов и пузырьковой диаграммы.
-9. В отчёте используйте фильтры: портфель, проект, тип проекта, статус, модель управления, **Project Scoring Profile**, «только активные проекты», текущая и оценённая стадия, gate pass, диапазон дат оценки; оси **X Axis**, **Y Axis**, **Bubble Size** и **Bubble Color** — отдельные выпадающие списки над диаграммой (метрики строятся из полей Project/Scorecard и критериев; в списках только поля с `hidden = 0` и только те метрики, для которых в текущей выборке есть хотя бы одно значение).
-10. Смена метрики X/Y/size/color **автоматически обновляет** отчёт и диаграмму (как изменение обычного фильтра).
-11. **Клик по bubble** проекта с agreed scorecard открывает форму соответствующего **Project Scorecard** (тот же маршрут, что у кликабельного виджета Stage Scorecard на checkpoint); если scorecard нет — открывается форма **Project**.
+1. Open the **Скоринг проектов** (Project Scoring) workspace for KPI summaries and shortcuts, or open **Project Scoring Criterion** and **Project Scoring Profile** directly to review or extend the catalog (or use the default fixture catalog).
+2. In **Project Scoring Profile**, set the weight, requirement level, and optional gate thresholds for each criterion row:
+   - **Desired** — threshold fields are hidden; the gate is not checked.
+   - **Mandatory + scale/yes-no** — only **Minimum Normalized Score** (0…1) is available.
+   - **Mandatory + Number/Currency/Percent** — normalized score and **Minimum/Maximum Raw Value** are available.
+   - Irrelevant thresholds are cleared automatically when a row changes and when the profile is saved; opening the form only shows/hides fields.
+3. Set **Governance Model** (from the stage-gate application) on the **Project** form — the **Project Scoring Profile** field (`custom_project_scoring_profile`) is available only when a governance model is set. The link query filter accounts for portfolio, company, and project type.
+4. Fill in **Project Scoring Profile** and save the project. The **first** time a profile is assigned to a project with an active stage, a **Draft** scorecard is created automatically for the current **Project Stage Instance** (see [Automatic Project Scorecard creation](#automatic-project-scorecard-creation)). Changing the profile or governance model cancels active scorecards (see [Resetting a profile and scorecards on Project](#resetting-a-profile-and-scorecards-on-project)).
+5. Complete the scorecard rows in **Draft** (or open the automatically created draft through **Open Scorecards**). On transition to any other status (except **Canceled**), both the server and form check that all **Mandatory** criteria are filled in; empty cells are highlighted in the **Value** column.
+6. Move the scorecard through the workflow: **Submit for Review** (overall score and gate calculation) → **Mark Reviewed** (recalculation if needed) → **Approve** (submit, `docstatus = 1`). After **Submit for Review**, the scorecard form dashboard displays the **Evaluation Summary** section with **Integral Score** and **Gate Pass** KPIs (see [Dashboard KPIs](#dashboard-kpis-on-the-project-scorecard-form)). Approved, submitted scorecards update the denormalized Project fields.
+7. If necessary, use **Cancel** (only an **Approver**, and only while the stage instance is **Active**) — a new Draft is created for the same stage.
+8. Open **Project Scoring Report** from **Project Portfolio** to compare projects and view the bubble chart.
+9. In the report, use filters for portfolio, project, project type, status, governance model, **Project Scoring Profile**, “only active projects,” current and evaluated stage, gate pass, and evaluation date range; **X Axis**, **Y Axis**, **Bubble Size**, and **Bubble Color** are separate dropdowns above the chart (metrics are built from Project/Scorecard fields and criteria; the lists include only fields with `hidden = 0` and only metrics with at least one value in the current dataset).
+10. Changing the X/Y/size/color metric **automatically refreshes** the report and chart (like changing a regular filter).
+11. **Clicking the bubble** of a project with an agreed scorecard opens the corresponding **Project Scorecard** form (the same route as the clickable Stage Scorecard widget on a checkpoint); if no scorecard exists, it opens the **Project** form.
 
-### Project Scoring Report: динамические метрики и bubble chart
+### Project Scoring Report: dynamic metrics and bubble chart
 
-Script Report [`project_scoring_report/`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/) строит каталог метрик на сервере (`metric_registry.py`) и отдаёт его клиенту вместе с данными. Пользователь выбирает метрики в четырёх Select-контролах над диаграммой; технические фильтры `x_axis` / `y_axis` / `size_metric` / `color_metric` скрыты в стандартной панели фильтров и синхронизируются с видимыми контролами.
+The Script Report [`project_scoring_report/`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/) builds a metric catalog on the server (`metric_registry.py`) and sends it to the client with the data. The user selects metrics in four Select controls above the chart; technical filters `x_axis` / `y_axis` / `size_metric` / `color_metric` are hidden in the standard filter panel and synchronized with the visible controls.
 
-**Фильтры отчёта (стандартная панель):**
+**Report filters (standard panel):**
 
-| Фильтр | Поле / источник | Примечание |
+| Filter | Field / source | Note |
 |--------|-----------------|------------|
 | **Project Portfolio** | `Project.custom_project_portfolio` | |
 | **Project** | `Project.name` | MultiSelectList |
 | **Project Type** | `Project.project_type` | Link → Project Type |
 | **Status** | `Project.status` | Open / Completed / Cancelled |
 | **Governance Model** | `Project.governance_model` | Link → Project Governance Model (stage-gate) |
-| **Project Scoring Profile** | `Project.custom_project_scoring_profile` | Назначенный на проекте профиль, не `Project Scorecard.profile` |
-| **Only Active Projects** | `Project.is_active = Yes` | Check; при включении оставляет только активные проекты ERPNext |
+| **Project Scoring Profile** | `Project.custom_project_scoring_profile` | The profile assigned to the project, not `Project Scorecard.profile` |
+| **Only Active Projects** | `Project.is_active = Yes` | Check; when enabled, includes only active ERPNext projects |
 | **Current Stage** | `Project.current_stage` | |
-| **Evaluated Stage** | `Project Scorecard.stage_at_evaluation` | Требует agreed scorecard для строки |
-| **Gate Pass** | `Project Scorecard.gate_pass` | Требует agreed scorecard для строки |
-| **From Date** / **To Date** | `Project Scorecard.evaluation_date` | Требует agreed scorecard для строки |
+| **Evaluated Stage** | `Project Scorecard.stage_at_evaluation` | Requires an agreed scorecard for the row |
+| **Gate Pass** | `Project Scorecard.gate_pass` | Requires an agreed scorecard for the row |
+| **From Date** / **To Date** | `Project Scorecard.evaluation_date` | Requires an agreed scorecard for the row |
 
-Фильтры уровня **Project** сужают список проектов до сборки последнего agreed scorecard на проект. Фильтры уровня **Scorecard** дополнительно отсекают проекты без подходящей submitted-оценки (`docstatus = 1`).
+**Project**-level filters narrow down the project list before the latest agreed scorecard is assembled for each project. **Scorecard**-level filters additionally exclude projects without a matching submitted evaluation (`docstatus = 1`).
 
-| Группа метрик | Источник | Примеры |
+| Metric group | Source | Examples |
 |---------------|----------|---------|
-| **Оси X/Y** | Поля **Project** и **Project Scorecard** (по meta + колонка в БД) | даты, числа, select/link |
-| **Bubble Size** | Числовые поля Project/Scorecard + **сырые/нормализованные** значения критериев | `integral_score`, `Financial Value (Raw)` |
-| **Bubble Color** | Категориальные поля Project/Scorecard + **шкальные** критерии | `status`, `Maturity` |
+| **X/Y axes** | **Project** and **Project Scorecard** fields (metadata + database column) | Dates, numbers, select/link |
+| **Bubble Size** | Numeric Project/Scorecard fields + **raw/normalized** criterion values | `integral_score`, `Financial Value (Raw)` |
+| **Bubble Color** | Categorical Project/Scorecard fields + **scale** criteria | `status`, `Maturity` |
 
-**Правила каталога и dropdown:**
+**Catalog and dropdown rules:**
 
-- В выпадающих списках **нет скрытых полей** DocType (`hidden = 1` в meta не попадает в каталог).
-- В списках **только метрики с данными** в текущей выборке (после применения фильтров отчёта); пустые метрики скрываются, выбор сбрасывается на допустимый default.
-- Если одно и то же название поля есть у **Project** и **Project Scorecard**, в dropdown показываются различимые подписи: `Project - …` / `Project Evaluation - …` (только в списках; подписи осей/tooltip на графике остаются исходными label поля).
-- Типы полей вроде Long Text, Table и layout-поля в каталог не включаются; **Check** доступен **только** для **Bubble Color** (не для осей X/Y и size); кастомные поля без колонки в БД отфильтровываются.
+- Dropdowns contain **no hidden fields** from DocTypes (`hidden = 1` in metadata excludes a field from the catalog).
+- Lists contain **only metrics with data** in the current dataset (after report filters are applied); empty metrics are hidden, and the selection resets to a valid default.
+- If **Project** and **Project Scorecard** have fields with the same name, dropdowns use distinct labels: `Project - …` / `Project Evaluation - …` (in the lists only; chart axis/tooltip labels retain the original field label).
+- Field types such as Long Text, Table, and layout fields are excluded; **Check** is available **only** for **Bubble Color** (not for X/Y axes or size); custom fields without a database column are filtered out.
 
-**Поведение bubble chart:**
+**Bubble chart behavior:**
 
-| Ситуация | Поведение |
+| Situation | Behavior |
 |----------|-----------|
-| Пустое значение на **категориальной** оси X или Y | Точка попадает на ось в категорию **Не задано** (если в выборке есть хотя бы одна такая запись) |
-| Пустое значение на **числовой** или **date/time** оси | Строка **не** рисуется на диаграмме |
-| Пустое значение **Bubble Size** | Точка рисуется **минимальным** bubble (dot); в tooltip size показывается как N/A |
-| Пустое **Bubble Color** | Цвет по fallback-токену «Unknown» (как раньше) |
+| Empty value on a **categorical** X or Y axis | The point is placed in the **Не задано** (Not Set) category on the axis (if the dataset contains at least one such record) |
+| Empty value on a **numeric** or **date/time** axis | The row is **not** plotted |
+| Empty **Bubble Size** | The point uses the **minimum** bubble size (a dot); the tooltip shows size as N/A |
+| Empty **Bubble Color** | Color uses the “Unknown” fallback token (as before) |
 
-Серверная сборка payload: [`project_scoring_report.py`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py) (`build_project_filters`, `build_bubble_chart_payload`, нормализация размеров, категория `Not Set` → перевод **Не задано**). Клиент: [`project_scoring_report.js`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js) (ECharts, disambiguation label в Select, auto-refresh при смене метрики).
+Server-side payload assembly: [`project_scoring_report.py`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py) (`build_project_filters`, `build_bubble_chart_payload`, size normalization, `Not Set` category → Russian translation **Не задано**). Client: [`project_scoring_report.js`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js) (ECharts, label disambiguation in Select, auto-refresh when a metric changes).
 
-### Навигация по bubble chart (Project Scoring Report)
+### Bubble chart navigation (Project Scoring Report)
 
-На пузырьковой диаграмме каждая точка соответствует проекту. При клике клиентский обработчик (`handleBubbleChartClick` в [`project_scoring_report.js`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js)) выбирает маршрут по приоритету:
+Each point in the bubble chart represents a project. On click, the client handler (`handleBubbleChartClick` in [`project_scoring_report.js`](dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js)) chooses a route in this order:
 
-1. **Project Scorecard** — если у точки есть ссылка на последний agreed scorecard (`docstatus = 1`) для проекта.
-2. **Project** — если scorecard отсутствует, но проект отображён на графике (например, оси X/Y используют project-метрики вроде `percent_complete`).
+1. **Project Scorecard** — if the point has a link to the project's latest agreed scorecard (`docstatus = 1`).
+2. **Project** — if no scorecard exists but the project appears in the chart (for example, the X/Y axes use project metrics such as `percent_complete`).
 
-Если оба поля пусты, клик игнорируется. Курсор `pointer` на области графика задан в [`project_scoring_report.css`](dinext_project_evaluation/public/css/project_scoring_report.css).
+If both fields are empty, the click is ignored. The chart area's `pointer` cursor is set in [`project_scoring_report.css`](dinext_project_evaluation/public/css/project_scoring_report.css).
 
-### Сброс профиля и scorecard на Project
+### Resetting a profile and scorecards on Project
 
-Профиль оценки привязан к **Governance Model**: поле `custom_project_scoring_profile` скрыто и недоступно, пока модель управления не задана (`depends_on: eval:doc.governance_model` в Custom Field).
+The scoring profile is tied to **Governance Model**: `custom_project_scoring_profile` is hidden and unavailable until a governance model is set (`depends_on: eval:doc.governance_model` in the Custom Field).
 
-При **смене или очистке Governance Model** приложение сбрасывает профиль оценки и отменяет все неотменённые **Project Scorecard** проекта. Подтверждение использует тот же флаг, что и stage-gate reset: `confirm_governance_reset` (отдельный scoring-диалог при смене governance не показывается).
+When **Governance Model changes or is cleared**, the application resets the scoring profile and cancels all non-canceled **Project Scorecards** for the project. Confirmation uses the same flag as the stage-gate reset: `confirm_governance_reset` (no separate scoring dialog is shown when governance changes).
 
-| Сценарий | Подтверждение на форме | Сервер при save |
+| Scenario | Form confirmation | Server on save |
 |----------|------------------------|-----------------|
-| Смена/очистка **Governance Model** при наличии scorecard | `confirm_governance_reset = 1` (диалог stage-gate) | `cancel_project_scorecards()`, очистка `custom_project_scoring_profile` |
-| Смена/очистка **Governance Model** без scorecard | не требуется | только очистка профиля |
-| Прямая смена **Project Scoring Profile** при наличии scorecard | `confirm_scoring_profile_reset = 1` | `cancel_project_scorecards()` |
+| **Governance Model** changes / is cleared when scorecards exist | `confirm_governance_reset = 1` (stage-gate dialog) | `cancel_project_scorecards()`, clears `custom_project_scoring_profile` |
+| **Governance Model** changes / is cleared with no scorecards | Not required | Clears the profile only |
+| Direct **Project Scoring Profile** change when scorecards exist | `confirm_scoring_profile_reset = 1` | `cancel_project_scorecards()` |
 
-**Клиент** (`public/js/project_scoring_evaluation.js`):
+**Client** (`public/js/project_scoring_evaluation.js`):
 
-- при смене governance model профиль очищается на форме без второго confirm;
-- при отмене смены governance (stage-gate возвращает прежнее значение) профиль восстанавливается из временного stash до сохранения.
+- changing the governance model clears the profile on the form without a second confirmation;
+- canceling the governance change (stage-gate restores the old value) restores the profile from a temporary stash before saving.
 
-**Сервер** (`scoring/project_hooks.py`, hooks на **Project**):
+**Server** (`scoring/project_hooks.py`, hooks on **Project**):
 
-- `validate` — блокирует save без подтверждения, если есть активные scorecard;
-- `before_save` — отменяет scorecard и очищает профиль;
-- `on_update` — при наличии профиля и Active stage instance создаёт новый Draft scorecard (`ensure_scorecard_for_stage_instance`).
+- `validate` — blocks saving without confirmation if active scorecards exist;
+- `before_save` — cancels scorecards and clears the profile;
+- `on_update` — creates a new Draft scorecard if a profile and an Active stage instance exist (`ensure_scorecard_for_stage_instance`).
 
-> **Frappe 15:** серверный хук провижининга зарегистрирован на **`on_update`**, а не на `after_save`. Событие `after_save` в `doc_events` на сервере не вызывается при `doc.save()`; клиентский `after_save` в form script — отдельный механизм UI.
+> **Frappe 15:** the server-side provisioning hook is registered on **`on_update`**, not `after_save`. The server does not invoke the `after_save` event in `doc_events` during `doc.save()`; the client-side `after_save` in a form script is a separate UI mechanism.
 
-Custom Fields на **Project** (fixtures): `custom_project_scoring_profile`, `confirm_scoring_profile_reset` (hidden). Поле `governance_model` и `confirm_governance_reset` определены в приложении stage-gate.
+Custom Fields on **Project** (fixtures): `custom_project_scoring_profile`, `confirm_scoring_profile_reset` (hidden). The stage-gate application defines `governance_model` and `confirm_governance_reset`.
 
-### Автоматическое создание Project Scorecard
+### Automatic Project Scorecard creation
 
-Draft scorecard создаётся сервером через `ensure_scorecard_for_stage_instance()` (`scoring/scorecard_factory.py`) — без ручного вызова API, если выполнены условия ниже.
+The server creates a Draft scorecard through `ensure_scorecard_for_stage_instance()` (`scoring/scorecard_factory.py`), without a manual API call, when the following conditions are met.
 
-| Триггер | Файл / событие | Когда срабатывает |
+| Trigger | File / event | When it fires |
 |---------|----------------|-------------------|
-| Назначение или сохранение профиля на **Project** | `project_hooks.py` → `on_update` | На проекте задан `custom_project_scoring_profile`, текущая **Project Stage Instance** в статусе **Active** |
-| Активация стадии | `scorecard_provision.py` → `on_update` на **Project Stage Instance** | Статус instance **перешёл** в **Active** (не повторно при save уже Active стадии) |
-| Ручной / интеграционный вызов | `api.create_scorecard` | По запросу клиента или внешней системы |
+| Assigning or saving a profile on **Project** | `project_hooks.py` → `on_update` | The project has `custom_project_scoring_profile`, and its current **Project Stage Instance** is **Active** |
+| Stage activation | `scorecard_provision.py` → `on_update` on **Project Stage Instance** | The instance status has **changed** to **Active** (not repeatedly when saving an already Active stage) |
+| Manual / integration call | `api.create_scorecard` | At the request of the client or an external system |
 
-**Условия провижининга:**
+**Provisioning conditions:**
 
-1. На **Project** задан **Project Scoring Profile** (`custom_project_scoring_profile`).
-2. У проекта есть **current_stage_instance** (поле stage-gate); если в in-memory документе поле пустое, хук читает значение из сохранённой записи **Project** в БД.
-3. Связанная **Project Stage Instance** имеет статус **Active**.
-4. Для этой stage instance ещё нет неотменённого scorecard (идемпотентность).
+1. **Project Scoring Profile** (`custom_project_scoring_profile`) is set on **Project**.
+2. The project has a **current_stage_instance** (a stage-gate field); if the field is empty in the in-memory document, the hook reads it from the saved **Project** database record.
+3. The associated **Project Stage Instance** has **Active** status.
+4. No non-canceled scorecard exists for this stage instance (idempotency).
 
-**Порядок с stage-gate:** на `Project.on_update` сначала выполняется `dinext_project_stage_gate` (`sync_project_stage_chain`), затем провижининг evaluation — чтобы `current_stage_instance` успел обновиться при одновременной смене governance model и профиля.
+**Order with stage-gate:** on `Project.on_update`, `dinext_project_stage_gate` (`sync_project_stage_chain`) runs first, followed by evaluation provisioning, so that `current_stage_instance` is updated when the governance model and profile change together.
 
-**После деплоя** изменений hooks перезапустите bench (`bench restart`) или очистите кэш (`bench --site <site> clear-cache`), иначе воркеры могут держать старую регистрацию событий.
+**After deploying** hook changes, restart bench (`bench restart`) or clear the cache (`bench --site <site> clear-cache`); otherwise, workers may retain the old event registration.
 
-### Валидация обязательных критериев (Mandatory)
+### Mandatory criterion validation
 
-При переходе **Project Scorecard** из статуса **Draft** в любой другой (кроме **Canceled**):
+When **Project Scorecard** moves from **Draft** to any other status (except **Canceled**):
 
-- **Сервер** (`project_scorecard.py` + `scoring/criterion_config.py`): проверяются mandatory-критерии, обязательные комментарии и допустимость введённых значений по типу критерия (шкала, диапазон, boolean). Сообщение указывает коды критериев и причину отказа.
-- **Клиент** (`project_scorecard.js`): подсветка незаполненных mandatory-строк и значений вне допустимого диапазона; правила синхронизированы с сервером.
-- **Project Scoring Criterion**: серверная `validate()` проверяет согласованность конфигурации по `input_type` (`Scale` — только дискретная шкала через `scale_rows`; `Number`/`Currency`/`Percent` — диапазон `min_value`/`max_value`); форма скрывает неактуальные поля через metadata + form script.
-- Переход **Draft → Canceled** не требует заполнения mandatory-критериев.
-- Обязательность определяется полем **Requirement Level** в строках **Project Scoring Profile**, а не статическим `reqd` в DocType child table.
+- **Server** (`project_scorecard.py` + `scoring/criterion_config.py`): validates mandatory criteria, required comments, and input values for the criterion type (scale, range, boolean). The message identifies criterion codes and the reason for rejection.
+- **Client** (`project_scorecard.js`): highlights empty mandatory rows and out-of-range values; rules are synchronized with the server.
+- **Project Scoring Criterion**: server-side `validate()` checks configuration consistency by `input_type` (`Scale` — a discrete scale through `scale_rows` only; `Number`/`Currency`/`Percent` — the `min_value`/`max_value` range); the form hides irrelevant fields through metadata + form script.
+- The **Draft → Canceled** transition does not require mandatory criteria to be filled in.
+- Requirement levels come from **Requirement Level** in **Project Scoring Profile** rows, not the static `reqd` property in the DocType child table.
 
-### Dashboard KPI на форме Project Scorecard
+### Dashboard KPIs on the Project Scorecard form
 
-На форме **Project Scorecard** form script (`project_scorecard.js`) добавляет в **dashboard** (`frm.dashboard`) секцию **Evaluation Summary** с тремя компактными KPI-карточками:
+On the **Project Scorecard** form, the form script (`project_scorecard.js`) adds an **Evaluation Summary** section to the **dashboard** (`frm.dashboard`) with three compact KPI cards:
 
-| KPI | Содержимое |
+| KPI | Content |
 |-----|------------|
-| **Integral Score** | Интегральный балл (формат `flt(..., 2)`) |
-| **Gate Pass** | Статус Passed / Failed с цветовым индикатором (green / red) |
-| **Last Recalculated** | Дата и время последнего пересчёта (`evaluation_date`, формат пользователя Desk) |
+| **Integral Score** | Overall score (formatted with `flt(..., 2)`) |
+| **Gate Pass** | Passed / Failed status with a color indicator (green / red) |
+| **Last Recalculated** | Date and time of the last recalculation (`evaluation_date`, in the Desk user's format) |
 
-При неуспешном gate под карточками выводится список причин из поля `gate_messages`.
+If the gate fails, reasons from `gate_messages` appear below the cards.
 
-**Когда виджет показывается:** после серверного расчёта — когда заполнены **`evaluation_date`** и **`integral_score`** (оба выставляются в `calculate()` при save в статусах **Submitted for Review**, **Reviewed** и **Approved**, а также после ручного пересчёта). Поле **`evaluation_date`** — метка **последнего** пересчёта, а не только первой оценки. На **Draft** dashboard KPI **скрыт**, пока не выполнен расчёт (в т.ч. ручной), даже если Float-поле `integral_score` на клиенте отображается как `0`.
+**When the widget appears:** after server-side calculation, when **`evaluation_date`** and **`integral_score`** are set (both are assigned in `calculate()` when saving in **Submitted for Review**, **Reviewed**, and **Approved**, and after manual recalculation). **`evaluation_date`** is the timestamp of the **latest** recalculation, not just the initial evaluation. On a **Draft**, dashboard KPIs remain **hidden** until calculation (including manual calculation) has run, even if the client's Float field `integral_score` displays `0`.
 
-**Rejected** с сохранённым `evaluation_date` и рассчитанным баллом показывает последний результат расчёта.
+**Rejected** scorecards with a saved `evaluation_date` and calculated score show the last calculation result.
 
-**Ручной пересчёт:** пункт меню формы **Recalculate Score** вызывает `dinext_project_evaluation.api.recalculate_scorecard` — пересчитывает integral/gate **на месте** **без смены статуса** workflow для карточек с **`docstatus = 0`**. При **`docstatus = 1`** (submitted) и **`docstatus = 2`** (cancelled) пункт меню скрыт, API возвращает ошибку.
+**Manual recalculation:** the form menu item **Recalculate Score** calls `dinext_project_evaluation.api.recalculate_scorecard` to recalculate integral/gate values **in place**, **without changing the workflow status**, for scorecards with **`docstatus = 0`**. For **`docstatus = 1`** (submitted) and **`docstatus = 2`** (canceled), the menu item is hidden and the API returns an error.
 
-**Технические детали:**
+**Technical details:**
 
-- Стили: [`public/css/project_scorecard_dashboard.css`](dinext_project_evaluation/public/css/project_scorecard_dashboard.css), lazy-load через `frappe.require`; CSS-переменные Desk для light/dark theme.
-- Идемпотентный refresh: очистка секции `.dpe-scorecard-kpi-dashboard`, render-token против дублирования при async-загрузке CSS.
-- Переводы: контекст `Project Scorecard.KPI` в [`translations/ru.csv`](dinext_project_evaluation/translations/ru.csv).
+- Styling: [`public/css/project_scorecard_dashboard.css`](dinext_project_evaluation/public/css/project_scorecard_dashboard.css), lazy loading through `frappe.require`; Desk CSS variables for light/dark themes.
+- Idempotent refresh: clears the `.dpe-scorecard-kpi-dashboard` section and uses a render token to prevent duplication during asynchronous CSS loading.
+- Translations: the `Project Scorecard.KPI` context in [`translations/ru.csv`](dinext_project_evaluation/translations/ru.csv).
 
-### Whitelisted API (Client Scripts и интеграции)
+### Whitelisted API (Client Scripts and integrations)
 
-| Метод | Назначение |
+| Method | Purpose |
 |-------|------------|
-| `dinext_project_evaluation.api.get_applicable_criteria` | Критерии для проекта и профиля с учётом стадии (`stage` опционален; по умолчанию — текущая стадия Project) |
-| `dinext_project_evaluation.api.create_scorecard` | Создание черновика scorecard с применимыми строками |
-| `dinext_project_evaluation.api.calculate_scorecard` | Workflow-переход к **Reviewed** (Submit for Review + Mark Reviewed) с пересчётом баллов |
-| `dinext_project_evaluation.api.recalculate_scorecard` | Ручной пересчёт integral/gate **на месте** без смены статуса (только **`docstatus = 0`**) |
-| `dinext_project_evaluation.api.approve_scorecard` | Workflow-утверждение scorecard и обновление денормализованных полей Project |
-| `dinext_project_evaluation.api.get_checkpoint_scorecard_summary` | Сводка scorecard для checkpoint (snapshot + `checkpoint_fields` для client fallback) |
+| `dinext_project_evaluation.api.get_applicable_criteria` | Criteria for a project and profile, accounting for the stage (`stage` is optional; defaults to the current Project stage) |
+| `dinext_project_evaluation.api.create_scorecard` | Creates a draft scorecard with applicable rows |
+| `dinext_project_evaluation.api.calculate_scorecard` | Workflow transition to **Reviewed** (Submit for Review + Mark Reviewed), recalculating scores |
+| `dinext_project_evaluation.api.recalculate_scorecard` | Manual integral/gate recalculation **in place**, without changing status (**`docstatus = 0`** only) |
+| `dinext_project_evaluation.api.approve_scorecard` | Workflow approval of a scorecard and update of denormalized Project fields |
+| `dinext_project_evaluation.api.get_checkpoint_scorecard_summary` | Scorecard summary for a checkpoint (snapshot + `checkpoint_fields` for client fallback) |
 
-Пример проверки API и permissions:
+Example API and permission check:
 
 ```bash
 bench --site <site> run-tests --module dinext_project_evaluation.tests.test_api
 ```
 
-### Проверка
+### Validation
 
 ```bash
 cd apps/dinext_project_evaluation
@@ -514,204 +516,191 @@ bench --site <site> run-tests \
   --module dinext_project_evaluation.dinext_project_evaluation.doctype.project_scorecard.test_project_scorecard
 ```
 
-GitHub Actions в репозитории гоняет Semgrep и JS regression tests; Frappe `bench run-tests` остаётся обязательной локальной проверкой на bench-сайте. Сценарии приёмки описаны в [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
+GitHub Actions in the repository runs Semgrep and JS regression tests; Frappe `bench run-tests` remains a required local check on a bench site. Acceptance scenarios are documented in [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md).
 
-## 📦 Технологии
+## 📦 Technologies
 
-- **Python 3.10+** — scoring engine, контроллеры DocType, backend Script Report, whitelisted API
+- **Python 3.10+** — scoring engine, DocType controllers, backend Script Report, whitelisted API
 - **Frappe Framework / ERPNext** — DocTypes, fixtures, Client Scripts, Query Report
-- **JavaScript** — Client Scripts (Project, Project Portfolio), form scripts Project Scorecard (grid + dashboard KPI) и Project Gate Checkpoint (кликабельный виджет Stage Scorecard в секции формы), Script Report Project Scoring Report (динамические Select метрик, ECharts bubble chart, auto-refresh); клик по bubble → **Project Scorecard**, при отсутствии scorecard → **Project**
-- **Ruff, ESLint, Prettier** — линтинг и форматирование через pre-commit
+- **JavaScript** — Client Scripts (Project, Project Portfolio), Project Scorecard form scripts (grid + dashboard KPIs) and Project Gate Checkpoint form scripts (clickable Stage Scorecard widget in the form section), Project Scoring Report Script Report (dynamic metric Selects, ECharts bubble chart, auto-refresh); clicking a bubble → **Project Scorecard**, or **Project** if no scorecard exists
+- **Ruff, ESLint, Prettier** — linting and formatting through pre-commit
 
-## 🔧 Конфигурация
+## 🔧 Configuration
 
-| Расположение | Назначение |
+| Location | Purpose |
 |--------------|------------|
-| `dinext_project_evaluation/hooks.py` | `required_apps`, `fixtures`, `doc_events` на Project / Project Stage Instance |
-| `dinext_project_evaluation/public/js/project_scoring_evaluation.js` | Форма Project: профиль оценки, сброс при смене governance model, кнопки Evaluation |
-| `dinext_project_evaluation/public/css/project_scorecard_dashboard.css` | KPI-карточки: dashboard **Project Scorecard** (Evaluation Summary) и in-form виджет **Project Gate Checkpoint** (Stage Scorecard) |
-| `dinext_project_evaluation/public/js/project_gate_checkpoint_scorecard.js` | Форма Project Gate Checkpoint: API fallback, кликабельный виджет Stage Scorecard в секции формы |
-| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/metric_registry.py` | Runtime-каталог метрик X/Y/size/color из meta Project, Scorecard и критериев; фильтр hidden-полей и колонок БД |
-| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py` | Backend Script Report: фильтры Project/Scorecard, данные, bubble payload, категория «Не задано», нормализация размеров bubble |
-| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js` | Отчёт Project Scoring Report: Select метрик, ECharts bubble chart, disambiguation подписей, auto-refresh, навигация bubble → **Project Scorecard** или **Project** |
-| `dinext_project_evaluation/public/css/project_scoring_report.css` | Стили bubble chart отчёта (legend, empty state, курсор кликабельности) |
-| `dinext_project_evaluation/scoring/stage_gate_integration.py` | Синхронизация snapshot-полей scorecard на checkpoint, hard-gate validate, backfill |
-| `dinext_project_evaluation/scoring/stage_gate_checkpoint_hooks.py` | `doc_events` на Project Gate Checkpoint и Project Scorecard для sync summary |
-| `dinext_project_evaluation/scoring/project_hooks.py` | Validate / before_save / on_update: сброс профиля, отмена scorecard, автосоздание Draft scorecard |
-| `dinext_project_evaluation/scoring/scorecard_provision.py` | `on_update` на Project Stage Instance: Draft scorecard при переходе стадии в Active |
-| `dinext_project_evaluation/fixtures/` | Экспорт Client Scripts, Custom Fields, workflow, report и fixture-backed demo-каталога: `project_scoring_criterion_group.json`, `project_scoring_criterion.json`, `project_scoring_profile.json` |
-| `dinext_project_evaluation/scoring/criterion_config.py` | Валидация конфигурации критериев и введённых значений scorecard |
-| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_criterion/project_scoring_criterion.js` | Условная видимость полей критерия по `input_type` |
-| `dinext_project_evaluation/scoring/workflow_constants.py` | Статусы, роли, действия workflow; `SCORECARD_AGREED_DOCSTATUS`, `SCORECARD_CANCEL_ROLES` |
-| `dinext_project_evaluation/scoring/workflow.py` | Whitelisted workflow-переходы (calculate / approve / cancel) |
-| `dinext_project_evaluation/scoring/scorecard_cancel.py` | Проверки Cancel (роль Approver, Active stage), replacement draft, bulk cancel |
-| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_profile/project_scoring_profile.js` | Условная видимость порогов gate в форме профиля |
-| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js` | Grid ввода значений критериев, валидация mandatory при уходе из Draft, подсветка ячеек, **dashboard KPI**, ручной пересчёт |
-| `dinext_project_evaluation/translations/ru.csv` | Русские переводы |
-| `dinext_project_evaluation/dinext_project_evaluation/workspace/скоринг_проектов/` | Workspace **Скоринг проектов**: layout, shortcuts, roles |
-| `dinext_project_evaluation/dinext_project_evaluation/number_card/` | Standard Number Card KPI для workspace (фильтры по status scorecard и профилю на Project) |
+| `dinext_project_evaluation/hooks.py` | `required_apps`, `fixtures`, `doc_events` on Project / Project Stage Instance |
+| `dinext_project_evaluation/public/js/project_scoring_evaluation.js` | Project form: scoring profile, reset when the governance model changes, Evaluation buttons |
+| `dinext_project_evaluation/public/css/project_scorecard_dashboard.css` | KPI cards: **Project Scorecard** dashboard (Evaluation Summary) and **Project Gate Checkpoint** in-form widget (Stage Scorecard) |
+| `dinext_project_evaluation/public/js/project_gate_checkpoint_scorecard.js` | Project Gate Checkpoint form: API fallback, clickable Stage Scorecard widget in the form section |
+| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/metric_registry.py` | Runtime X/Y/size/color metric catalog from Project, Scorecard, and criteria metadata; hidden-field and database-column filtering |
+| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py` | Backend Script Report: Project/Scorecard filters, data, bubble payload, “Не задано” (Not Set) category, bubble size normalization |
+| `dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js` | Project Scoring Report: metric Selects, ECharts bubble chart, label disambiguation, auto-refresh, bubble navigation → **Project Scorecard** or **Project** |
+| `dinext_project_evaluation/public/css/project_scoring_report.css` | Report bubble chart styles (legend, empty state, clickable cursor) |
+| `dinext_project_evaluation/scoring/stage_gate_integration.py` | Scorecard snapshot-field synchronization on checkpoints, hard-gate validation, backfill |
+| `dinext_project_evaluation/scoring/stage_gate_checkpoint_hooks.py` | `doc_events` on Project Gate Checkpoint and Project Scorecard for summary synchronization |
+| `dinext_project_evaluation/scoring/project_hooks.py` | Validate / before_save / on_update: profile reset, scorecard cancellation, automatic Draft scorecard creation |
+| `dinext_project_evaluation/scoring/scorecard_provision.py` | `on_update` on Project Stage Instance: Draft scorecard when a stage becomes Active |
+| `dinext_project_evaluation/fixtures/` | Export of Client Scripts, Custom Fields, workflow, report, and fixture-backed demo catalog: `project_scoring_criterion_group.json`, `project_scoring_criterion.json`, `project_scoring_profile.json` |
+| `dinext_project_evaluation/scoring/criterion_config.py` | Criterion configuration and scorecard input value validation |
+| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_criterion/project_scoring_criterion.js` | Conditional criterion field visibility by `input_type` |
+| `dinext_project_evaluation/scoring/workflow_constants.py` | Workflow statuses, roles, and actions; `SCORECARD_AGREED_DOCSTATUS`, `SCORECARD_CANCEL_ROLES` |
+| `dinext_project_evaluation/scoring/workflow.py` | Whitelisted workflow transitions (calculate / approve / cancel) |
+| `dinext_project_evaluation/scoring/scorecard_cancel.py` | Cancel checks (Approver role, Active stage), replacement draft, bulk cancellation |
+| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scoring_profile/project_scoring_profile.js` | Conditional gate threshold visibility in the profile form |
+| `dinext_project_evaluation/dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js` | Criterion value entry grid, mandatory validation when leaving Draft, cell highlighting, **dashboard KPIs**, manual recalculation |
+| `dinext_project_evaluation/translations/ru.csv` | Russian translations |
+| `dinext_project_evaluation/dinext_project_evaluation/workspace/скоринг_проектов/` | **Скоринг проектов** (Project Scoring) workspace: layout, shortcuts, roles |
+| `dinext_project_evaluation/dinext_project_evaluation/number_card/` | Standard Number Card KPIs for the workspace (filters on scorecard status and the Project profile) |
 
-Fixtures из `hooks.py` экспортируют:
+Fixtures from `hooks.py` export:
 
 - `project_scoring_criterion_group.json`, `project_scoring_criterion.json`, `project_scoring_profile.json`;
 - `client_script.json`, `report.json`, `custom_field.json`;
 - `role.json` — Project Scorecard Author / Reviewer / Approver / Admin;
 - `workflow.json`, `workflow_state.json`, `workflow_action_master.json` — **Dinext Project Scorecard Approval**.
 
-Отдельные переменные окружения не требуются — достаточно стандартного bench-сайта с ERPNext.
+No additional environment variables are required — a standard bench site with ERPNext is sufficient.
 
-### Типы ввода критериев
+### Criterion input types
 
-| `input_type` | Конфигурация | Ввод в scorecard |
+| `input_type` | Configuration | Scorecard input |
 |--------------|--------------|------------------|
-| **Scale** | Дискретная шкала: таблица `scale_rows` (обязательна) | Select по вариантам шкалы |
-| **Number** / **Currency** / **Percent** | Диапазон `min_value`..`max_value` (обязателен) | Числовое поле соответствующего типа |
+| **Scale** | Discrete scale: `scale_rows` table (required) | Select from scale options |
+| **Number** / **Currency** / **Percent** | `min_value`..`max_value` range (required) | Numeric field of the corresponding type |
 | **Boolean** | `boolean_true_score` / `boolean_false_score` | Check |
 
-## ✅ Требования
+## ✅ Requirements
 
-- Administrator с установленным **ERPNext** (`required_apps = ["erpnext"]`)
+- Administrator with **ERPNext** installed (`required_apps = ["erpnext"]`)
 - Python **>= 3.10**
-- Расширения Dinext на сайте: **Project Portfolio**, **Project Stage**, **Governance Model** / stage-gate на Project (поля stage instance, `governance_model`, `confirm_governance_reset`)
-- Для разработки: [pre-commit](https://pre-commit.com/#installation)
+- Dinext extensions on the site: **Project Portfolio**, **Project Stage**, **Governance Model** / stage-gate on Project (stage instance fields, `governance_model`, `confirm_governance_reset`)
+- For development: [pre-commit](https://pre-commit.com/#installation)
 
-## 🤝 Участие в разработке
+## 🤝 Contributing
 
-В репозитории настроен pre-commit:
+The repository has pre-commit configured:
 
 ```bash
 cd apps/dinext_project_evaluation
 pre-commit install
 ```
 
-Инструменты: ruff, eslint, prettier, pyupgrade.
+Tools: ruff, eslint, prettier, pyupgrade.
 
-Конвенции агентов и shared-политики Dinext: [AGENTS.md](AGENTS.md) и central-репозиторий `dinext-docs`.
+Dinext agent conventions and shared policies: [AGENTS.md](AGENTS.md).
 
-## Подключение к dinext-docs
+## 📄 Documentation
 
-Приложение подключено к central Dinext consumer-контракту:
-
-1. **Sibling-path:** `../dinext-docs/` (layout `frappe-bench/apps/<app>/` рядом с `dinext-docs`).
-2. **Agent navigation:** [AGENTS.md](AGENTS.md) — navigation stub; shared skills/rules читаются из `../dinext-docs/agents/`.
-3. **Doc-intake:** после commit локальный `post-commit` hook создаёт proposal в `../dinext-docs/doc-proposals/inbox/` (установка: `python3 ../dinext-docs/scripts/install_doc_intake_hooks.py --docs-root ../dinext-docs --app-root . --apply`).
-4. **Пользовательская документация:** изменения маршрутизируются в central repo через doc-proposals, а не прямой правкой `dinext-docs/docs/`.
-
-## 📄 Документация
-
-| Документ | Описание |
+| Document | Description |
 |----------|----------|
-| [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md) | Архитектура, модель данных, правила расчёта, UX, приёмка |
-| [sources/pdfs/md/](sources/pdfs/md/) | Справочные материалы (скоринговые модели, управление портфелем) |
-| [AGENTS.md](AGENTS.md) | Навигация агента Dinext и порядок загрузки central docs |
-
-## ❤️ Благодарности
-
-Приложение разработано для экосистемы Dinext на ERPNext/Frappe. Концепции скоринга опираются на материалы по управлению портфелем и stage-gate в каталоге `sources/pdfs/md/`.
+| [docs/2026-04-28-project-scoring-architecture-and-task.md](docs/2026-04-28-project-scoring-architecture-and-task.md) | Architecture, data model, calculation rules, UX, acceptance |
+| [sources/pdfs/md/](sources/pdfs/md/) | Reference materials (scoring models, portfolio management) |
+| [AGENTS.md](AGENTS.md) | Dinext agent navigation and central documentation loading order |
 
 ## 📝 Changelog
 
-| Commit | Кратко |
+| Commit | Summary |
 |--------|--------|
-| *(текущая ветка)* | **Demo-каталог скоринга:** русские display-имена групп и критериев, предметные шкалы и реалистичные диапазоны; заполнен `Default Project Scoring Profile` (36 строк, stage-aware пороги); regression `tests/test_scoring_demo_catalog.py` |
-| *(предыдущая)* | **Workspace «Скоринг проектов»:** KPI number cards, shortcuts к отчёту и DocType, card настройки каталога; role-based доступ; regression `tests/test_project_scoring_workspace.py` |
-| *(предыдущая)* | **Project Scoring Report:** фильтры тип проекта, статус, Governance Model, Project Scoring Profile (`custom_project_scoring_profile`), только активные проекты; project-фильтры через `build_project_filters`, profile больше не фильтрует scorecard |
-| *(предыдущая)* | **Project Scoring Report:** динамические метрики X/Y/size/color из runtime meta; dataset-aware dropdown; auto-refresh при смене метрики; категория **Не задано** на категориальных осях; минимальный bubble при пустом size; disambiguation `Project - …` / `Project Evaluation - …` в Select; исключение hidden DocFields из каталога |
-| *(предыдущая)* | Виджет **Stage Scorecard** в исходной секции формы Project Gate Checkpoint (`stage_scorecard_widget_mount`); скрытые snapshot-поля; reuse CSS `project_scorecard_dashboard.css`; API fallback `get_checkpoint_scorecard_summary` |
-| *(предыдущая)* | Dashboard KPI на форме Project Scorecard: Integral Score и Gate Pass в `frm.dashboard`; видимость после расчёта (`evaluation_date` + `integral_score`); CSS `project_scorecard_dashboard.css` |
-| *(предыдущая)* | Автосоздание Draft scorecard при назначении профиля: серверный хук на `Project.on_update` (не `after_save`); резолв `current_stage_instance` из документа или БД |
-| *(предыдущая)* | Сброс `custom_project_scoring_profile` и отмена scorecard при смене/очистке Governance Model; единый confirm через `confirm_governance_reset` |
-| *(предыдущая)* | Submittable Project Scorecard (`docstatus` lifecycle); Cancel только Approver + Active stage; replacement draft после Cancel; отчёт по `docstatus = 1` |
-| `089e159` | Выравнивание с Dinext: зависимость erpnext, AGENTS.md |
-| `c448318` | Инициализация каркаса приложения |
+| *(current branch)* | **Demo scoring catalog:** Russian display names for groups and criteria, domain-specific scales and realistic ranges; populated `Default Project Scoring Profile` (36 rows, stage-aware thresholds); regression test `tests/test_scoring_demo_catalog.py` |
+| *(previous)* | **“Скоринг проектов” (Project Scoring) workspace:** KPI number cards, shortcuts to the report and DocTypes, catalog setup card; role-based access; regression test `tests/test_project_scoring_workspace.py` |
+| *(previous)* | **Project Scoring Report:** filters for project type, status, Governance Model, Project Scoring Profile (`custom_project_scoring_profile`), and active projects only; project filters through `build_project_filters`; profile no longer filters scorecards |
+| *(previous)* | **Project Scoring Report:** dynamic X/Y/size/color metrics from runtime metadata; dataset-aware dropdowns; auto-refresh on metric change; **Не задано** (Not Set) category on categorical axes; minimum bubble for empty size; `Project - …` / `Project Evaluation - …` disambiguation in Select; hidden DocFields excluded from the catalog |
+| *(previous)* | **Stage Scorecard** widget in the original Project Gate Checkpoint form section (`stage_scorecard_widget_mount`); hidden snapshot fields; reused `project_scorecard_dashboard.css`; `get_checkpoint_scorecard_summary` API fallback |
+| *(previous)* | Dashboard KPIs on the Project Scorecard form: Integral Score and Gate Pass in `frm.dashboard`; visibility after calculation (`evaluation_date` + `integral_score`); `project_scorecard_dashboard.css` |
+| *(previous)* | Automatic Draft scorecard creation when a profile is assigned: server hook on `Project.on_update` (not `after_save`); `current_stage_instance` resolved from the document or database |
+| *(previous)* | Reset `custom_project_scoring_profile` and cancel scorecards when Governance Model changes / is cleared; shared confirmation through `confirm_governance_reset` |
+| *(previous)* | Submittable Project Scorecard (`docstatus` lifecycle); Cancel limited to Approver + Active stage; replacement draft after Cancel; report based on `docstatus = 1` |
+| `089e159` | Alignment with Dinext: erpnext dependency, AGENTS.md |
+| `c448318` | Application scaffold initialization |
 
-## 🗂️ Структура репозитория
+## 🗂️ Repository structure
 
 ```
 dinext_project_evaluation/
-├── AGENTS.md                          # stub агента Dinext → central dinext-docs
+├── AGENTS.md                          # Agent instructions
 ├── README.md
-├── pyproject.toml                     # метаданные пакета, конфиг ruff
+├── pyproject.toml                     # Package metadata, ruff configuration
 ├── docs/
 │   └── 2026-04-28-project-scoring-architecture-and-task.md
-├── sources/pdfs/md/                   # справочные PDF (markdown)
+├── sources/pdfs/md/                   # Reference PDFs (Markdown)
 └── dinext_project_evaluation/
     ├── hooks.py                       # fixtures, required_apps
     ├── api.py                         # whitelisted API scorecard
     ├── scoring/
-    │   ├── engine.py                  # чистые расчёты (unit-тесты)
-    │   ├── gate_fields.py             # релевантность и sanitize порогов gate
-    │   ├── scorecard_service.py       # адаптер Frappe document ↔ engine
-    │   ├── scorecard_factory.py       # создание/sync строк scorecard из профиля
-    │   ├── project_hooks.py           # Project hooks: сброс профиля, cancel, on_update provision
+    │   ├── engine.py                  # Pure calculations (unit tests)
+    │   ├── gate_fields.py             # Gate threshold relevance and sanitization
+    │   ├── scorecard_service.py       # Frappe document ↔ engine adapter
+    │   ├── scorecard_factory.py       # Scorecard row creation/synchronization from a profile
+    │   ├── project_hooks.py           # Project hooks: profile reset, cancellation, on_update provisioning
     │   ├── scorecard_cancel.py        # cancel, replacement draft, bulk cancel
-    │   ├── scorecard_provision.py     # автосоздание Draft по stage instance
-    │   ├── workflow_constants.py      # статусы, роли, docstatus/cancel constants
-    │   ├── workflow.py                # workflow-переходы calculate / approve / cancel
+    │   ├── scorecard_provision.py     # Automatic Draft creation by stage instance
+    │   ├── workflow_constants.py      # Statuses, roles, docstatus/cancel constants
+    │   ├── workflow.py                # calculate / approve / cancel workflow transitions
     │   ├── stage_gate_integration.py  # checkpoint ↔ scorecard sync, hard-gate validate
-    │   └── stage_gate_checkpoint_hooks.py  # doc_events checkpoint и scorecard
+    │   └── stage_gate_checkpoint_hooks.py  # Checkpoint and scorecard doc_events
     ├── tests/
-    │   ├── test_project_scoring_report.py      # unit-тесты metric registry и bubble payload
-    │   ├── test_project_scoring_report.test.js # unit-тесты client report (Select метрик, refresh)
+    │   ├── test_project_scoring_report.py      # Metric registry and bubble payload unit tests
+    │   ├── test_project_scoring_report.test.js # Client report unit tests (metric Selects, refresh)
     │   ├── test_gate_fields.py
     │   ├── test_scoring_engine.py
     │   ├── test_scorecard_service.py
     │   ├── test_scorecard_factory.py
     │   ├── test_scorecard_cancel.py
     │   ├── test_stage_gate_scorecard_integration.py
-    │   └── test_scoring_demo_catalog.py       # regression: русский demo-каталог и default profile fixtures
-    ├── fixtures/                      # вывод bench export-fixtures (+ workflow + default catalog)
+    │   └── test_scoring_demo_catalog.py       # Regression: Russian demo catalog and default profile fixtures
+    ├── fixtures/                      # bench export-fixtures output (+ workflow + default catalog)
     ├── public/
-    │   ├── js/project_scoring_evaluation.js  # форма Project: профиль, governance reset, кнопки Evaluation
-    │   ├── js/project_gate_checkpoint_scorecard.js  # форма checkpoint: виджет Stage Scorecard в секции формы
-    │   ├── css/project_scorecard_dashboard.css  # KPI dashboard на формах Project Scorecard и Project Gate Checkpoint
-    │   └── css/project_scoring_report.css     # bubble chart в Project Scoring Report
+    │   ├── js/project_scoring_evaluation.js  # Project form: profile, governance reset, Evaluation buttons
+    │   ├── js/project_gate_checkpoint_scorecard.js  # Checkpoint form: Stage Scorecard widget in the form section
+    │   ├── css/project_scorecard_dashboard.css  # KPI dashboards on Project Scorecard and Project Gate Checkpoint forms
+    │   └── css/project_scoring_report.css     # Bubble chart in Project Scoring Report
     ├── translations/ru.csv
     └── dinext_project_evaluation/
-        ├── doctype/                   # DocTypes скоринга + Project Scorecard
-        ├── workspace/скоринг_проектов/ # Workspace «Скоринг проектов»
-        ├── number_card/               # KPI cards для workspace
+        ├── doctype/                   # Scoring DocTypes + Project Scorecard
+        ├── workspace/скоринг_проектов/ # “Скоринг проектов” (Project Scoring) workspace
+        ├── number_card/               # Workspace KPI cards
         └── report/
             └── project_scoring_report/  # Script Report: metric_registry + bubble payload + ECharts UI
 ```
 
-| Путь | Назначение |
+| Path | Purpose |
 |------|------------|
-| `scoring/engine.py` | Нормализация вводов, веса, правила gate |
-| `scoring/gate_fields.py` | Какие пороги gate допустимы для строки профиля; очистка неактуальных значений |
-| `scoring/scorecard_service.py` | Преобразование строк Scorecard в входные данные engine; `missing_mandatory_criterion_codes()` |
-| `scoring/scorecard_factory.py` | Создание/sync строк scorecard; поиск agreed/non-canceled scorecard для стадии; `cancel_project_scorecards()` |
-| `scoring/project_hooks.py` | Validate/before_save/on_update на Project: сброс профиля, автосоздание Draft при профиле + Active stage |
-| `scoring/scorecard_provision.py` | on_update на Project Stage Instance: Draft при переходе стадии в Active |
-| `scoring/scorecard_cancel.py` | Валидация Cancel, replacement draft, `cancel_project_scorecards()` |
-| `scoring/workflow.py` | Workflow-переходы scorecard (Submit for Review, Mark Reviewed, Approve, Cancel) |
-| `doctype/project_scorecard/` | Submittable lifecycle, `before_cancel` / `on_cancel`, расчёт при save, mandatory |
-| `doctype/project_scorecard/project_scorecard.js` | Grid ввода значений, client-side валидация, подсветка mandatory-ячеек, dashboard KPI |
-| `public/js/project_gate_checkpoint_scorecard.js` | Виджет Stage Scorecard в секции формы checkpoint, переход к связанной scorecard |
-| `scoring/stage_gate_integration.py` | Snapshot summary на checkpoint, validate In Review, backfill |
-| `scoring/stage_gate_checkpoint_hooks.py` | Hooks checkpoint/scorecard для sync summary |
-| `doctype/project_scoring_*` | Критерии, шкалы, профили, строки профиля с опциональной стадией и порогами gate |
-| `doctype/project_scoring_profile/project_scoring_profile.js` | Условное отображение порогов gate по обязательности и типу критерия |
-| `report/project_scoring_report/metric_registry.py` | Каталог метрик, defaults, dataset-aware filter, исключение hidden DocFields |
-| `report/project_scoring_report/project_scoring_report.py` | Execute отчёта, bubble payload, ось «Не задано», MIN bubble size |
-| `report/project_scoring_report/project_scoring_report.js` | UI метрик, ECharts, клик bubble → форма **Project Scorecard** или **Project** |
+| `scoring/engine.py` | Input normalization, weights, gate rules |
+| `scoring/gate_fields.py` | Gate thresholds allowed for a profile row; clearing irrelevant values |
+| `scoring/scorecard_service.py` | Converts Scorecard rows into engine inputs; `missing_mandatory_criterion_codes()` |
+| `scoring/scorecard_factory.py` | Scorecard row creation/synchronization; finding agreed/non-canceled scorecards for a stage; `cancel_project_scorecards()` |
+| `scoring/project_hooks.py` | Validate/before_save/on_update on Project: profile reset, automatic Draft creation with a profile + Active stage |
+| `scoring/scorecard_provision.py` | on_update on Project Stage Instance: Draft when the stage becomes Active |
+| `scoring/scorecard_cancel.py` | Cancel validation, replacement draft, `cancel_project_scorecards()` |
+| `scoring/workflow.py` | Scorecard workflow transitions (Submit for Review, Mark Reviewed, Approve, Cancel) |
+| `doctype/project_scorecard/` | Submittable lifecycle, `before_cancel` / `on_cancel`, calculation on save, mandatory criteria |
+| `doctype/project_scorecard/project_scorecard.js` | Value entry grid, client-side validation, mandatory-cell highlighting, dashboard KPIs |
+| `public/js/project_gate_checkpoint_scorecard.js` | Stage Scorecard widget in the checkpoint form section, navigation to the associated scorecard |
+| `scoring/stage_gate_integration.py` | Checkpoint snapshot summary, In Review validation, backfill |
+| `scoring/stage_gate_checkpoint_hooks.py` | Checkpoint/scorecard hooks for summary synchronization |
+| `doctype/project_scoring_*` | Criteria, scales, profiles, profile rows with an optional stage and gate thresholds |
+| `doctype/project_scoring_profile/project_scoring_profile.js` | Conditional gate threshold display by requirement level and criterion type |
+| `report/project_scoring_report/metric_registry.py` | Metric catalog, defaults, dataset-aware filtering, hidden DocField exclusion |
+| `report/project_scoring_report/project_scoring_report.py` | Report execution, bubble payload, “Не задано” (Not Set) axis, MIN bubble size |
+| `report/project_scoring_report/project_scoring_report.js` | Metric UI, ECharts, bubble click → **Project Scorecard** or **Project** form |
 | `tests/test_project_scoring_report.py` | Regression: catalog, bubble payload, Not Set, size normalization |
 | `tests/test_project_scoring_report.test.js` | Regression: metric controls, label disambiguation, refresh |
-| `fixtures/` | Версионируемые метаданные и русифицированный demo-каталог (группы, 21 критерий, default profile) для migrate/install |
-| `tests/test_scoring_demo_catalog.py` | Regression: русские `group_name`, шкалы, диапазоны, stage-aware default profile |
-| `workspace/скоринг_проектов/` | Публичный Desk workspace: KPI, shortcuts, card профилей и критериев |
-| `number_card/` | Count-фильтры по status scorecard и `custom_project_scoring_profile` на Project |
-| `tests/test_project_scoring_workspace.py` | Regression: структура workspace, соответствие number cards, фильтры |
+| `fixtures/` | Versioned metadata and Russian demo catalog (groups, 21 criteria, default profile) for migrate/install |
+| `tests/test_scoring_demo_catalog.py` | Regression: Russian `group_name` values, scales, ranges, stage-aware default profile |
+| `workspace/скоринг_проектов/` | Public Desk workspace: KPIs, shortcuts, profiles and criteria card |
+| `number_card/` | Count filters on scorecard status and `custom_project_scoring_profile` on Project |
+| `tests/test_project_scoring_workspace.py` | Regression: workspace structure, number card mapping, filters |
 
-## 🔗 Схема потоков
+## 🔗 Flow diagram
 
 ```mermaid
 flowchart TB
-  subgraph UI["Интерфейс Desk"]
-    WS[Workspace Скоринг проектов]
-    P[Форма Project]
-    SCUI[Форма Project Scorecard]
-    CPUI[Форма Project Gate Checkpoint]
+  subgraph UI["Desk interface"]
+    WS[Project Scoring workspace]
+    P[Project form]
+    SCUI[Project Scorecard form]
+    CPUI[Project Gate Checkpoint form]
     PP[Project Portfolio]
     R[Project Scoring Report]
   end
@@ -728,7 +717,7 @@ flowchart TB
     PJ[Project]
   end
 
-  subgraph Core["Ядро скоринга"]
+  subgraph Core["Scoring core"]
     SVC[scorecard_service]
     ENG[engine]
   end
@@ -757,16 +746,16 @@ flowchart TB
   R -->|latest scorecard| SC
 ```
 
-**Поток данных (scorecard):** создаётся **Draft** (вручную, API, `Project.on_update` при назначении профиля, или `Project Stage Instance.on_update` при активации стадии) → заполнение критериев → workflow **Submit for Review** (расчёт) → **Mark Reviewed** (пересчёт) → **Approve** (submit, `docstatus = 1`) → обновление `custom_last_*` на **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** для той же стадии. **Project Scoring Report** берёт последний scorecard с **`docstatus = 1`** для выбранной стадии; bubble на диаграмме по клику открывает форму scorecard или, если его нет, форму **Project**.
+**Data flow (scorecard):** create a **Draft** (manually, through the API, `Project.on_update` when a profile is assigned, or `Project Stage Instance.on_update` when a stage becomes active) → enter criteria → **Submit for Review** workflow action (calculation) → **Mark Reviewed** (recalculation) → **Approve** (submit, `docstatus = 1`) → update `custom_last_*` on **Project**. **Cancel** (Approver, Active stage) → replacement **Draft** for the same stage. **Project Scoring Report** uses the latest scorecard with **`docstatus = 1`** for the selected stage; clicking a chart bubble opens the scorecard form or, if no scorecard exists, the **Project** form.
 
-**Поток checkpoint ↔ scorecard:** при save checkpoint / create-update scorecard сервер синхронизирует snapshot-поля на **Project Gate Checkpoint** по ключу `stage_instance` = `stage_instance_at_evaluation`; форма checkpoint при пустом snapshot подгружает сводку через API и рендерит кликабельный виджет **Stage Scorecard** в секции формы после `decision_comment`.
+**Checkpoint ↔ scorecard flow:** on checkpoint save / scorecard creation or update, the server synchronizes snapshot fields on **Project Gate Checkpoint** using `stage_instance` = `stage_instance_at_evaluation`; when the snapshot is empty, the checkpoint form loads the summary through the API and renders the clickable **Stage Scorecard** widget in the form section after `decision_comment`.
 
-**Поток автопровижининга на Project:** сохранение **Project** с заданным профилем → `on_update` (после stage-gate) → `ensure_scorecard_for_stage_instance` → **Draft** scorecard с критериями текущей стадии, если stage instance **Active** и карточки для неё ещё нет.
+**Automatic provisioning flow on Project:** save **Project** with a profile set → `on_update` (after stage-gate) → `ensure_scorecard_for_stage_instance` → **Draft** scorecard with criteria for the current stage, if the stage instance is **Active** and has no scorecard yet.
 
-**Поток сброса на Project:** смена **Governance Model** или **Project Scoring Profile** → подтверждение на форме → `before_save` отменяет неотменённые scorecard и при смене governance очищает профиль → `on_update` при Active stage и заданном профиле создаёт новый Draft.
+**Reset flow on Project:** change **Governance Model** or **Project Scoring Profile** → confirm on the form → `before_save` cancels non-canceled scorecards and clears the profile if governance changes → `on_update` creates a new Draft if the stage is Active and a profile is set.
 
-**Поток валидации:** при любом уходе из **Draft**, кроме **Canceled**, сервер и форма требуют заполнения mandatory-критериев (см. раздел «Валидация обязательных критериев»).
+**Validation flow:** whenever leaving **Draft**, except for **Canceled**, the server and form require mandatory criteria to be filled in (see “Mandatory criterion validation”).
 
-## Лицензия
+## License
 
-GNU GPL v3. Текст — в [license.txt](license.txt).
+GNU GPL v3. See [license.txt](license.txt) for the text.
