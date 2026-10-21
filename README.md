@@ -1,5 +1,25 @@
 [Русский](README.ru.md)
 
+<!-- dinext-presentation:start -->
+<p align="center">
+  <a href="https://dinext.ru"><img src="docs/assets/readme/dinext-logo.png" alt="Dinext" width="128"></a>
+</p>
+<h1 align="center">Dinext Project Evaluation</h1>
+
+<hr>
+
+<p align="center">Project scoring with weighted criteria, scorecards, approval gates and portfolio comparison charts.</p>
+
+<p align="center">
+  <img src="docs/assets/readme/overview.png" alt="Project scoring and portfolio comparison with demonstration data." width="960">
+</p>
+<p align="center"><sub>Project scoring and portfolio comparison with demonstration data.</sub></p>
+
+<p align="center">
+  <a href="https://dinext.ru">Website</a> · <a href="https://docs.dinext.ru">Documentation</a>
+</p>
+<!-- dinext-presentation:end -->
+
 # Dinext Project Evaluation
 
 ## 📖 Overview
