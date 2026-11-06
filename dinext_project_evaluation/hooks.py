@@ -88,11 +88,11 @@ fixtures = [
 	},
 	{
 		"doctype": "Workflow State",
-		"filters": [["workflow_state_name", "in", list(SCORECARD_WORKFLOW_STATES)]],
+		"filters": [["workflow_state_name", "in", [state for state in SCORECARD_WORKFLOW_STATES if state not in {"Draft", "Approved", "Rejected"}]]],
 	},
 	{
 		"doctype": "Workflow Action Master",
-		"filters": [["workflow_action_name", "in", list(SCORECARD_WORKFLOW_ACTIONS)]],
+		"filters": [["workflow_action_name", "in", [action for action in SCORECARD_WORKFLOW_ACTIONS if action not in {"Approve", "Reject"}]]],
 	},
 ]
 
