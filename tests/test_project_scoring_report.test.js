@@ -1599,24 +1599,67 @@ test("updateLegendChartView shows empty state when all legend categories are hid
 	assert.equal(chartDom.innerHTML, "");
 });
 
-test("wrapReportRefresh resets hidden legend state before render", async () => {
-	const { namespace } = loadReportScript();
+test("wrapReportRefresh preserves the refresh result and renders only after the data table", async () => {
+	const { namespace, context, report: settings } = loadReportScript();
 	const renderCalls = [];
+	const previousRequest = Promise.resolve("previous response");
 	const report = {
 		report_name: "Project Scoring Report",
 		refresh() {
-			return Promise.resolve();
+			// Frappe's throttle returns the previous result for a queued refresh.
+			return previousRequest;
 		},
+		toggle_nothing_to_show() {},
 	};
+	context.frappe.query_report = report;
 	namespace.wrapReportRefresh(report);
 	namespace.toggleHiddenLegendColorKey(report, "gate-pass");
 	namespace.render = async () => {
 		renderCalls.push(Array.from(namespace.getHiddenLegendColorKeys(report)));
 	};
 
-	await report.refresh();
+	assert.equal(report.refresh(), previousRequest);
+	await previousRequest;
+	assert.deepEqual(renderCalls, []);
+	settings.after_datatable_render();
 
 	assert.deepEqual(renderCalls, [[]]);
+});
+
+test("a throttled empty response clears the chart after the actual response", async () => {
+	const { namespace } = loadReportScript();
+	const renderCalls = [];
+	const toggled = [];
+	const report = {
+		report_name: "Project Scoring Report",
+		data: [{ project: "PRJ-001" }],
+		raw_data: { message: { bubble_chart: { points: [{ project: "PRJ-001" }] } } },
+		refresh: () => Promise.resolve(),
+		toggle_nothing_to_show(flag) { toggled.push(flag); return "base result"; },
+	};
+	namespace.wrapReportRefresh(report);
+	namespace.render = () => {
+		renderCalls.push(namespace.normalizeReportPayload(report).bubble_chart.points.length);
+	};
+	await report.refresh();
+	// The queued request completes later, without rendering a data table.
+	report.data = [];
+	assert.equal(report.toggle_nothing_to_show(true), "base result");
+	assert.deepEqual(toggled, [true]);
+	assert.deepEqual(renderCalls, [0]);
+});
+
+test("the empty result hook leaves other reports to Frappe", () => {
+	const { namespace } = loadReportScript();
+	const report = {
+		report_name: "Project Scoring Report",
+		refresh() {}, data: [],
+		toggle_nothing_to_show: () => "base result",
+	};
+	namespace.wrapReportRefresh(report);
+	report.report_name = "Another Report";
+	namespace.render = () => { assert.fail("must not render a scoring chart"); };
+	assert.equal(report.toggle_nothing_to_show(true), "base result");
 });
 
 function createLegendToggleMount() {
