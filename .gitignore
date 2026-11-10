@@ -5,6 +5,8 @@
 tags
 node_modules
 __pycache__
+cypress/screenshots/
+cypress/videos/
 
 # Local research / source materials (not for GitLab)
 docs/

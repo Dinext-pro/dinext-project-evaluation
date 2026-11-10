@@ -1,12 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const vm = require("node:vm");
 
 const REPORT_SCRIPT_PATH =
-	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js";
+	path.join(__dirname, "..", "dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js");
 const REPORT_PYTHON_PATH =
-	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py";
+	path.join(__dirname, "..", "dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py");
 
 function jqueryGet(nodes) {
 	return function get(index) {
@@ -1080,6 +1081,49 @@ test("normalizeReportPayload initializes empty custom message payload when none 
 	assert.deepEqual(report.raw_data.result, [{ project: "PRJ-001" }]);
 });
 
+test("normalizeReportPayload clears stale chart points after an empty report result", () => {
+	const { namespace } = loadReportScript();
+	const catalog = { axis: [{ id: "project:expected_start_date" }] };
+	const config = { x_axis: "project:expected_start_date" };
+	const axes = { x: { label: "Expected Start Date", axis_type: "time" } };
+	const report = {
+		data: [],
+		raw_data: {
+			result: [{ project: "PRJ-001" }],
+			message: {
+				metric_catalog: catalog,
+				summary: { total_rows: 1, plotted_points: 1 },
+				bubble_chart: {
+					config, axes, points: [{ project: "PRJ-001" }],
+					legend: { metric: "project:status", items: [{ value: "Open" }] },
+				},
+			},
+		},
+	};
+
+	const payload = namespace.normalizeReportPayload(report);
+
+	assert.equal(payload.bubble_chart.points.length, 0);
+	assert.equal(payload.summary.total_rows, 0);
+	assert.equal(payload.summary.plotted_points, 0);
+	assert.equal(report.raw_data.result.length, 0);
+	assert.equal(payload.metric_catalog, catalog);
+	assert.equal(payload.bubble_chart.config, config);
+	assert.equal(payload.bubble_chart.axes, axes);
+	assert.equal(payload.bubble_chart.legend.metric, "project:status");
+	assert.equal(payload.bubble_chart.legend.items.length, 0);
+});
+
+test("normalizeReportPayload preserves the server chart for nonempty or not-yet-loaded data", () => {
+	const { namespace } = loadReportScript();
+	const message = { bubble_chart: { points: [{ project: "PRJ-001" }] } };
+
+	for (const data of [undefined, [{ project: "PRJ-001" }]]) {
+		const report = { data, raw_data: { message } };
+		assert.equal(namespace.normalizeReportPayload(report), message);
+	}
+});
+
 test("openScorecard routes to Project Scorecard form", () => {
 	const { namespace, state } = loadReportScript();
 
@@ -1555,24 +1599,67 @@ test("updateLegendChartView shows empty state when all legend categories are hid
 	assert.equal(chartDom.innerHTML, "");
 });
 
-test("wrapReportRefresh resets hidden legend state before render", async () => {
-	const { namespace } = loadReportScript();
+test("wrapReportRefresh preserves the refresh result and renders only after the data table", async () => {
+	const { namespace, context, report: settings } = loadReportScript();
 	const renderCalls = [];
+	const previousRequest = Promise.resolve("previous response");
 	const report = {
 		report_name: "Project Scoring Report",
 		refresh() {
-			return Promise.resolve();
+			// Frappe's throttle returns the previous result for a queued refresh.
+			return previousRequest;
 		},
+		toggle_nothing_to_show() {},
 	};
+	context.frappe.query_report = report;
 	namespace.wrapReportRefresh(report);
 	namespace.toggleHiddenLegendColorKey(report, "gate-pass");
 	namespace.render = async () => {
 		renderCalls.push(Array.from(namespace.getHiddenLegendColorKeys(report)));
 	};
 
-	await report.refresh();
+	assert.equal(report.refresh(), previousRequest);
+	await previousRequest;
+	assert.deepEqual(renderCalls, []);
+	settings.after_datatable_render();
 
 	assert.deepEqual(renderCalls, [[]]);
+});
+
+test("a throttled empty response clears the chart after the actual response", async () => {
+	const { namespace } = loadReportScript();
+	const renderCalls = [];
+	const toggled = [];
+	const report = {
+		report_name: "Project Scoring Report",
+		data: [{ project: "PRJ-001" }],
+		raw_data: { message: { bubble_chart: { points: [{ project: "PRJ-001" }] } } },
+		refresh: () => Promise.resolve(),
+		toggle_nothing_to_show(flag) { toggled.push(flag); return "base result"; },
+	};
+	namespace.wrapReportRefresh(report);
+	namespace.render = () => {
+		renderCalls.push(namespace.normalizeReportPayload(report).bubble_chart.points.length);
+	};
+	await report.refresh();
+	// The queued request completes later, without rendering a data table.
+	report.data = [];
+	assert.equal(report.toggle_nothing_to_show(true), "base result");
+	assert.deepEqual(toggled, [true]);
+	assert.deepEqual(renderCalls, [0]);
+});
+
+test("the empty result hook leaves other reports to Frappe", () => {
+	const { namespace } = loadReportScript();
+	const report = {
+		report_name: "Project Scoring Report",
+		refresh() {}, data: [],
+		toggle_nothing_to_show: () => "base result",
+	};
+	namespace.wrapReportRefresh(report);
+	report.report_name = "Another Report";
+	namespace.render = () => { assert.fail("must not render a scoring chart"); };
+	assert.equal(report.toggle_nothing_to_show(true), "base result");
 });
 
 function createLegendToggleMount() {

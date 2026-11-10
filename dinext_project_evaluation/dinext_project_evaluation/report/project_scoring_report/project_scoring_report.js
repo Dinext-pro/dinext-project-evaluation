@@ -167,10 +167,6 @@ frappe.query_reports[PROJECT_SCORING_REPORT_NAME] = {
 		if (!dinext_project_evaluation.project_scoring_report.isScoringReport(report)) {
 			return;
 		}
-		if (report._dinextProjectScoringSkipNextDatatableRender) {
-			report._dinextProjectScoringSkipNextDatatableRender = false;
-			return;
-		}
 		dinext_project_evaluation.project_scoring_report.render(report);
 	},
 };
@@ -185,36 +181,32 @@ dinext_project_evaluation.project_scoring_report.wrapReportRefresh = function (r
 	}
 
 	const baseRefresh = report.refresh.bind(report);
+	// Frappe's throttled refresh can return a previous request's Promise.
+	// Render nonempty results in after_datatable_render and empty results here,
+	// when Frappe has actually applied the response to report.data.
+	if (typeof report.toggle_nothing_to_show === "function") {
+		const baseToggleNothingToShow = report.toggle_nothing_to_show.bind(report);
+		report.toggle_nothing_to_show = function (flag) {
+			const result = baseToggleNothingToShow(flag);
+			if (
+				flag &&
+				dinext_project_evaluation.project_scoring_report.isScoringReport(report) &&
+				Array.isArray(report.data) && report.data.length === 0
+			) {
+				dinext_project_evaluation.project_scoring_report.normalizeReportPayload(report);
+				dinext_project_evaluation.project_scoring_report.render(report);
+			}
+			return result;
+		};
+	}
 	report.refresh = function (...args) {
 		if (!dinext_project_evaluation.project_scoring_report.isScoringReport(report)) {
 			dinext_project_evaluation.project_scoring_report.teardownScoringSession(report);
 			return baseRefresh(...args);
 		}
 
-		report._dinextProjectScoringSkipNextDatatableRender = true;
-		const renderAfterRefresh = () => {
-			report._dinextProjectScoringSkipNextDatatableRender = false;
-			if (!dinext_project_evaluation.project_scoring_report.isScoringReport(report)) {
-				dinext_project_evaluation.project_scoring_report.teardownScoringSession(report);
-				return Promise.resolve();
-			}
-			dinext_project_evaluation.project_scoring_report.resetHiddenLegendColorKeys(report);
-			dinext_project_evaluation.project_scoring_report.normalizeReportPayload(report);
-			return Promise.resolve(dinext_project_evaluation.project_scoring_report.render(report));
-		};
-
-		const refreshResult = baseRefresh(...args);
-		if (refreshResult && typeof refreshResult.then === "function") {
-			return refreshResult.then(
-				(value) => renderAfterRefresh().then(() => value),
-				(error) => {
-					report._dinextProjectScoringSkipNextDatatableRender = false;
-					throw error;
-				}
-			);
-		}
-		renderAfterRefresh();
-		return refreshResult;
+		dinext_project_evaluation.project_scoring_report.resetHiddenLegendColorKeys(report);
+		return baseRefresh(...args);
 	};
 	report._dinextProjectScoringRefreshWrapped = true;
 };
@@ -247,6 +239,25 @@ dinext_project_evaluation.project_scoring_report.getEmptyPayload = function () {
 
 dinext_project_evaluation.project_scoring_report.normalizeReportPayload = function (report) {
 	if (report?.raw_data?.message?.bubble_chart) {
+		if (Array.isArray(report.data) && report.data.length === 0) {
+			const message = report.raw_data.message;
+			report.raw_data = {
+				...report.raw_data,
+				result: [],
+				message: {
+					...message,
+					summary: {
+						...message.summary,
+						...dinext_project_evaluation.project_scoring_report.getEmptyPayload().summary,
+					},
+					bubble_chart: {
+						...message.bubble_chart,
+						points: [],
+						legend: { ...message.bubble_chart.legend, items: [] },
+					},
+				},
+			};
+		}
 		return report.raw_data.message;
 	}
 	report.raw_data = {

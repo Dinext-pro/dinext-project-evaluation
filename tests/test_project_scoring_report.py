@@ -1,7 +1,9 @@
 import sys
 import types
 import unittest
+from datetime import datetime
 from types import SimpleNamespace
+from unittest.mock import patch
 
 try:
 	import frappe  # noqa: F401
@@ -18,6 +20,9 @@ except ModuleNotFoundError:
 	_frappe_stub._dict = lambda value=None: SimpleNamespace(**(value or {}))
 	_frappe_utils_stub = types.ModuleType("frappe.utils")
 	_frappe_utils_stub.cint = int
+	_frappe_utils_stub.get_datetime = lambda value: (
+		datetime.fromisoformat(value) if isinstance(value, str) else value
+	)
 	_frappe_stub.utils = _frappe_utils_stub
 	sys.modules["frappe"] = _frappe_stub
 	sys.modules["frappe.utils"] = _frappe_utils_stub
@@ -62,6 +67,76 @@ def metric_value(value, display=None, sort_value=None, label=None):
 		"sort_value": sort_value if sort_value is not None else value,
 		"label": label or "",
 	}
+
+
+class TestProjectScoringReportDateSort(unittest.TestCase):
+	def setUp(self):
+		self.projects = []
+		self.scorecards = []
+		self.catalog = {"axis": [], "size": [], "color": [], "defaults": {}}
+		self.get_all = patch.object(frappe.db, "get_all", side_effect=self._get_all)
+		self.count = patch.object(frappe.db, "count", return_value=0, create=True)
+		self.get_all.start()
+		self.count.start()
+		self.addCleanup(self.get_all.stop)
+		self.addCleanup(self.count.stop)
+
+	def _get_all(self, doctype, **kwargs):
+		if doctype == "Project":
+			return self.projects
+		if doctype == "Project Scorecard":
+			return self.scorecards
+		if doctype == "Project Scorecard Item":
+			return []
+		raise AssertionError(f"Unexpected query: {doctype}")
+
+	def _add_project(self, name, modified, score=None):
+		self.projects.append({"name": name, "project_name": name, "modified": modified})
+		if score is not None:
+			self.scorecards.append({"name": f"CARD-{name}", "project": name, "integral_score": score})
+
+	def test_without_dates_sorts_mixed_modified_values_for_equal_scores(self):
+		for score in (None, 0, 0.75):
+			with self.subTest(score=score):
+				self.projects = []
+				self.scorecards = []
+				self._add_project("LATER", datetime(2026, 6, 9, 12, 0, 0, 2), score)
+				self._add_project("NULL", None, score)
+				self._add_project("EARLIER", "2026-06-09 12:00:00.000001", score)
+				self._add_project("EMPTY", "", score)
+
+				rows, total, _, _ = project_scoring_report.get_data({"project": []}, self.catalog)
+
+				self.assertEqual([row["project"] for row in rows], ["NULL", "EMPTY", "EARLIER", "LATER"])
+				self.assertEqual(total, 4)
+				self.assertEqual([row["integral_score"] for row in rows], [score] * 4)
+
+	def test_score_priority_is_preserved_when_project_date_is_missing(self):
+		self._add_project("UNSCORED", None)
+		self._add_project("LOW", datetime(2026, 6, 8), 0.25)
+		self._add_project("HIGH", None, 0.9)
+		self._add_project("ZERO", "", 0)
+
+		rows, _, _, _ = project_scoring_report.get_data({}, self.catalog)
+
+		self.assertEqual([row["project"] for row in rows], ["HIGH", "LOW", "ZERO", "UNSCORED"])
+
+	def test_empty_project_selection_returns_empty_result(self):
+		rows, total, available, counts = project_scoring_report.get_data({}, self.catalog)
+
+		self.assertEqual(rows, [])
+		self.assertEqual(total, 0)
+		self.assertEqual(available, set())
+		self.assertEqual(counts, {"total_scorecards": 0, "agreed_scorecards": 0})
+
+	def test_evaluation_date_filter_excludes_projects_without_scorecards(self):
+		self._add_project("UNSCORED", None)
+		self._add_project("SCORED", datetime(2026, 6, 8), 0.5)
+
+		rows, total, _, _ = project_scoring_report.get_data({"from_date": "2026-06-01"}, self.catalog)
+
+		self.assertEqual([row["project"] for row in rows], ["SCORED"])
+		self.assertEqual(total, 1)
 
 
 class TestProjectScoringMetricRegistry(unittest.TestCase):

@@ -1,10 +1,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const vm = require("node:vm");
 
 const SCRIPT_PATH =
-	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/public/js/project_gate_checkpoint_scorecard.js";
+	path.join(__dirname, "..", "dinext_project_evaluation/public/js/project_gate_checkpoint_scorecard.js");
 
 function loadCheckpointScript() {
 	const script = fs.readFileSync(SCRIPT_PATH, "utf8");
