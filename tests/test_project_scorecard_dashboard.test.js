@@ -1,10 +1,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const vm = require("node:vm");
 
 const SCRIPT_PATH =
-	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js";
+	path.join(__dirname, "..", "dinext_project_evaluation/dinext_project_evaluation/doctype/project_scorecard/project_scorecard.js");
 
 function loadProjectScorecardScript() {
 	const script = fs.readFileSync(SCRIPT_PATH, "utf8");

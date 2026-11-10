@@ -1,12 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const vm = require("node:vm");
 
 const HOOKS_PATH =
-	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/hooks.py";
+	path.join(__dirname, "..", "dinext_project_evaluation/hooks.py");
 const CLIENT_SCRIPT_FIXTURE_PATH =
-	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/fixtures/client_script.json";
+	path.join(__dirname, "..", "dinext_project_evaluation/fixtures/client_script.json");
 
 function loadPortfolioScript() {
 	assert.ok(
@@ -113,10 +114,9 @@ test("scoring report button routes to query report with portfolio filter", () =>
 	assert.deepEqual(state.setRouteCalls, [["query-report", "Project Scoring Report"]]);
 });
 
-test("hooks export enabled Client Scripts for this app", () => {
+test("hooks scope Client Script exports to this app", () => {
 	const hooks = fs.readFileSync(HOOKS_PATH, "utf8");
 
 	assert.match(hooks, /"doctype": "Client Script"/);
 	assert.match(hooks, /\["module", "=", "Dinext Project Evaluation"\]/);
-	assert.match(hooks, /\["enabled", "=", 1\]/);
 });

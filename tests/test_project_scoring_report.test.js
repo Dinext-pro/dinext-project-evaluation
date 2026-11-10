@@ -1,12 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const vm = require("node:vm");
 
 const REPORT_SCRIPT_PATH =
-	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js";
+	path.join(__dirname, "..", "dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.js");
 const REPORT_PYTHON_PATH =
-	"/home/frappe/frappe-bench/apps/dinext_project_evaluation/dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py";
+	path.join(__dirname, "..", "dinext_project_evaluation/dinext_project_evaluation/report/project_scoring_report/project_scoring_report.py");
 
 function jqueryGet(nodes) {
 	return function get(index) {
@@ -1078,6 +1079,49 @@ test("normalizeReportPayload initializes empty custom message payload when none 
 	assert.equal(payload.bubble_chart.points.length, 0);
 	assert.equal(payload.summary.plotted_points, 0);
 	assert.deepEqual(report.raw_data.result, [{ project: "PRJ-001" }]);
+});
+
+test("normalizeReportPayload clears stale chart points after an empty report result", () => {
+	const { namespace } = loadReportScript();
+	const catalog = { axis: [{ id: "project:expected_start_date" }] };
+	const config = { x_axis: "project:expected_start_date" };
+	const axes = { x: { label: "Expected Start Date", axis_type: "time" } };
+	const report = {
+		data: [],
+		raw_data: {
+			result: [{ project: "PRJ-001" }],
+			message: {
+				metric_catalog: catalog,
+				summary: { total_rows: 1, plotted_points: 1 },
+				bubble_chart: {
+					config, axes, points: [{ project: "PRJ-001" }],
+					legend: { metric: "project:status", items: [{ value: "Open" }] },
+				},
+			},
+		},
+	};
+
+	const payload = namespace.normalizeReportPayload(report);
+
+	assert.equal(payload.bubble_chart.points.length, 0);
+	assert.equal(payload.summary.total_rows, 0);
+	assert.equal(payload.summary.plotted_points, 0);
+	assert.equal(report.raw_data.result.length, 0);
+	assert.equal(payload.metric_catalog, catalog);
+	assert.equal(payload.bubble_chart.config, config);
+	assert.equal(payload.bubble_chart.axes, axes);
+	assert.equal(payload.bubble_chart.legend.metric, "project:status");
+	assert.equal(payload.bubble_chart.legend.items.length, 0);
+});
+
+test("normalizeReportPayload preserves the server chart for nonempty or not-yet-loaded data", () => {
+	const { namespace } = loadReportScript();
+	const message = { bubble_chart: { points: [{ project: "PRJ-001" }] } };
+
+	for (const data of [undefined, [{ project: "PRJ-001" }]]) {
+		const report = { data, raw_data: { message } };
+		assert.equal(namespace.normalizeReportPayload(report), message);
+	}
 });
 
 test("openScorecard routes to Project Scorecard form", () => {

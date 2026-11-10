@@ -8,10 +8,10 @@ WORKSPACE_JSON = APP_ROOT / "workspace" / "скоринг_проектов" / "�
 NUMBER_CARD_DIR = APP_ROOT / "number_card"
 
 EXPECTED_CARD_LABELS = {
-	"Карточки в работе",
-	"Карточки на согласовании",
-	"Согласованные карточки",
-	"Карточки с непрохождением gate",
+	"Оценки в работе",
+	"Оценки на согласовании",
+	"Согласованные оценки",
+	"Оценки с непрохождением ворот",
 	"Проекты с профилем оценки",
 	"Проекты без профиля оценки",
 }
@@ -98,8 +98,8 @@ class TestProjectScoringWorkspace(unittest.TestCase):
 		self.assertEqual(content_cards, declared_cards)
 
 		section_text = payload["content"]
-		self.assertIn("Сводка скоринга", section_text)
-		self.assertIn("Работа со скоркартами", section_text)
+		self.assertIn("Сводка оценки проектов", section_text)
+		self.assertIn("Работа со картами оценки", section_text)
 		self.assertIn("Аналитика портфеля", section_text)
 		self.assertIn("Профили и критерии", section_text)
 
@@ -121,33 +121,33 @@ class TestProjectScoringWorkspace(unittest.TestCase):
 			self.assertEqual(payload["is_public"], 1)
 			self.assertIn(payload["document_type"], {"Project", "Project Scorecard"})
 
-		label_to_filters = {payload["label"]: json.loads(payload["filters_json"]) for payload in payloads}
+		name_to_filters = {payload["name"]: json.loads(payload["filters_json"]) for payload in payloads}
 
 		self.assertEqual(
-			label_to_filters["Карточки в работе"],
+			name_to_filters["Карточки в работе"],
 			[["Project Scorecard", "status", "in", ["Draft", "Rejected"], False]],
 		)
 		self.assertEqual(
-			label_to_filters["Карточки на согласовании"],
+			name_to_filters["Карточки на согласовании"],
 			[["Project Scorecard", "status", "in", ["Submitted for Review", "Reviewed"], False]],
 		)
 		self.assertEqual(
-			label_to_filters["Согласованные карточки"],
+			name_to_filters["Согласованные карточки"],
 			[["Project Scorecard", "status", "=", "Approved", False]],
 		)
 		self.assertEqual(
-			label_to_filters["Карточки с непрохождением gate"],
+			name_to_filters["Карточки с непрохождением gate"],
 			[
 				["Project Scorecard", "status", "=", "Approved", False],
 				["Project Scorecard", "gate_pass", "=", 0, False],
 			],
 		)
 		self.assertEqual(
-			label_to_filters["Проекты с профилем оценки"],
+			name_to_filters["Проекты с профилем оценки"],
 			[["Project", "custom_project_scoring_profile", "is", "set", False]],
 		)
 		self.assertEqual(
-			label_to_filters["Проекты без профиля оценки"],
+			name_to_filters["Проекты без профиля оценки"],
 			[["Project", "custom_project_scoring_profile", "is", "not set", False]],
 		)
 

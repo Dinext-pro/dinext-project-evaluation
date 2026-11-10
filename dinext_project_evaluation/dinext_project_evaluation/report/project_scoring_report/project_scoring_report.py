@@ -6,6 +6,7 @@ import re
 
 import frappe
 from frappe import _
+from frappe.utils import get_datetime
 
 from dinext_project_evaluation.dinext_project_evaluation.report.project_scoring_report import metric_registry
 from dinext_project_evaluation.scoring.workflow_constants import (
@@ -729,10 +730,11 @@ def _requires_matching_scorecard(filters):
 
 def _sort_key(row):
 	integral_score = row.get("integral_score")
+	project_modified = row.get("_project_modified")
 	return (
 		integral_score is None,
 		-(integral_score or -1),
-		row.get("_project_modified") or "",
+		get_datetime(project_modified) if project_modified else datetime.min,
 	)
 
 

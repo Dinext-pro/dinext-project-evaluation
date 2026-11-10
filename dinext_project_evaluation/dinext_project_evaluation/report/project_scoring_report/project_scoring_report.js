@@ -247,6 +247,25 @@ dinext_project_evaluation.project_scoring_report.getEmptyPayload = function () {
 
 dinext_project_evaluation.project_scoring_report.normalizeReportPayload = function (report) {
 	if (report?.raw_data?.message?.bubble_chart) {
+		if (Array.isArray(report.data) && report.data.length === 0) {
+			const message = report.raw_data.message;
+			report.raw_data = {
+				...report.raw_data,
+				result: [],
+				message: {
+					...message,
+					summary: {
+						...message.summary,
+						...dinext_project_evaluation.project_scoring_report.getEmptyPayload().summary,
+					},
+					bubble_chart: {
+						...message.bubble_chart,
+						points: [],
+						legend: { ...message.bubble_chart.legend, items: [] },
+					},
+				},
+			};
+		}
 		return report.raw_data.message;
 	}
 	report.raw_data = {
