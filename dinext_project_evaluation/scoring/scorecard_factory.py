@@ -130,6 +130,7 @@ def create_draft_scorecard(
 	*,
 	stage_instance: str | None = None,
 	stage: str | None = None,
+	ignore_permissions: bool = False,
 ) -> frappe.Document:
 	if stage_instance:
 		existing = find_scorecard_for_stage_instance(stage_instance)
@@ -149,7 +150,7 @@ def create_draft_scorecard(
 		scorecard.stage_at_evaluation = stage
 
 	sync_scorecard_items(scorecard, profile)
-	scorecard.insert()
+	scorecard.insert(ignore_permissions=ignore_permissions)
 	return scorecard
 
 

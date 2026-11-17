@@ -43,6 +43,9 @@ def validate_scorecard_cancel_allowed(doc) -> None:
 
 
 def create_replacement_draft_after_cancel(canceled_doc) -> str | None:
+	if not is_canceled_scorecard(canceled_doc):
+		return None
+
 	stage_instance = getattr(canceled_doc, "stage_instance_at_evaluation", None)
 	if not stage_instance or not stage_instance_is_active(stage_instance):
 		return None
@@ -59,6 +62,7 @@ def create_replacement_draft_after_cancel(canceled_doc) -> str | None:
 		project,
 		profile,
 		stage_instance=stage_instance,
+		ignore_permissions=True,
 	)
 	return replacement.name
 
