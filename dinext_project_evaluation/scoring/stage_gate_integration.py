@@ -242,6 +242,54 @@ def refresh_checkpoints_for_stage_instance(stage_instance: str | None) -> None:
 		)
 
 
+def reopen_checkpoints_after_scorecard_cancellation(stage_instance: str) -> None:
+	"""Remove a gate decision whose required agreed scorecard was canceled."""
+	if not frappe.db.exists("DocType", "Project Gate Checkpoint"):
+		return
+	if has_agreed_scorecard_for_stage_instance(stage_instance):
+		return
+	from dinext_common.workflow_approval import engine
+	from dinext_common.workflow_approval.lifecycle import is_engine_enabled
+
+	checkpoints = [
+		frappe.get_doc("Project Gate Checkpoint", name, for_update=True)
+		for name in frappe.db.get_values(
+			"Project Gate Checkpoint",
+			{"stage_instance": stage_instance},
+			"name",
+			pluck=True, for_update=True, order_by="name asc",
+		)
+	]
+	checkpoints = [
+		doc for doc in checkpoints
+		if doc.status in {"In Review", "Approved"} and checkpoint_requires_agreed_scorecard(doc)
+	]
+	if not checkpoints:
+		return
+	stage = frappe.get_doc("Project Stage Instance", stage_instance, for_update=True)
+	if stage.status != "Active":
+		raise engine.WorkflowDomainRollbackError(
+			_("Project Scorecard can only be canceled while its evaluation stage instance is Active.")
+		)
+	reason = _("The agreed Project Scorecard was canceled")
+	frappe.db.set_value(stage.doctype, stage.name, "gate_result", 0)
+	for checkpoint in checkpoints:
+		frappe.db.set_value(checkpoint.doctype, checkpoint.name, {"status": "Draft", "checklist_completed": 0})
+		checkpoint.add_comment("Workflow", reason)
+		if is_engine_enabled():
+			engine.reconcile_source(checkpoint)
+	if is_engine_enabled():
+		rounds = frappe.get_all(
+			"Workflow Task",
+			filters={"reference_doctype": stage.doctype, "reference_name": stage.name,
+				"source_created_at": stage.creation, "round_status": "Open"},
+			pluck="approval_round_id", distinct=True,
+		)
+		for round_id in rounds:
+			engine._cancel_round(round_id, reason)
+		engine.reconcile_source(stage)
+
+
 def _transitioning_to_in_review(checkpoint) -> bool:
 	if checkpoint.status != "In Review":
 		return False
