@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import frappe
 
-from dinext_project_evaluation.scoring import scorecard_cancel
+from dinext_project_evaluation.scoring import scorecard_cancel, scorecard_factory
 
 
 class TestScorecardCancel(unittest.TestCase):
@@ -55,27 +55,43 @@ class TestScorecardCancel(unittest.TestCase):
 		with self.assertRaises(frappe.ValidationError):
 			scorecard_cancel.validate_scorecard_cancel_allowed(doc)
 
-	@patch.object(scorecard_cancel, "create_draft_scorecard", return_value=SimpleNamespace(name="PSC-NEW"))
 	@patch.object(scorecard_cancel, "find_scorecard_for_stage_instance", return_value=None)
+	@patch.object(scorecard_factory, "find_scorecard_for_stage_instance", return_value=None)
 	@patch(
 		"dinext_project_evaluation.scoring.scorecard_cancel.stage_instance_is_active",
 		return_value=True,
 	)
-	def test_create_replacement_draft_after_cancel(self, _active, _find, create_draft):
+	def test_cancel_creates_a_system_draft_when_approver_cannot_create_by_hand(
+		self, _active, _find_factory, _find_cancel
+	):
 		canceled = SimpleNamespace(
+			docstatus=2,
 			project="PRJ-001",
 			profile="PROFILE-001",
 			stage_instance_at_evaluation="STAGE-001",
 		)
+		draft = SimpleNamespace(name="PSC-NEW")
 
-		replacement_name = scorecard_cancel.create_replacement_draft_after_cancel(canceled)
+		def insert(*, ignore_permissions=False):
+			if not ignore_permissions:
+				raise frappe.PermissionError
+			return draft
+
+		draft.insert = insert
+		stage = SimpleNamespace(stage="Review", name=canceled.stage_instance_at_evaluation)
+		with (
+			patch.object(frappe, "new_doc", return_value=draft),
+			patch.object(frappe, "get_cached_doc", return_value=stage),
+			patch.object(scorecard_factory, "sync_scorecard_items"),
+		):
+			with self.assertRaises(frappe.PermissionError):
+				scorecard_factory.create_draft_scorecard(
+					canceled.project, canceled.profile, stage_instance=canceled.stage_instance_at_evaluation,
+				)
+			replacement_name = scorecard_cancel.create_replacement_draft_after_cancel(canceled)
 
 		self.assertEqual(replacement_name, "PSC-NEW")
-		create_draft.assert_called_once_with(
-			"PRJ-001",
-			"PROFILE-001",
-			stage_instance="STAGE-001",
-		)
+		self.assertEqual((draft.project, draft.profile, draft.status), (canceled.project, canceled.profile, "Draft"))
 
 	@patch.object(scorecard_cancel, "apply_workflow")
 	@patch.object(scorecard_cancel, "get_transitions", return_value=[SimpleNamespace(action="Cancel")])

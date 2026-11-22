@@ -5,6 +5,7 @@ from __future__ import annotations
 from dinext_project_evaluation.scoring.stage_gate_integration import (
 	apply_scorecard_requirement_to_checklist_completed,
 	copy_require_agreed_scorecard_from_template,
+	reopen_checkpoints_after_scorecard_cancellation,
 	refresh_checkpoints_for_stage_instance,
 	snapshot_require_agreed_scorecard_on_checkpoint,
 	sync_checkpoint_scorecard_fields,
@@ -61,3 +62,5 @@ def on_scorecard_checkpoint_sync(doc, method=None):
 			return
 
 	refresh_checkpoints_for_stage_instance(stage_instance)
+	if method == "on_cancel":
+		reopen_checkpoints_after_scorecard_cancellation(stage_instance)
