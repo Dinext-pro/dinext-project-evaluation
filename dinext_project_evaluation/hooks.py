@@ -88,11 +88,11 @@ fixtures = [
 	},
 	{
 		"doctype": "Workflow State",
-		"filters": [["workflow_state_name", "in", list(SCORECARD_WORKFLOW_STATES)]],
+		"filters": [["workflow_state_name", "in", [state for state in SCORECARD_WORKFLOW_STATES if state not in {"Draft", "Approved", "Rejected"}]]],
 	},
 	{
 		"doctype": "Workflow Action Master",
-		"filters": [["workflow_action_name", "in", list(SCORECARD_WORKFLOW_ACTIONS)]],
+		"filters": [["workflow_action_name", "in", [action for action in SCORECARD_WORKFLOW_ACTIONS if action not in {"Approve", "Reject"}]]],
 	},
 ]
 
@@ -352,3 +352,7 @@ doc_events = {
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+
+workflow_approval_email_profile_providers = ["dinext_project_evaluation.workflow_settings.email_profiles"]
+
+workflow_approval_preserve_fixture_transition_ids = ['Dinext Project Scorecard Approval']
